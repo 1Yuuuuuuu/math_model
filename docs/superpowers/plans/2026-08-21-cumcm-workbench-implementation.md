@@ -1,0 +1,428 @@
+# CUMCM Workbench Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** 分九个可独立验收的阶段，建设一套以 Codex 为主要入口、兼容 DeepSeek Harness、可追溯并具备独立论文审批能力的国赛数学建模工作台。
+
+**Architecture:** 开发仓库以 `shared/` 为唯一事实来源，`toolkit/` 提供 Python 确定性能力，`adapters/` 分别提供 Codex 与 DSH 适配。每个阶段先固定契约和验证，再让后续工具、Skill 与论文流程依赖该稳定接口。
+
+**Tech Stack:** Windows、Python 3.11、uv、pytest、Pydantic/JSON Schema、NumPy、pandas、SciPy、scikit-learn、statsmodels、Matplotlib、XeLaTeX、latexmk、Git、Codex Skills、DeepSeek Harness/Cordis 插件。
+
+**Spec:** `docs/superpowers/specs/2026-08-21-cumcm-workbench-design.md`
+
+## Global Constraints
+
+- 主要运行环境是 Codex 桌面环境和本地 Windows 工作区；DeepSeek Harness 是兼容运行时。
+- Python 版本固定为 3.11；依赖由 uv 锁定，正式结果不得只存在于 Notebook。
+- 论文主生产线固定为 XeLaTeX 与最终 PDF；首期不建设 Word 主生产线。
+- `shared/` 是开发时唯一事实来源；Codex 与 DSH 安装包只能由构建过程复制共享资产。
+- Windows 环境下不得依赖符号链接维持双端一致性。
+- 任何论文数值必须来自真实数据和真实运行结果；缺少证据时必须停止。
+- 总控流程保留问题拆解、主模型、论文提纲和最终提交四个人工确认门。
+- 论文生成与审批必须隔离；审批 Skill 不直接修改论文。
+- 年度规则按年份、来源和核验日期维护；内部量表不得冒充官方评分权重。
+- 每道赛题使用独立工作区；比赛临时修改不得直接污染共享核心。
+- 每个阶段的详细计划只有在上一阶段验收通过后才定稿，以已验证接口为依据。
+- 当前目录尚未初始化 Git；阶段 0 的首个任务负责建立版本基线。
+
+---
+
+## Program structure
+
+本项目包含九个独立子计划。主计划只规定依赖、文件面和验收门；可直接执行的逐步任务写入对应阶段计划。
+
+| 阶段 | 子计划文件 | 依赖 | 独立交付物 |
+| --- | --- | --- | --- |
+| 0 规范与契约 | `docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-0-contracts.md` | 已批准总体设计 | 可验证的 Schema、样例、目录与变更规范 |
+| 1 可复现底座 | `docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-1-foundation.md` | 阶段 0 | 环境诊断、项目骨架、实验记录和最小 PDF |
+| 2 高频模型核心 | `docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-2-model-core.md` | 阶段 1 | 数据审计、统一模型运行、基线和敏感性能力 |
+| 3 Codex 建模 Skill | `docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-3-codex-skills.md` | 阶段 2 | 可追溯建模半链路 |
+| 4 论文生产线 | `docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-4-paper-pipeline.md` | 阶段 3 | 证据约束的 LaTeX 论文与 PDF |
+| 5 独立审批 | `docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-5-review-gates.md` | 阶段 4 | 五层审批报告和修订闭环 |
+| 6 总控闭环 | `docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-6-orchestrator.md` | 阶段 5 | 四个人工门与可恢复状态机 |
+| 7 DSH 适配 | `docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-7-dsh-adapter.md` | 阶段 6 | DSH Skill、工具插件和真实组合测试 |
+| 8 真题回归 | `docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-8-regression.md` | 阶段 7 | 三类代表场景与历年真题回归报告 |
+
+Program-level tracking:
+
+- [ ] 阶段 0：契约测试和只读验证器通过，批准进入阶段 1 规划。
+- [ ] 阶段 1：新环境诊断、标准工作区和最小 PDF 通过，批准进入阶段 2 规划。
+- [ ] 阶段 2：评价、预测、优化代表场景通过，批准进入阶段 3 规划。
+- [ ] 阶段 3：Codex 建模半链路和资源一致性通过，批准进入阶段 4 规划。
+- [ ] 阶段 4：证据约束论文和 PDF 检查通过，批准进入阶段 5 规划。
+- [ ] 阶段 5：五层审批隔离与修订失效机制通过，批准进入阶段 6 规划。
+- [ ] 阶段 6：四个人工门、恢复和完整 Codex 流程通过，批准进入阶段 7 规划。
+- [ ] 阶段 7：DSH 真实组合与双端一致性通过，批准进入阶段 8 规划。
+- [ ] 阶段 8：三类完整回归和人工复核通过，批准受控扩展模型范围。
+
+## File ownership map
+
+| 路径 | 单一责任 | 允许修改者 |
+| --- | --- | --- |
+| `shared/contracts/` | JSON Schema、契约目录和版本规则 | 阶段 0 及经迁移审核的后续任务 |
+| `shared/knowledge/` | 基础知识、题型导航和模型卡 | 阶段 2 与知识维护流程 |
+| `shared/rules/` | 按年份管理的竞赛规则和来源 | 规则更新流程 |
+| `shared/templates/` | LaTeX、项目配置和报告模板 | 阶段 1、4 与模板回归流程 |
+| `shared/rubrics/` | 复现、模型、论文和提交量表 | 阶段 5 与量表审核流程 |
+| `shared/fixtures/` | 合成数据、黄金结构和代表场景 | 对应阶段测试任务 |
+| `toolkit/src/cumcm_toolkit/` | 确定性 Python 工具 | 阶段 1、2、4、5 |
+| `adapters/codex/skills/` | Codex Skill 和打包资源声明 | 阶段 3–6 |
+| `adapters/dsh/` | DSH Skill、插件、preset 和配置 | 阶段 7 |
+| `tests/` | 跨组件契约、快照、集成和端到端测试 | 各阶段测试任务 |
+| `docs/` | 架构、操作、维护、审批和实施文档 | 对应阶段文档任务 |
+| `scripts/` | 安装、验证、打包和回归入口 | 对应工具任务 |
+| `dist/` | 自动生成的安装产物 | 构建脚本；禁止手改 |
+| `workspaces/` | 单次比赛输入、实验和论文 | 比赛流程；不进入共享资产发布包 |
+
+## Dependency flow
+
+```mermaid
+flowchart LR
+    P0["0 契约"] --> P1["1 可复现底座"]
+    P1 --> P2["2 模型核心"]
+    P2 --> P3["3 Codex Skill"]
+    P3 --> P4["4 论文生产"]
+    P4 --> P5["5 独立审批"]
+    P5 --> P6["6 总控闭环"]
+    P6 --> P7["7 DSH 适配"]
+    P7 --> P8["8 真题回归"]
+    P8 -.回归反馈.-> P2
+    P8 -.回归反馈.-> P3
+    P8 -.回归反馈.-> P4
+    P8 -.回归反馈.-> P5
+```
+
+## Phase 0: Contracts and governance
+
+**Objective:** 建立所有后续组件共同依赖的目录、Schema、样例、版本和变更门禁。
+
+**Primary files:**
+
+- `.gitignore`
+- `.python-version`
+- `pyproject.toml`
+- `shared/contracts/*.schema.json`
+- `shared/fixtures/contracts/{valid,invalid}/*.json`
+- `scripts/validate_contracts.py`
+- `tests/contracts/test_contract_examples.py`
+- `docs/architecture/contracts.md`
+- `docs/quality/acceptance-gates.md`
+- `docs/operations/change-policy.md`
+
+**Execution plan:** `docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-0-contracts.md`
+
+**Verification:**
+
+```powershell
+uv sync --dev
+uv run pytest tests/contracts -v
+uv run python scripts/validate_contracts.py
+```
+
+**Exit criteria:**
+
+- 所有 Schema 通过 Draft 2020-12 元校验。
+- 每个 Schema 至少有一个有效样例和一个明确失败的无效样例。
+- 工具错误、人工门状态、实验记录和证据链均有显式契约版本。
+- 资产清单能够发现重复 ID、缺失文件和哈希不一致。
+- 文档说明破坏性契约变更的迁移与回归要求。
+
+## Phase 1: Reproducible foundation
+
+**Objective:** 在全新 Windows 环境中诊断依赖、创建标准比赛工作区、记录实验并编译最小中文 PDF。
+
+**Planned files:**
+
+- `toolkit/src/cumcm_toolkit/environment/doctor.py`
+- `toolkit/src/cumcm_toolkit/project/scaffold.py`
+- `toolkit/src/cumcm_toolkit/experiments/manifest.py`
+- `toolkit/src/cumcm_toolkit/artifacts/index.py`
+- `shared/templates/project/`
+- `shared/templates/latex/`
+- `scripts/bootstrap.ps1`
+- `scripts/check_environment.ps1`
+- `tests/integration/test_fresh_workspace.py`
+- `tests/integration/test_minimal_latex_build.py`
+- `docs/operations/environment.md`
+- `docs/operations/workspace-layout.md`
+
+**Required detailed-plan inputs:** 阶段 0 的最终 Schema、实际探测到的 Python/uv/TeX 安装状态、选定的 MiKTeX 或 TeX Live 发行版。
+
+**Verification:**
+
+```powershell
+uv run pytest toolkit/tests/environment toolkit/tests/project toolkit/tests/experiments -v
+uv run pytest tests/integration/test_fresh_workspace.py -v
+uv run pytest tests/integration/test_minimal_latex_build.py -v
+```
+
+**Exit criteria:**
+
+- 环境诊断对缺失依赖返回结构化失败，不误报“可用”。
+- 项目骨架可重复创建，默认不覆盖已有文件。
+- 相同输入、参数和随机种子生成一致的实验身份与关键结果。
+- 最小 XeLaTeX 中文论文可编译，引用状态和页数可读取。
+
+## Phase 2: High-frequency model core
+
+**Objective:** 完成首批基础知识、模型卡以及评价、预测、优化共用的数据与实验工具。
+
+**Planned files:**
+
+- `shared/knowledge/foundations/*.md`
+- `shared/knowledge/model-cards/{data,evaluation,prediction,optimization,classification,statistics}/*.md`
+- `shared/knowledge/model-catalog.yaml`
+- `toolkit/src/cumcm_toolkit/data/profile.py`
+- `toolkit/src/cumcm_toolkit/data/transform.py`
+- `toolkit/src/cumcm_toolkit/models/registry.py`
+- `toolkit/src/cumcm_toolkit/models/runner.py`
+- `toolkit/src/cumcm_toolkit/evaluation/metrics.py`
+- `toolkit/src/cumcm_toolkit/evaluation/baselines.py`
+- `toolkit/src/cumcm_toolkit/evaluation/sensitivity.py`
+- `toolkit/src/cumcm_toolkit/results/export.py`
+- `tests/integration/test_evaluation_scenario.py`
+- `tests/integration/test_prediction_scenario.py`
+- `tests/integration/test_optimization_scenario.py`
+
+**Required detailed-plan inputs:** 阶段 1 的工作区与实验接口、首批模型优先级统计、每个代表场景的合成数据与预期指标。
+
+**Verification:**
+
+```powershell
+uv run pytest toolkit/tests/data toolkit/tests/models toolkit/tests/evaluation -v
+uv run pytest tests/integration/test_evaluation_scenario.py tests/integration/test_prediction_scenario.py tests/integration/test_optimization_scenario.py -v
+```
+
+**Exit criteria:**
+
+- 每张模型卡通过结构检查，包含适用条件、假设、基线、检验和误用警示。
+- 三类代表场景均可从数据审计运行到结果导出。
+- 指标工具能识别至少一个数据泄漏或错误划分反例。
+- 敏感性输出包含扰动参数、范围、结果变化和稳定性结论所需数据。
+
+## Phase 3: Codex modeling skills
+
+**Objective:** 让 Codex 独立调用读题、数据审计、模型选择、求解和敏感性 Skill，形成可追溯建模半链路。
+
+**Planned files:**
+
+- `adapters/codex/skills/problem-reader/`
+- `adapters/codex/skills/data-auditor/`
+- `adapters/codex/skills/model-selector/`
+- `adapters/codex/skills/solver/`
+- `adapters/codex/skills/sensitivity-analyst/`
+- `scripts/package_codex_skills.py`
+- `tests/snapshots/codex-skills/`
+- `tests/e2e/test_codex_modeling_flow.py`
+
+**Required detailed-plan inputs:** 阶段 2 的最终工具 CLI/API、模型目录和结构化结果样例。
+
+**Verification:**
+
+```powershell
+uv run python scripts/package_codex_skills.py --check
+uv run pytest tests/snapshots/codex-skills tests/e2e/test_codex_modeling_flow.py -v
+```
+
+**Exit criteria:**
+
+- 每个 Skill 的触发和不触发样例均通过。
+- Skill 缺少数据或工具失败时停止，不生成替代数值。
+- 端到端建模半链路生成问题清单、候选模型、实验记录、结果和敏感性产物。
+- 打包后 Skill 自包含，且资源哈希与 `shared/` 一致。
+
+## Phase 4: Evidence-bound paper pipeline
+
+**Objective:** 只使用固化结果和证据链生成提纲、正文、摘要、LaTeX 与 PDF。
+
+**Planned files:**
+
+- `shared/templates/latex/cumcm/`
+- `shared/knowledge/writing/*.md`
+- `toolkit/src/cumcm_toolkit/latex/scaffold.py`
+- `toolkit/src/cumcm_toolkit/latex/build.py`
+- `toolkit/src/cumcm_toolkit/latex/lint.py`
+- `toolkit/src/cumcm_toolkit/pdf/inspect.py`
+- `toolkit/src/cumcm_toolkit/evidence/linker.py`
+- `adapters/codex/skills/paper-outliner/`
+- `adapters/codex/skills/paper-writer/`
+- `adapters/codex/skills/latex-publisher/`
+- `tests/e2e/test_paper_pipeline.py`
+
+**Required detailed-plan inputs:** 阶段 3 的固化结果格式、证据 ID 和 Codex Skill 打包方式。
+
+**Verification:**
+
+```powershell
+uv run pytest toolkit/tests/latex toolkit/tests/pdf toolkit/tests/evidence -v
+uv run pytest tests/e2e/test_paper_pipeline.py -v
+```
+
+**Exit criteria:**
+
+- 第三个人工门在论文正文生成前生效。
+- 摘要中的每个关键数值都能解析到证据 ID。
+- LaTeX 编译无阻断错误、未定义引用或缺失图片。
+- PDF 页数、字体和空白页检查产生结构化报告。
+
+## Phase 5: Independent review gates
+
+**Objective:** 建立硬性、复现、模型、论文和评委质询五层独立审批。
+
+**Planned files:**
+
+- `shared/rubrics/reproducibility.yaml`
+- `shared/rubrics/model-quality.yaml`
+- `shared/rubrics/paper-quality.yaml`
+- `shared/rubrics/red-team.yaml`
+- `shared/rubrics/submission.yaml`
+- `toolkit/src/cumcm_toolkit/review/engine.py`
+- `toolkit/src/cumcm_toolkit/review/severity.py`
+- `adapters/codex/skills/model-reviewer/`
+- `adapters/codex/skills/paper-reviewer/`
+- `tests/e2e/test_review_isolation.py`
+- `tests/e2e/test_revision_requires_rereview.py`
+
+**Required detailed-plan inputs:** 阶段 4 的最终论文、PDF、证据索引和结构化编译报告。
+
+**Verification:**
+
+```powershell
+uv run pytest toolkit/tests/review -v
+uv run pytest tests/e2e/test_review_isolation.py tests/e2e/test_revision_requires_rereview.py -v
+```
+
+**Exit criteria:**
+
+- S0/S1 问题能够阻断通过状态。
+- 审批报告的每个问题包含证据位置、严重度和修订建议。
+- 审批过程不修改论文源文件。
+- 论文修改后旧审批自动失效并要求重新运行。
+
+## Phase 6: Orchestrated competition flow
+
+**Objective:** 将子 Skill、工具、四个人工门和状态恢复组合为完整 72 小时竞赛流程。
+
+**Planned files:**
+
+- `shared/workflows/cumcm-72h.yaml`
+- `shared/workflows/stage-transitions.yaml`
+- `adapters/codex/skills/cumcm-orchestrator/`
+- `toolkit/src/cumcm_toolkit/workflow/state.py`
+- `toolkit/src/cumcm_toolkit/workflow/gates.py`
+- `tests/e2e/test_four_human_gates.py`
+- `tests/e2e/test_resume_after_failure.py`
+- `docs/competition/72-hour-playbook.md`
+- `docs/competition/recovery-playbook.md`
+
+**Required detailed-plan inputs:** 阶段 3–5 的稳定 Skill 输入输出、审批状态和失败类型。
+
+**Verification:**
+
+```powershell
+uv run pytest toolkit/tests/workflow -v
+uv run pytest tests/e2e/test_four_human_gates.py tests/e2e/test_resume_after_failure.py -v
+```
+
+**Exit criteria:**
+
+- 未确认的人工门无法被总控跳过。
+- 中断后能从最近固化阶段恢复，不重复覆盖有效产物。
+- 子 Skill 失败时状态保持一致并给出明确恢复动作。
+- 代表场景能从赛题运行到通过审批的 PDF。
+
+## Phase 7: DeepSeek Harness adapter
+
+**Objective:** 在不复制开发源的前提下，为 DSH 提供同名 Skill、确定性 Tool 插件和真实组合测试。
+
+**Planned files:**
+
+- `adapters/dsh/skills/`
+- `adapters/dsh/plugins/cumcm-tools/`
+- `adapters/dsh/presets/cumcm-agent/cordis.yml`
+- `scripts/package_dsh_assets.py`
+- `tests/contracts/test_codex_dsh_asset_parity.py`
+- `tests/snapshots/dsh/`
+- `tests/e2e/test_dsh_real_composition.py`
+
+**Required detailed-plan inputs:** 阶段 6 的稳定工具接口、状态机、Skill 资源清单，以及目标 DSH 仓库和版本。
+
+**Verification:**
+
+```powershell
+uv run python scripts/package_dsh_assets.py --check
+uv run pytest tests/contracts/test_codex_dsh_asset_parity.py -v
+```
+
+在 DSH 仓库中运行：
+
+```powershell
+pnpm run test
+pnpm run test:coverage
+pnpm run test:snapshot
+pnpm run build
+pnpm run hygiene
+```
+
+**Exit criteria:**
+
+- DSH 通过 Tool 插件暴露稳定、校验严格的模型可调用能力。
+- `cordis.yml` 缺少必需配置时明确失败。
+- 产品可见插件通过 Loader 真实组合测试。
+- Codex 与 DSH 的共享资产哈希、契约版本和关键产物语义一致。
+
+## Phase 8: Regression and controlled expansion
+
+**Objective:** 用合成场景和历年真题验证完整系统，再依据实际缺陷扩展模型与 Skill。
+
+**Planned files:**
+
+- `shared/fixtures/scenarios/evaluation/`
+- `shared/fixtures/scenarios/prediction/`
+- `shared/fixtures/scenarios/optimization/`
+- `shared/fixtures/historical/manifest.yaml`
+- `tests/e2e/test_full_evaluation_case.py`
+- `tests/e2e/test_full_prediction_case.py`
+- `tests/e2e/test_full_optimization_case.py`
+- `docs/quality/regression-report-template.md`
+- `docs/quality/model-expansion-policy.md`
+
+**Required detailed-plan inputs:** 阶段 7 的双端完整流程、用户合法提供的历年赛题与数据、当年官方规则。
+
+**Verification:**
+
+```powershell
+uv run pytest tests/e2e/test_full_evaluation_case.py tests/e2e/test_full_prediction_case.py tests/e2e/test_full_optimization_case.py -v
+uv run python scripts/run_regression.py --suite representative
+```
+
+**Exit criteria:**
+
+- 三类完整场景均通过工具、Skill、论文和审批门禁。
+- 历年真题报告记录模型选择、失败点、审批分数和人工复核结论。
+- 新模型只在真题频率或已观察缺陷证明需要时加入。
+- 回归发现的问题映射到具体工具、知识、Skill 或量表，不以笼统改写代替根因修复。
+
+## Program release gates
+
+| 里程碑 | 必须通过的门禁 | 可交付能力 |
+| --- | --- | --- |
+| M0 契约基线 | 阶段 0 全部测试 | 后续组件可共享稳定 Schema |
+| M1 可复现底座 | 阶段 1 全部测试 | 可创建工作区并编译最小 PDF |
+| M2 建模半链路 | 阶段 2–3 全部测试 | 可完成审计、选模、求解和敏感性 |
+| M3 完整 Codex 流程 | 阶段 4–6 全部测试 | 可经四个人工门产出审批 PDF |
+| M4 双端一致 | 阶段 7 全部测试 | Codex 与 DSH 使用同一能力核心 |
+| M5 真题验证 | 阶段 8 全部测试 | 三类场景稳定，具备受控扩展条件 |
+
+## Change and review protocol
+
+- 每个详细阶段计划必须引用本主计划与总体设计。
+- 每个任务遵循测试先行：先写失败测试，再实现最小行为，再运行相关门禁。
+- 每个任务形成独立、可审查的提交；当前仓库初始化后使用非交互 Git 命令。
+- 阶段门未通过时，不创建依赖其未稳定接口的下一阶段详细计划。
+- 阶段验收由文件、命令输出、结构化报告和外部读取结果共同证明，不接受仅由 Skill 自述的“已通过”。
+- 任何范围扩展先更新总体设计，再更新主计划和受影响的阶段计划。
+
+## Plan completion criteria
+
+本主计划完成不代表系统已经实现。只有阶段 0–8 的详细计划分别执行、验证并通过对应发布门，系统才达到总体设计中的完整验收标准。当前可执行入口是阶段 0 详细计划：`docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-0-contracts.md`。
