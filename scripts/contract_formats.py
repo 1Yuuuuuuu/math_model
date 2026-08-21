@@ -11,7 +11,10 @@ _LEAP_SECOND = re.compile(r"(?<=T\d{2}:\d{2}:)60(?=(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2
 _DNS_LABEL = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\Z")
 _DRIVE_PREFIX = re.compile(r"[A-Za-z]:")
 _WINDOWS_FORBIDDEN = frozenset('<>:"|?*')
-_WINDOWS_RESERVED = re.compile(r"(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])\Z", re.IGNORECASE)
+_WINDOWS_RESERVED_NAME = re.compile(
+    r"(?:CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])\Z",
+    re.IGNORECASE,
+)
 
 
 def _normalize_rfc3339_datetime(value: str) -> str:
@@ -71,7 +74,7 @@ def is_cumcm_workspace_path(value: object) -> bool:
         if segment.endswith((".", " ")):
             return False
         basename = segment.split(".", 1)[0]
-        if _WINDOWS_RESERVED.fullmatch(basename):
+        if _WINDOWS_RESERVED_NAME.fullmatch(basename):
             return False
     return True
 

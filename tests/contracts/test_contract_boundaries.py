@@ -51,6 +51,12 @@ INVALID_PORTABLE_PATHS = (
     "folder/con.txt",
     "folder/COM1.log",
     "folder/Lpt9",
+    "folder/COM¹",
+    "COM².txt",
+    "COM³.tar.gz",
+    "LPT¹",
+    "LPT².log",
+    "LPT³.tar.gz",
     "folder/a:b.txt",
     "folder/question?.txt",
     "folder/star*.txt",
@@ -73,6 +79,12 @@ OBVIOUS_INVALID_PORTABLE_PATHS = tuple(
         "folder/con.txt",
         "folder/COM1.log",
         "folder/Lpt9",
+        "folder/COM¹",
+        "COM².txt",
+        "COM³.tar.gz",
+        "LPT¹",
+        "LPT².log",
+        "LPT³.tar.gz",
     }
 )
 

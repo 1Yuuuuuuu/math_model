@@ -10,11 +10,11 @@
 | --- | --- | --- |
 | 版本 | 每个对象都有 `schema_version`，Phase 0 固定为 `1.0` | `"schema_version": "1.0"` |
 | 标识符 | 使用小写 ASCII 前缀和 `[a-z0-9_-]`；具体前缀由对象决定 | `art_raw_data`、`exp_model_run` |
-| 文件路径 | 相对工作区、使用正斜杠 `/`、不可越界；不得使用盘符、反斜杠、绝对路径、`.`/`..`/空路径段、控制字符、Windows 禁用字符 `< > : " \| ? *`、段尾点或空格，以及 `CON`、`PRN`、`AUX`、`NUL`、`COM1`–`COM9`、`LPT1`–`LPT9` 等保留设备名（含扩展名） | `data/input.csv` 与 `docs/model card.md` 合法；`../secret.csv`、`results/NUL.txt` 不合法 |
+| 文件路径 | 相对工作区、使用正斜杠 `/`、不可越界；不得使用盘符、反斜杠、绝对路径、`.`/`..`/空路径段、控制字符、Windows 禁用字符 `< > : " \| ? *`、段尾点或空格，以及 `CON`、`PRN`、`AUX`、`NUL`、`COM1`–`COM9`、`LPT1`–`LPT9`、`COM¹`–`COM³`、`LPT¹`–`LPT³` 等保留设备别名（含扩展名） | `data/input.csv` 与 `docs/model card.md` 合法；`../secret.csv`、`results/NUL.txt`、`COM².log` 不合法 |
 | 时间 | 所有时间都必须是带时区的 RFC 3339 字符串 | `2026-09-10T10:15:00+08:00` |
 | 哈希 | SHA-256 为 64 位小写十六进制 | `aaaaaaaa...`（共 64 位） |
 
-`scripts/contract_formats.py` 提供一致的 RFC 3339、HTTP(S) 来源 URL，以及 `cumcm-workspace-path` 可移植路径检查。`artifact.path`、`asset-manifest.assets[].source_path` 和目录内所有文件路径都使用同一个纯函数判定；Schema 仍用基础正则拦截明显危险路径，完整规则由自定义格式补齐。Codex 与 DeepSeek Harness 的实现都应使用这一格式检查器或等价实现；默认校验器若跳过格式检查，会放过不带时区的时间、不合规 URL 或 Windows 保留设备名。
+`scripts/contract_formats.py` 提供一致的 RFC 3339、HTTP(S) 来源 URL，以及 `cumcm-workspace-path` 可移植路径检查。`artifact.path`、`asset-manifest.assets[].source_path` 和目录内所有文件路径都使用同一个纯函数判定；Schema 仍用基础正则拦截明显危险路径，完整规则由自定义格式补齐。Codex 与 DeepSeek Harness 的等价实现必须逐字符识别 Windows 的 ASCII 数字和上标数字 `¹²³` 设备别名，不能依赖 Unicode 数字归一化或只检查 `1`–`9`。默认校验器若跳过格式检查，会放过不带时区的时间、不合规 URL 或 Windows 保留设备名。
 
 所有 Schema 正则使用 `(?![\\s\\S])` 表示真正的字符串末尾，避免 `$` 在部分运行时把末尾换行误当成结束。目录、Schema 与 fixtures 必须是严格 JSON；`NaN`、`Infinity` 和 `-Infinity` 都会被验证器拒绝。
 

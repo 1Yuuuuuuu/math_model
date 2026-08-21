@@ -172,6 +172,30 @@ def test_validator_rejects_absolute_catalog_paths(project_root, tmp_path) -> Non
     ]
 
 
+def test_validator_rejects_superscript_windows_device_catalog_paths(
+    project_root, tmp_path
+) -> None:
+    for index, invalid_path in enumerate(
+        ("folder/COM¹", "COM².txt", "COM³.tar.gz", "LPT¹", "LPT².log", "LPT³.tar.gz")
+    ):
+        sandbox = make_sandbox(project_root, tmp_path / str(index))
+        catalog_path = sandbox / "shared/contracts/catalog.json"
+        catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+        catalog["contracts"][0]["schema"] = invalid_path
+        catalog_path.write_text(json.dumps(catalog, ensure_ascii=False), encoding="utf-8")
+
+        result = run_validator(sandbox)
+
+        assert result.returncode == 1
+        assert "Traceback" not in result.stderr
+        payload = json.loads(result.stdout)
+        assert payload == {
+            "status": "failed",
+            "contracts": 9,
+            "errors": [f"error: catalog path must be portable: {invalid_path}"],
+        }
+
+
 def test_validator_rejects_missing_or_empty_contract_catalogs(project_root, tmp_path) -> None:
     for contracts in (None, []):
         sandbox = make_sandbox(project_root, tmp_path / str(contracts))
