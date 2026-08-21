@@ -74,8 +74,21 @@
     {
       "id": "literature-source",
       "schema": "shared/contracts/literature-source.schema.json",
-      "valid_examples": ["shared/fixtures/contracts/valid/literature-source.json"],
-      "invalid_examples": ["shared/fixtures/contracts/invalid/literature-source-approved-without-decision.json"]
+      "valid_examples": [
+        "shared/fixtures/contracts/valid/literature-source.json",
+        "shared/fixtures/contracts/valid/literature-source-user-provided-offline.json",
+        "shared/fixtures/contracts/valid/literature-source-candidate.json",
+        "shared/fixtures/contracts/valid/literature-source-rejected.json"
+      ],
+      "invalid_examples": [
+        "shared/fixtures/contracts/invalid/literature-source-approved-without-decision.json",
+        "shared/fixtures/contracts/invalid/literature-source-approved-empty-artifacts.json",
+        "shared/fixtures/contracts/invalid/literature-source-approved-null-hash.json",
+        "shared/fixtures/contracts/invalid/literature-source-approved-invalid-hash.json",
+        "shared/fixtures/contracts/invalid/literature-source-paper-search-null-url.json",
+        "shared/fixtures/contracts/invalid/literature-source-runtime-search-invalid-url.json",
+        "shared/fixtures/contracts/invalid/literature-source-timezone-less.json"
+      ]
     },
     {
       "id": "citation-link",

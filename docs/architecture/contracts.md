@@ -34,6 +34,14 @@
 | `literature-source` | 记录可追溯的文献来源、检索与核验状态。 | 文献检索流程 → 证据整理、论文写作 | `src_` | `schema_version`、`source_id`、`title`、`authors`、`year`、`venue_or_repository`、`identifiers`、`canonical_url`、`retrieved_at`、`retrieval_backend`、`verification_status`、`artifact_ids`、`content_sha256`；已批准来源还需 `decision_id` | 拒绝来源；不能据此建立经过批准的文献证据。 | [literature-source.json](../../shared/fixtures/contracts/valid/literature-source.json) |
 | `citation-link` | 将论文主张连到可定位的文献内容与支持边界。 | 证据整理工具 → 论文写作、审查 | `cite_` | `schema_version`、`citation_id`、`claim_id`、`source_id`、`usage`、`locator`、`support_boundary`、`verified_at`；`locator` 还需 `kind`、`value` | 拒绝引文；未定位或越过支持边界的主张不得引用该来源。 | [citation-link.json](../../shared/fixtures/contracts/valid/citation-link.json) |
 
+## 文献契约的跨记录边界
+
+`literature-source.canonical_url` 只有在 `retrieval_backend = user-provided` 时可以为 `null`，用于没有可伪造网络地址的离线用户文件；`paper-search` 与 `runtime-search` 记录仍必须提供通过 `cumcm-http-url` 校验的 HTTP(S) URL。
+
+当 `artifact_ids` 有多个条目时，`content_sha256` 表示用于引用核验的主检索内容（通常是主要 PDF 或规范化全文）的 SHA-256，而不是多个 artifact 哈希的拼接或聚合值。每个附属文件继续由自己的 `artifact.sha256` 记录；未来运行时应做逐 artifact 的交叉验证，不在当前字段中压缩多个哈希。
+
+以下约束需要解析多个记录，留给 Phase 4/6 的运行时校验：已批准来源的 `decision_id` 必须解析到 `gate = gate_3_outline` 的人工决定；每个 `citation-link.source_id` 必须解析到 `verification_status = approved` 的来源；`content_sha256` 必须与主检索 artifact 的实际哈希相符；提纲、主张、来源文件或定位修订后旧链接失效并重新核验。当前单记录 JSON Schema 不声称执行这些跨记录检查。
+
 ## 从样例开始验证
 
 例如，要判断实验记录是否可用于论文论证，先检查它包含 `environment.lock_sha256`，再确认其时间包含时区，最后让验证器校验整个对象。不要只复制字段名称：Schema 中的枚举、最小数量和跨关卡条件同样是协议的一部分。

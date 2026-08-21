@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "source_id": "src_runtime_invalid_url",
+  "title": "Synthetic runtime result with invalid URL",
+  "authors": ["Example Author"],
+  "year": 2026,
+  "venue_or_repository": "Synthetic runtime repository",
+  "identifiers": {},
+  "canonical_url": "ftp://example.invalid/runtime-result",
+  "retrieved_at": "2026-08-21T09:40:00+08:00",
+  "retrieval_backend": "runtime-search",
+  "verification_status": "candidate",
+  "artifact_ids": [],
+  "content_sha256": null
+}

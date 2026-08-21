@@ -24,7 +24,12 @@
         "pmid": {"type": "string", "minLength": 1}
       }
     },
-    "canonical_url": {"type": "string", "format": "cumcm-http-url"},
+    "canonical_url": {
+      "oneOf": [
+        {"type": "string", "format": "cumcm-http-url"},
+        {"type": "null"}
+      ]
+    },
     "retrieved_at": {"type": "string", "format": "date-time"},
     "retrieval_backend": {"enum": ["paper-search", "runtime-search", "user-provided"]},
     "verification_status": {"enum": ["candidate", "approved", "rejected"]},
@@ -43,6 +48,19 @@
   "allOf": [
     {
       "if": {
+        "properties": {
+          "retrieval_backend": {"enum": ["paper-search", "runtime-search"]}
+        },
+        "required": ["retrieval_backend"]
+      },
+      "then": {
+        "properties": {
+          "canonical_url": {"type": "string"}
+        }
+      }
+    },
+    {
+      "if": {
         "properties": {"verification_status": {"const": "approved"}},
         "required": ["verification_status"]
       },
@@ -50,10 +68,7 @@
         "required": ["decision_id"],
         "properties": {
           "artifact_ids": {"minItems": 1},
-          "content_sha256": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{64}(?![\\s\\S])"
-          }
+          "content_sha256": {"type": "string"}
         }
       }
     }

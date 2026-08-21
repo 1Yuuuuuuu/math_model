@@ -23,7 +23,7 @@
 - 年度规则按年份、来源和核验日期维护；内部量表不得冒充官方评分权重。
 - 每道赛题使用独立工作区；比赛临时修改不得直接污染共享核心。
 - 每个阶段的详细计划只有在上一阶段验收通过后才定稿，以已验证接口为依据。
-- 仓库已经初始化；阶段 0 已建立契约基线。截至提交 `86ea7e1`，当前目录登记 11 项契约，Phase 0A 在此基础上整合论文与文献路线。
+- 仓库已经初始化；阶段 0 以九项契约建立历史基线，Phase 0A 追加 `literature-source` 与 `citation-link` 后将当前目录扩展为 11 项，并已完成论文与文献路线整合。
 
 ---
 
@@ -46,8 +46,8 @@
 
 Program-level tracking:
 
-- [x] 阶段 0：契约测试和只读验证器通过；契约目录已在 `86ea7e1` 登记 11 项。
-- [ ] Phase 0A：论文与文献契约及路由文档通过，批准进入阶段 1 规划。
+- [x] 阶段 0：九项基础契约的测试和只读验证器通过，完成向 Phase 0A 的历史交接。
+- [x] Phase 0A：论文与文献契约及路由文档通过，批准进入阶段 1 规划。
 - [ ] 阶段 1：新环境诊断、标准工作区和最小 PDF 通过，批准进入阶段 2 规划。
 - [ ] 阶段 2：评价、预测、优化代表场景通过，批准进入阶段 3 规划。
 - [ ] 阶段 3：Codex 建模半链路和资源一致性通过，批准进入阶段 4 规划。
@@ -197,13 +197,16 @@ uv run pytest tests/integration/test_minimal_latex_build.py -v
 
 ## Phase 2: High-frequency model core
 
-**Objective:** 完成首批基础知识、模型卡以及评价、预测、优化共用的数据与实验工具。
+**Objective:** 完成首批基础知识、模型卡、文献检索与引用基础知识，以及评价、预测、优化共用的数据与实验工具。
 
 **Planned files:**
 
 - `shared/knowledge/foundations/*.md`
 - `shared/knowledge/model-cards/{data,evaluation,prediction,optimization,classification,statistics}/*.md`
 - `shared/knowledge/model-catalog.yaml`
+- `shared/knowledge/literature/search-strategy.md`
+- `shared/knowledge/literature/deduplication.md`
+- `shared/knowledge/literature/source-evaluation.md`
 - `toolkit/src/cumcm_toolkit/data/profile.py`
 - `toolkit/src/cumcm_toolkit/data/transform.py`
 - `toolkit/src/cumcm_toolkit/models/registry.py`
@@ -215,13 +218,15 @@ uv run pytest tests/integration/test_minimal_latex_build.py -v
 - `tests/integration/test_evaluation_scenario.py`
 - `tests/integration/test_prediction_scenario.py`
 - `tests/integration/test_optimization_scenario.py`
+- `tests/knowledge/test_literature_knowledge.py`
 
-**Required detailed-plan inputs:** 阶段 1 的工作区与实验接口、首批模型优先级统计、每个代表场景的合成数据与预期指标。
+**Required detailed-plan inputs:** 阶段 1 的工作区与实验接口、Phase 0A 的文献契约和受控路由政策、首批模型优先级统计、每个代表场景的合成数据与预期指标。
 
 **Verification:**
 
 ```powershell
 uv run pytest toolkit/tests/data toolkit/tests/models toolkit/tests/evaluation -v
+uv run pytest tests/knowledge/test_literature_knowledge.py -v
 uv run pytest tests/integration/test_evaluation_scenario.py tests/integration/test_prediction_scenario.py tests/integration/test_optimization_scenario.py -v
 ```
 
@@ -231,6 +236,11 @@ uv run pytest tests/integration/test_evaluation_scenario.py tests/integration/te
 - 三类代表场景均可从数据审计运行到结果导出。
 - 指标工具能识别至少一个数据泄漏或错误划分反例。
 - 敏感性输出包含扰动参数、范围、结果变化和稳定性结论所需数据。
+- 文献检索知识覆盖检索问题、中英文关键词、后端查询参数和候选用途，不把候选直接写成正式引用。
+- 去重规则按 DOI、规范化标题和来源标识形成确定性候选组；元数据冲突必须保持候选状态并交由人工核验，不能静默合并。
+- 来源评价规则区分元数据完整性、全文可用性、拟支持主张和支持边界；不得把引用量或期刊等级等同于来源质量或模型正确性。
+- 合成知识测试覆盖重复 DOI、规范化标题重复、标识冲突和仅有引用量信号的反例。
+- Phase 2 只交付共享知识与规则，不实现运行时 Skill；Codex `literature-researcher` 仍由 Phase 3 实现。
 
 ## Phase 3: Codex modeling skills
 
@@ -249,7 +259,7 @@ uv run pytest tests/integration/test_evaluation_scenario.py tests/integration/te
 - `tests/e2e/test_codex_modeling_flow.py`
 - `tests/e2e/test_literature_researcher_routing.py`
 
-**Required detailed-plan inputs:** 阶段 2 的最终工具 CLI/API、模型目录和结构化结果样例。
+**Required detailed-plan inputs:** 阶段 2 的最终工具 CLI/API、模型目录、文献检索/去重/来源评价规则和结构化结果样例。
 
 **Verification:**
 
@@ -471,4 +481,4 @@ uv run python scripts/run_regression.py --suite representative
 
 ## Plan completion criteria
 
-本主计划完成不代表系统已经实现。只有 Phase 0A 以及阶段 0–8 的详细计划分别执行、验证并通过对应发布门，系统才达到总体设计中的完整验收标准。阶段 0 已完成并形成当前 11 项契约目录；当前执行入口是 Phase 0A 详细计划：`docs/superpowers/plans/2026-08-21-paper-research-integration-foundation.md`。Phase 1 依赖 Phase 0A 完成。
+本主计划完成不代表系统已经实现。只有 Phase 0A 以及阶段 0–8 的详细计划分别执行、验证并通过对应发布门，系统才达到总体设计中的完整验收标准。阶段 0 与 Phase 0A 已完成，当前目录登记 11 项契约；下一步是编写并审批阶段 1 详细计划。Phase 1 的实现仍须以该详细计划和单独授权为前提。

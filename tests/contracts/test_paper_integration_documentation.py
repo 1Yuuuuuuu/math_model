@@ -76,6 +76,63 @@ def test_master_plan_makes_phase_1_depend_on_phase_0a(project_root: Path) -> Non
     assert "`literature-source`、`citation-link`" in phase_0a[3]
 
 
+def test_master_plan_marks_phase_0a_complete_and_phase_1_next(project_root: Path) -> None:
+    plan = read(project_root, "docs/superpowers/plans/2026-08-21-cumcm-workbench-implementation.md")
+
+    assert "- [x] Phase 0A：" in plan
+    assert "下一步是编写并审批阶段 1 详细计划" in plan
+    assert "当前执行入口是 Phase 0A" not in plan
+
+
+def test_historical_phase_0_plan_preserves_nine_contract_scope_and_phase_0a_handoff(
+    project_root: Path,
+) -> None:
+    phase_0 = read(
+        project_root,
+        "docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-0-contracts.md",
+    )
+    task_8 = markdown_section(phase_0, "### Task 8: Fresh-clone verification and phase handoff")
+    completion = markdown_section(phase_0, "## Phase 0 completion criteria")
+
+    assert 'assert payload["contracts"] == 9' in phase_0
+    assert '"contracts": 9' in phase_0
+    assert "all nine contracts" in phase_0
+    assert "reports nine contracts" in completion
+    assert "eleven contracts" not in phase_0
+    assert '"contracts": 11' not in phase_0
+    assert "Phase 0A" in task_8
+    assert "Phase 1 planning may begin" not in task_8
+    assert "authorizes creation of the Phase 0A detailed plan" in completion
+    assert "authorizes creation of the Phase 1 detailed plan" not in completion
+
+
+def test_phase_2_owns_literature_knowledge_without_runtime_skill(project_root: Path) -> None:
+    plan = read(project_root, "docs/superpowers/plans/2026-08-21-cumcm-workbench-implementation.md")
+    phase_2 = markdown_section(plan, "## Phase 2: High-frequency model core")
+    phase_3 = markdown_section(plan, "## Phase 3: Codex modeling skills")
+
+    for deliverable in (
+        "shared/knowledge/literature/search-strategy.md",
+        "shared/knowledge/literature/deduplication.md",
+        "shared/knowledge/literature/source-evaluation.md",
+        "tests/knowledge/test_literature_knowledge.py",
+    ):
+        assert deliverable in phase_2
+    assert "tests/knowledge/test_literature_knowledge.py" in verification_block(phase_2)
+    for rule in ("DOI、规范化标题和来源标识", "引用量或期刊等级", "元数据冲突"):
+        assert rule in phase_2
+    assert "不实现运行时 Skill" in phase_2
+    assert "adapters/codex/skills/literature-researcher/" not in phase_2
+    assert "adapters/codex/skills/literature-researcher/" in phase_3
+
+    matrix = read(project_root, "docs/architecture/paper-skill-capability-matrix.md")
+    ownership = markdown_section(matrix, "## 后续阶段所有权")
+    assert "Phase 2" in ownership
+    assert "检索知识、去重规则和来源评价规则" in ownership
+    assert "Phase 3" in ownership
+    assert "运行时" in ownership
+
+
 def test_master_plan_verification_commands_cover_literature_owners(
     project_root: Path,
 ) -> None:
@@ -118,7 +175,7 @@ def test_paper_and_literature_guide_covers_routes_and_recovery(project_root: Pat
         "备选入口",
         "候选文献",
         "人工确认",
-        "gate 3",
+        "人工门 3“确认论文提纲”",
         "Codex",
         "DeepSeek Harness",
         "paper-search",
@@ -128,3 +185,42 @@ def test_paper_and_literature_guide_covers_routes_and_recovery(project_root: Pat
         "恢复",
     ):
         assert phrase in guide
+
+
+def test_guide_distinguishes_outline_approval_from_quality_gate_3(project_root: Path) -> None:
+    guide = read(project_root, "docs/guides/paper-and-literature-workflow.md")
+    future = markdown_section(guide, "## 为未来分阶段工作流做准备")
+
+    assert "四个全局人工确认门中的第三个" in future
+    assert "人工门 3“确认论文提纲”" in future
+    assert "`Gate 3 论文审查`" in future
+    assert "不能替代" in future
+    assert "gate 3` 指论文审查质量门" not in future
+
+
+def test_guide_says_contracts_exist_but_runtime_producers_are_planned(
+    project_root: Path,
+) -> None:
+    guide = read(project_root, "docs/guides/paper-and-literature-workflow.md")
+    codex = markdown_section(guide, "### 在 Codex 中操作")
+
+    assert "`literature-source` 与 `citation-link` 契约已经登记" in codex
+    assert "运行时生产者与消费者仍在规划中" in codex
+    assert "未来的 `literature-source` 与 `citation-link` 契约" not in codex
+
+
+def test_contract_docs_define_future_literature_cross_record_invariants(
+    project_root: Path,
+) -> None:
+    contracts = read(project_root, "docs/architecture/contracts.md")
+    section = markdown_section(contracts, "## 文献契约的跨记录边界")
+
+    for invariant in (
+        "gate_3_outline",
+        "verification_status = approved",
+        "主检索内容",
+        "逐 artifact",
+        "修订后旧链接失效",
+    ):
+        assert invariant in section
+    assert "当前单记录 JSON Schema 不声称执行这些跨记录检查" in section

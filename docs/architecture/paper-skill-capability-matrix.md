@@ -38,7 +38,8 @@
 
 ## 后续阶段所有权
 
-- Phase 3：实现 Codex `literature-researcher` 及触发、非触发、路由和无后端测试。
+- Phase 2：交付共享的文献检索知识、去重规则和来源评价规则及其合成知识测试；不实现运行时 Skill。
+- Phase 3：实现 Codex `literature-researcher` 运行时 Skill 及触发、非触发、路由和无后端测试。
 - Phase 4：实现引用证据 linker、BibTeX/LaTeX 集成和 `citation-check`。
 - Phase 6：为 `cumcm-orchestrator` 增加可选文献分支，并在人工门 3 批准引用清单。
 - Phase 7：实现 DSH 同名 Skill、确定性搜索/读取 Tool 与显式网络权限。

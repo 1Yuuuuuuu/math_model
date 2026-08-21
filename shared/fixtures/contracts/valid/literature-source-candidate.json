@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "source_id": "src_candidate_baseline",
+  "title": "Synthetic candidate baseline source",
+  "authors": ["Candidate Author"],
+  "year": 2025,
+  "venue_or_repository": "Synthetic search repository",
+  "identifiers": {"doi": "10.0000/candidate"},
+  "canonical_url": "https://example.invalid/candidate-baseline",
+  "retrieved_at": "2026-08-21T09:10:00+08:00",
+  "retrieval_backend": "paper-search",
+  "verification_status": "candidate",
+  "artifact_ids": [],
+  "content_sha256": null
+}

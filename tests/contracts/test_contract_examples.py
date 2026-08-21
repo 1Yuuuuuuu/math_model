@@ -28,6 +28,12 @@ NAMED_INVALID_EXPECTATIONS = {
     "shared/fixtures/contracts/invalid/annual-rule-userinfo-empty-host.json": (("source_url",), "format"),
     "shared/fixtures/contracts/invalid/asset-manifest-duplicate-target.json": (("assets", 0, "package_targets"), "uniqueItems"),
     "shared/fixtures/contracts/invalid/literature-source-approved-without-decision.json": ((), "required"),
+    "shared/fixtures/contracts/invalid/literature-source-approved-empty-artifacts.json": (("artifact_ids",), "minItems"),
+    "shared/fixtures/contracts/invalid/literature-source-approved-null-hash.json": (("content_sha256",), "type"),
+    "shared/fixtures/contracts/invalid/literature-source-approved-invalid-hash.json": (("content_sha256",), "oneOf"),
+    "shared/fixtures/contracts/invalid/literature-source-paper-search-null-url.json": (("canonical_url",), "type"),
+    "shared/fixtures/contracts/invalid/literature-source-runtime-search-invalid-url.json": (("canonical_url",), "oneOf"),
+    "shared/fixtures/contracts/invalid/literature-source-timezone-less.json": (("retrieved_at",), "format"),
     "shared/fixtures/contracts/invalid/citation-link-missing-locator.json": ((), "required"),
 }
 
