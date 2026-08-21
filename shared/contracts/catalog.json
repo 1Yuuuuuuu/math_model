@@ -59,7 +59,8 @@
         "shared/fixtures/contracts/invalid/annual-rule-missing-source.json",
         "shared/fixtures/contracts/invalid/annual-rule-empty-host.json",
         "shared/fixtures/contracts/invalid/annual-rule-invalid-source-url.json",
-        "shared/fixtures/contracts/invalid/annual-rule-timezone-less.json"
+        "shared/fixtures/contracts/invalid/annual-rule-timezone-less.json",
+        "shared/fixtures/contracts/invalid/annual-rule-userinfo-empty-host.json"
       ]
     },
     {

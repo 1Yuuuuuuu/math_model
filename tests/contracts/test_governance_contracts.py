@@ -16,6 +16,14 @@ ANNUAL_RULE_INVALID_EXAMPLES = (
     "annual-rule-empty-host",
     "annual-rule-invalid-source-url",
     "annual-rule-timezone-less",
+    "annual-rule-userinfo-empty-host",
+)
+
+NO_HOST_AUTHORITY_URLS = (
+    "http://@/path",
+    "http://:80/path",
+    "https://user@/path",
+    "https://user@:80/path",
 )
 
 
@@ -50,3 +58,21 @@ def test_annual_rule_invalid_examples_are_rejected(project_root, invalid_name) -
         validator.validate(
             load_json(project_root / f"shared/fixtures/contracts/invalid/{invalid_name}.json")
         )
+
+
+@pytest.mark.parametrize("source_url", NO_HOST_AUTHORITY_URLS)
+def test_annual_rule_rejects_userinfo_or_bare_port_without_a_hostname(project_root, source_url) -> None:
+    schema = load_json(project_root / "shared/contracts/annual-rule.schema.json")
+    annual_rule = load_json(project_root / "shared/fixtures/contracts/valid/annual-rule.json")
+    annual_rule["source_url"] = source_url
+    validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
+    with pytest.raises(ValidationError):
+        validator.validate(annual_rule)
+
+
+def test_annual_rule_accepts_a_bracketed_ipv6_host(project_root) -> None:
+    schema = load_json(project_root / "shared/contracts/annual-rule.schema.json")
+    annual_rule = load_json(project_root / "shared/fixtures/contracts/valid/annual-rule.json")
+    annual_rule["source_url"] = "https://[2001:db8::1]:443/cumcm-rules"
+    validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
+    validator.validate(annual_rule)
