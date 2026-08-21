@@ -13,6 +13,7 @@ CASES = [
 GOVERNANCE_SCHEMA_NAMES = ("review-finding", "annual-rule", "asset-manifest")
 
 ANNUAL_RULE_INVALID_EXAMPLES = (
+    "annual-rule-empty-host",
     "annual-rule-invalid-source-url",
     "annual-rule-timezone-less",
 )

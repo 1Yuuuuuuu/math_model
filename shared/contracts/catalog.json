@@ -57,6 +57,7 @@
       "valid_examples": ["shared/fixtures/contracts/valid/annual-rule.json"],
       "invalid_examples": [
         "shared/fixtures/contracts/invalid/annual-rule-missing-source.json",
+        "shared/fixtures/contracts/invalid/annual-rule-empty-host.json",
         "shared/fixtures/contracts/invalid/annual-rule-invalid-source-url.json",
         "shared/fixtures/contracts/invalid/annual-rule-timezone-less.json"
       ]
