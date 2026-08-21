@@ -23,7 +23,8 @@
       "valid_examples": ["shared/fixtures/contracts/valid/experiment.json"],
       "invalid_examples": [
         "shared/fixtures/contracts/invalid/experiment-missing-input.json",
-        "shared/fixtures/contracts/invalid/experiment-timezone-less.json"
+        "shared/fixtures/contracts/invalid/experiment-timezone-less.json",
+        "shared/fixtures/contracts/invalid/experiment-linebreak-time.json"
       ]
     }
   ]

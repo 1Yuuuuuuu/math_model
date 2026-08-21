@@ -46,6 +46,15 @@ def test_experiment_timezone_less_example_is_invalid(project_root) -> None:
         )
 
 
+def test_experiment_linebreak_time_example_is_invalid(project_root) -> None:
+    schema = load_json(project_root / "shared/contracts/experiment.schema.json")
+    validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
+    with pytest.raises(ValidationError):
+        validator.validate(
+            load_json(project_root / "shared/fixtures/contracts/invalid/experiment-linebreak-time.json")
+        )
+
+
 def test_experiment_malformed_timestamp_requires_format_checker(project_root) -> None:
     schema = load_json(project_root / "shared/contracts/experiment.schema.json")
     invalid_experiment = load_json(project_root / "shared/fixtures/contracts/valid/experiment.json")

@@ -24,9 +24,9 @@ FORMAT_CHECKER = FormatChecker()
 
 @FORMAT_CHECKER.checks("date-time")
 def is_rfc3339_datetime(value: object) -> bool:
-    return isinstance(value, str) and rfc3339_validator.validate_rfc3339(
-        _normalize_rfc3339_datetime(value)
-    )
+    if not isinstance(value, str) or "\r" in value or "\n" in value:
+        return False
+    return rfc3339_validator.validate_rfc3339(_normalize_rfc3339_datetime(value))
 
 
 @pytest.fixture(scope="session")

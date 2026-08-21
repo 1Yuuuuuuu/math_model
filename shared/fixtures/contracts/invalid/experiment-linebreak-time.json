@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "exp_model_run",
+  "input_artifact_ids": ["art_raw_data"],
+  "code_artifact_id": "art_solve_code",
+  "parameters": {"max_iterations": 1000},
+  "random_seed": 20260910,
+  "environment": {
+    "python_version": "3.11",
+    "lock_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "started_at": "2026-09-10T09:00:00+08:00\n",
+  "finished_at": "2026-09-10T09:01:00+08:00",
+  "status": "succeeded",
+  "output_artifact_ids": ["art_result_table"],
+  "metrics": {"rmse": 0.125}
+}
