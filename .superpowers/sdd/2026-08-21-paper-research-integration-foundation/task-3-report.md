@@ -62,3 +62,21 @@ After adding the schema and fixtures:
 ## Concerns
 
 No implementation concerns. Catalog registration is intentionally deferred to Task 4.
+
+## Review fix round 1
+
+Addressed the review finding that citation-specific ID and locator newline behavior was not covered by the boundary matrix. Added these four cases to `PATTERN_FIELD_CASES` in `tests/contracts/test_contract_boundaries.py`:
+
+- `citation-link.citation_id`
+- `citation-link.claim_id`
+- `citation-link.source_id`
+- `citation-link.locator.value`
+
+Command and result:
+
+```text
+.venv\Scripts\python.exe -m pytest tests/contracts/test_citation_link.py tests/contracts/test_contract_boundaries.py -v -p no:cacheprovider
+196 passed in 0.36s
+```
+
+The expanded parametrized test now executes both LF and CR rejection for all four citation fields.
