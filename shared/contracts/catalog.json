@@ -6,6 +6,18 @@
       "schema": "shared/contracts/error.schema.json",
       "valid_examples": ["shared/fixtures/contracts/valid/error.json"],
       "invalid_examples": ["shared/fixtures/contracts/invalid/error-missing-code.json"]
+    },
+    {
+      "id": "artifact",
+      "schema": "shared/contracts/artifact.schema.json",
+      "valid_examples": ["shared/fixtures/contracts/valid/artifact.json"],
+      "invalid_examples": ["shared/fixtures/contracts/invalid/artifact-absolute-path.json"]
+    },
+    {
+      "id": "experiment",
+      "schema": "shared/contracts/experiment.schema.json",
+      "valid_examples": ["shared/fixtures/contracts/valid/experiment.json"],
+      "invalid_examples": ["shared/fixtures/contracts/invalid/experiment-missing-input.json"]
     }
   ]
 }

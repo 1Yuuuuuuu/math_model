@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cumcm.local/contracts/experiment.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "experiment_id", "input_artifact_ids", "code_artifact_id", "parameters", "random_seed", "environment", "started_at", "finished_at", "status", "output_artifact_ids", "metrics"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "experiment_id": {"type": "string", "pattern": "^exp_[a-z0-9][a-z0-9_-]{2,63}$"},
+    "input_artifact_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^art_[a-z0-9][a-z0-9_-]{2,63}$"}},
+    "code_artifact_id": {"type": "string", "pattern": "^art_[a-z0-9][a-z0-9_-]{2,63}$"},
+    "parameters": {"type": "object"},
+    "random_seed": {"type": ["integer", "null"]},
+    "environment": {"type": "object", "additionalProperties": false, "required": ["python_version", "lock_sha256"], "properties": {"python_version": {"const": "3.11"}, "lock_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}},
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["succeeded", "failed", "cancelled"]},
+    "output_artifact_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^art_[a-z0-9][a-z0-9_-]{2,63}$"}},
+    "metrics": {"type": "object", "additionalProperties": {"type": "number"}}
+  }
+}
