@@ -1,6 +1,7 @@
 import sys
 
-sys.dont_write_bytecode = True
+if __name__ == "__main__":
+    sys.dont_write_bytecode = True
 
 import json
 import re
@@ -8,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, SchemaError, ValidationError
-from jsonschema.exceptions import _WrappedReferencingError
 from referencing import Registry
 from referencing.exceptions import Unresolvable
 
@@ -16,25 +16,43 @@ from referencing.exceptions import Unresolvable
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from scripts.contract_formats import FORMAT_CHECKER
+from scripts.contract_formats import FORMAT_CHECKER, is_cumcm_workspace_path
 
 
 CONTRACT_ID = re.compile(r"[a-z][a-z0-9_-]*\Z")
 OFFLINE_REGISTRY = Registry()
 READ_ERRORS = (OSError, UnicodeDecodeError, json.JSONDecodeError)
-VALIDATION_ERRORS = (SchemaError, ValidationError, Unresolvable, _WrappedReferencingError)
+VALIDATION_ERRORS = (SchemaError, ValidationError, Unresolvable)
+
+
+def _reject_nonstandard_json_constant(value: str) -> None:
+    raise json.JSONDecodeError("non-standard JSON constant", value, 0)
 
 
 def load_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.loads(
+        path.read_text(encoding="utf-8"),
+        parse_constant=_reject_nonstandard_json_constant,
+    )
 
 
 def resolve_catalog_path(root: Path, relative_path: object) -> Path:
     if not isinstance(relative_path, str) or not relative_path:
         raise ValueError("catalog path must be a non-empty workspace-relative string")
     candidate_path = Path(relative_path)
-    if "\\" in relative_path or candidate_path.is_absolute() or candidate_path.drive:
+    portable = is_cumcm_workspace_path(relative_path)
+    if not portable and (
+        "\\" in relative_path
+        or relative_path.startswith("/")
+        or candidate_path.is_absolute()
+        or candidate_path.drive
+        or re.match(r"[A-Za-z]:", relative_path)
+    ):
         raise ValueError(f"catalog path must be workspace-relative: {relative_path}")
+    if not portable and ".." in relative_path.split("/"):
+        raise ValueError(f"catalog path escapes workspace: {relative_path}")
+    if not portable:
+        raise ValueError(f"catalog path must be portable: {relative_path}")
 
     resolved_root = root.resolve()
     resolved_path = (root / candidate_path).resolve()
@@ -126,6 +144,8 @@ def validate_catalog(root: Path) -> tuple[list[str], int]:
 
     if not isinstance(catalog, dict):
         return ["catalog: top-level value must be an object"], 0
+    if catalog.get("catalog_version") != "1.0":
+        return ["catalog: catalog_version must be the string 1.0"], 0
     if "contracts" not in catalog:
         return ["catalog: missing required property: contracts"], 0
     entries = catalog["contracts"]

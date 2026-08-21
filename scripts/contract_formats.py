@@ -9,6 +9,9 @@ from jsonschema import FormatChecker
 
 _LEAP_SECOND = re.compile(r"(?<=T\d{2}:\d{2}:)60(?=(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$)")
 _DNS_LABEL = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\Z")
+_DRIVE_PREFIX = re.compile(r"[A-Za-z]:")
+_WINDOWS_FORBIDDEN = frozenset('<>:"|?*')
+_WINDOWS_RESERVED = re.compile(r"(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])\Z", re.IGNORECASE)
 
 
 def _normalize_rfc3339_datetime(value: str) -> str:
@@ -51,6 +54,28 @@ def _is_bracketed_ipv6_netloc(netloc: str) -> bool:
     return True
 
 
+def is_cumcm_workspace_path(value: object) -> bool:
+    if not isinstance(value, str) or not value:
+        return False
+    if value.startswith("/") or "\\" in value or _DRIVE_PREFIX.match(value):
+        return False
+    if any(unicodedata.category(character) == "Cc" for character in value):
+        return False
+
+    segments = value.split("/")
+    for segment in segments:
+        if not segment or segment in {".", ".."}:
+            return False
+        if any(character in _WINDOWS_FORBIDDEN for character in segment):
+            return False
+        if segment.endswith((".", " ")):
+            return False
+        basename = segment.split(".", 1)[0]
+        if _WINDOWS_RESERVED.fullmatch(basename):
+            return False
+    return True
+
+
 FORMAT_CHECKER = FormatChecker()
 
 
@@ -85,3 +110,8 @@ def is_cumcm_http_url(value: object) -> bool:
     if parts.netloc.startswith("["):
         return _is_bracketed_ipv6_netloc(parts.netloc)
     return _is_dns_or_ipv4_hostname(hostname)
+
+
+@FORMAT_CHECKER.checks("cumcm-workspace-path")
+def is_workspace_path_format(value: object) -> bool:
+    return is_cumcm_workspace_path(value)

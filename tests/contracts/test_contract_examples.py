@@ -1,11 +1,10 @@
-import json
 from pathlib import Path
 
 import pytest
 from jsonschema import Draft202012Validator, ValidationError
 
 from scripts.contract_formats import FORMAT_CHECKER
-from scripts.validate_contracts import make_validator
+from scripts.validate_contracts import load_json, make_validator
 
 
 NAMED_INVALID_EXPECTATIONS = {
@@ -33,28 +32,26 @@ NAMED_INVALID_EXPECTATIONS = {
 
 def test_catalog_examples_match_their_schemas(project_root) -> None:
     catalog_path = project_root / "shared/contracts/catalog.json"
-    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    catalog = load_json(catalog_path)
 
     for entry in catalog["contracts"]:
-        schema = json.loads((project_root / entry["schema"]).read_text(encoding="utf-8"))
+        schema = load_json(project_root / entry["schema"])
         Draft202012Validator.check_schema(schema)
         validator = make_validator(schema)
         assert validator.format_checker is FORMAT_CHECKER
 
         for relative_path in entry["valid_examples"]:
-            fixture = json.loads((project_root / relative_path).read_text(encoding="utf-8"))
+            fixture = load_json(project_root / relative_path)
             validator.validate(fixture)
 
         for relative_path in entry["invalid_examples"]:
-            fixture = json.loads((project_root / relative_path).read_text(encoding="utf-8"))
+            fixture = load_json(project_root / relative_path)
             with pytest.raises(ValidationError):
                 validator.validate(fixture)
 
 
 def test_each_invalid_fixture_fails_once_for_its_named_rule(project_root: Path) -> None:
-    catalog = json.loads(
-        (project_root / "shared/contracts/catalog.json").read_text(encoding="utf-8")
-    )
+    catalog = load_json(project_root / "shared/contracts/catalog.json")
     catalog_invalid_paths = {
         relative_path
         for entry in catalog["contracts"]
@@ -63,11 +60,11 @@ def test_each_invalid_fixture_fails_once_for_its_named_rule(project_root: Path) 
     assert set(NAMED_INVALID_EXPECTATIONS) == catalog_invalid_paths
 
     for entry in catalog["contracts"]:
-        schema = json.loads((project_root / entry["schema"]).read_text(encoding="utf-8"))
+        schema = load_json(project_root / entry["schema"])
         validator = make_validator(schema)
         for relative_path in entry["invalid_examples"]:
             expected_path, expected_validator = NAMED_INVALID_EXPECTATIONS[relative_path]
-            fixture = json.loads((project_root / relative_path).read_text(encoding="utf-8"))
+            fixture = load_json(project_root / relative_path)
             errors = list(validator.iter_errors(fixture))
 
             assert len(errors) == 1, relative_path

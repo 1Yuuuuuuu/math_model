@@ -6,11 +6,20 @@
   "required": ["schema_version", "artifact_id", "kind", "path", "sha256", "created_at", "source_artifact_ids"],
   "properties": {
     "schema_version": {"const": "1.0"},
-    "artifact_id": {"type": "string", "pattern": "^art_[a-z0-9][a-z0-9_-]{2,63}$"},
+    "artifact_id": {"type": "string", "pattern": "^art_[a-z0-9][a-z0-9_-]{2,63}(?![\\s\\S])"},
     "kind": {"enum": ["data", "code", "figure", "table", "latex", "pdf", "report", "config", "other"]},
-    "path": {"type": "string", "pattern": "^(?!.*[\\r\\n])(?![A-Za-z]:)(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"},
-    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "path": {
+      "type": "string",
+      "allOf": [
+        {"pattern": "^(?![A-Za-z]:)(?!/)(?!.*\\\\)(?!.*[<>:\"|?*])(?!.*[\\u0000-\\u001F\\u007F-\\u009F])(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|(?![\\s\\S])))(?!.*[. ](?:/|(?![\\s\\S]))).+(?![\\s\\S])"},
+        {
+          "if": {"pattern": "^(?![A-Za-z]:)(?!/)(?!.*\\\\)(?!.*[<>:\"|?*])(?!.*[\\u0000-\\u001F\\u007F-\\u009F])(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|(?![\\s\\S])))(?!.*[. ](?:/|(?![\\s\\S]))).+(?![\\s\\S])"},
+          "then": {"format": "cumcm-workspace-path"}
+        }
+      ]
+    },
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}(?![\\s\\S])"},
     "created_at": {"type": "string", "format": "date-time"},
-    "source_artifact_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^art_[a-z0-9][a-z0-9_-]{2,63}$"}}
+    "source_artifact_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^art_[a-z0-9][a-z0-9_-]{2,63}(?![\\s\\S])"}}
   }
 }

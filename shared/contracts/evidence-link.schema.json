@@ -6,17 +6,17 @@
   "required": ["schema_version", "claim_id", "claim_text", "artifact_id", "experiment_id", "locator", "boundary"],
   "properties": {
     "schema_version": {"const": "1.0"},
-    "claim_id": {"type": "string", "pattern": "^clm_[a-z0-9][a-z0-9_-]{2,63}$"},
+    "claim_id": {"type": "string", "pattern": "^clm_[a-z0-9][a-z0-9_-]{2,63}(?![\\s\\S])"},
     "claim_text": {"type": "string", "minLength": 1},
-    "artifact_id": {"type": "string", "pattern": "^art_[a-z0-9][a-z0-9_-]{2,63}$"},
-    "experiment_id": {"type": "string", "pattern": "^exp_[a-z0-9][a-z0-9_-]{2,63}$"},
+    "artifact_id": {"type": "string", "pattern": "^art_[a-z0-9][a-z0-9_-]{2,63}(?![\\s\\S])"},
+    "experiment_id": {"type": "string", "pattern": "^exp_[a-z0-9][a-z0-9_-]{2,63}(?![\\s\\S])"},
     "locator": {
       "type": "object",
       "additionalProperties": false,
       "required": ["kind", "value"],
       "properties": {
         "kind": {"enum": ["json_pointer", "csv_cell", "file_region", "figure", "table"]},
-        "value": {"type": "string", "pattern": "^(?!.*[\\r\\n]).+$"}
+        "value": {"type": "string", "pattern": "^(?!.*[\\r\\n]).+(?![\\s\\S])"}
       }
     },
     "boundary": {"type": "string", "minLength": 1}

@@ -31,8 +31,11 @@
 | --- | --- | --- | --- |
 | `schema_version` | 所有契约对象的协议版本，决定 Schema 与消费者解释方式。 | 发生破坏性变更时。 | `"schema_version": "1.0"` |
 | `manifest_version` | 仅 `asset-manifest` 的清单组织版本，描述资产列表结构。 | 清单结构本身发生版本化变更时；若也影响消费者兼容性，仍需同步处理 `schema_version`。 | `"manifest_version": "1.0"` |
+| `catalog_version` | 契约目录自身的结构版本，决定验证器如何解释目录条目。 | 目录结构发生不兼容变化时；消费者必须先升级，再接受新版本。 | `"catalog_version": "1.0"` |
 
 因此，改变资产清单结构时不能只提高 `manifest_version` 来规避迁移；只要 Codex 或 DSH 对对象的解释不再兼容，就需要新的 `schema_version` 和完整迁移流程。
+
+验证器对未知、缺失或类型错误的 `catalog_version` 关闭失败，不能乐观读取。收紧可移植路径规则同样可能让旧对象失效：迁移时必须扫描并重命名 Windows 保留设备名、禁用字符、空路径段和段尾点或空格，再执行双端契约回归。
 
 ## 核验年度规则来源
 

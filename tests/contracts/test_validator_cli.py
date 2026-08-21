@@ -64,6 +64,80 @@ def test_validator_returns_stable_json_for_a_malformed_catalog(project_root, tmp
     assert payload["errors"][0].startswith("catalog:")
 
 
+def test_validator_rejects_nonstandard_json_constants_in_catalog_schema_and_fixture(
+    project_root, tmp_path
+) -> None:
+    cases = (
+        ("shared/contracts/catalog.json", '"catalog_version": "1.0"', '"catalog_version": NaN', 0),
+        ("shared/contracts/error.schema.json", '"title": "Tool error envelope"', '"title": Infinity', 9),
+        (
+            "shared/fixtures/contracts/valid/error.json",
+            '"recoverable":true',
+            '"recoverable":-Infinity',
+            9,
+        ),
+    )
+    for index, (relative_path, old, new, expected_count) in enumerate(cases):
+        sandbox = make_sandbox(project_root, tmp_path / str(index))
+        path = sandbox / relative_path
+        source = path.read_text(encoding="utf-8")
+        assert old in source
+        path.write_text(source.replace(old, new, 1), encoding="utf-8")
+
+        result = run_validator(sandbox)
+
+        assert result.returncode == 1
+        assert "Traceback" not in result.stderr
+        payload = json.loads(result.stdout)
+        assert payload["status"] == "failed"
+        assert payload["contracts"] == expected_count
+        assert len(payload["errors"]) == 1
+
+
+def test_validator_requires_supported_catalog_version(project_root, tmp_path) -> None:
+    for index, version in enumerate((None, "2.0", 1.0)):
+        sandbox = make_sandbox(project_root, tmp_path / str(index))
+        catalog_path = sandbox / "shared/contracts/catalog.json"
+        catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+        if version is None:
+            del catalog["catalog_version"]
+        else:
+            catalog["catalog_version"] = version
+        catalog_path.write_text(json.dumps(catalog), encoding="utf-8")
+
+        result = run_validator(sandbox)
+
+        assert result.returncode == 1
+        assert "Traceback" not in result.stderr
+        assert json.loads(result.stdout) == {
+            "status": "failed",
+            "contracts": 0,
+            "errors": ["catalog: catalog_version must be the string 1.0"],
+        }
+
+
+def test_importing_validator_as_a_library_does_not_change_bytecode_policy(project_root) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; "
+                "sys.dont_write_bytecode = False; "
+                "import scripts.validate_contracts; "
+                "print(sys.dont_write_bytecode)"
+            ),
+        ],
+        cwd=project_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "False"
+
+
 def test_validator_rejects_catalog_paths_that_escape_the_workspace(project_root, tmp_path) -> None:
     sandbox = make_sandbox(project_root, tmp_path)
     catalog_path = sandbox / "shared/contracts/catalog.json"

@@ -6,7 +6,7 @@
   "required": ["schema_version", "workspace_id", "stage", "gates", "latest_artifact_ids", "updated_at"],
   "properties": {
     "schema_version": {"const": "1.0"},
-    "workspace_id": {"type": "string", "pattern": "^ws_[a-z0-9][a-z0-9_-]{2,63}$"},
+    "workspace_id": {"type": "string", "pattern": "^ws_[a-z0-9][a-z0-9_-]{2,63}(?![\\s\\S])"},
     "stage": {"enum": ["intake", "model_design", "solve", "outline", "write", "review", "submission", "complete"]},
     "gates": {
       "type": "object",
@@ -22,7 +22,7 @@
     "latest_artifact_ids": {
       "type": "array",
       "uniqueItems": true,
-      "items": {"type": "string", "pattern": "^art_[a-z0-9][a-z0-9_-]{2,63}$"}
+      "items": {"type": "string", "pattern": "^art_[a-z0-9][a-z0-9_-]{2,63}(?![\\s\\S])"}
     },
     "updated_at": {"type": "string", "format": "date-time"}
   },
