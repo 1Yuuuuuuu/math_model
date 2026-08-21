@@ -255,7 +255,7 @@ uv run pytest tests/integration/test_evaluation_scenario.py tests/integration/te
 
 ```powershell
 uv run python scripts/package_codex_skills.py --check
-uv run pytest tests/snapshots/codex-skills tests/e2e/test_codex_modeling_flow.py -v
+uv run pytest tests/snapshots/codex-skills tests/e2e/test_codex_modeling_flow.py tests/e2e/test_literature_researcher_routing.py -v
 ```
 
 **Exit criteria:**
@@ -361,7 +361,7 @@ uv run pytest tests/e2e/test_review_isolation.py tests/e2e/test_revision_require
 
 ```powershell
 uv run pytest toolkit/tests/workflow -v
-uv run pytest tests/e2e/test_four_human_gates.py tests/e2e/test_resume_after_failure.py -v
+uv run pytest tests/e2e/test_four_human_gates.py tests/e2e/test_optional_literature_branch.py tests/e2e/test_resume_after_failure.py -v
 ```
 
 **Exit criteria:**
@@ -393,7 +393,7 @@ uv run pytest tests/e2e/test_four_human_gates.py tests/e2e/test_resume_after_fai
 
 ```powershell
 uv run python scripts/package_dsh_assets.py --check
-uv run pytest tests/contracts/test_codex_dsh_asset_parity.py -v
+uv run pytest tests/contracts/test_codex_dsh_asset_parity.py tests/e2e/test_dsh_real_composition.py -v
 ```
 
 在 DSH 仓库中运行：
@@ -428,6 +428,7 @@ pnpm run hygiene
 - `tests/e2e/test_full_evaluation_case.py`
 - `tests/e2e/test_full_prediction_case.py`
 - `tests/e2e/test_full_optimization_case.py`
+- `tests/e2e/test_historical_citation_provenance.py`
 - `docs/quality/regression-report-template.md`
 - `docs/quality/model-expansion-policy.md`
 
@@ -436,7 +437,7 @@ pnpm run hygiene
 **Verification:**
 
 ```powershell
-uv run pytest tests/e2e/test_full_evaluation_case.py tests/e2e/test_full_prediction_case.py tests/e2e/test_full_optimization_case.py -v
+uv run pytest tests/e2e/test_full_evaluation_case.py tests/e2e/test_full_prediction_case.py tests/e2e/test_full_optimization_case.py tests/e2e/test_historical_citation_provenance.py -v
 uv run python scripts/run_regression.py --suite representative
 ```
 
