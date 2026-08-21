@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cumcm.local/contracts/workflow-state.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "workspace_id", "stage", "gates", "latest_artifact_ids", "updated_at"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "workspace_id": {"type": "string", "pattern": "^ws_[a-z0-9][a-z0-9_-]{2,63}$"},
+    "stage": {"enum": ["intake", "model_design", "solve", "outline", "write", "review", "submission", "complete"]},
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gate_1_problem", "gate_2_model", "gate_3_outline", "gate_4_submission"],
+      "properties": {
+        "gate_1_problem": {"enum": ["pending", "approved", "rejected"]},
+        "gate_2_model": {"enum": ["pending", "approved", "rejected"]},
+        "gate_3_outline": {"enum": ["pending", "approved", "rejected"]},
+        "gate_4_submission": {"enum": ["pending", "approved", "rejected"]}
+      }
+    },
+    "latest_artifact_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^art_[a-z0-9][a-z0-9_-]{2,63}$"}
+    },
+    "updated_at": {"type": "string", "format": "date-time"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"stage": {"enum": ["model_design", "solve", "outline", "write", "review", "submission", "complete"]}}},
+      "then": {"properties": {"gates": {"properties": {"gate_1_problem": {"const": "approved"}}}}}
+    },
+    {
+      "if": {"properties": {"stage": {"enum": ["solve", "outline", "write", "review", "submission", "complete"]}}},
+      "then": {"properties": {"gates": {"properties": {"gate_2_model": {"const": "approved"}}}}}
+    },
+    {
+      "if": {"properties": {"stage": {"enum": ["write", "review", "submission", "complete"]}}},
+      "then": {"properties": {"gates": {"properties": {"gate_3_outline": {"const": "approved"}}}}}
+    },
+    {
+      "if": {"properties": {"stage": {"const": "complete"}}},
+      "then": {"properties": {"gates": {"properties": {"gate_4_submission": {"const": "approved"}}}}}
+    }
+  ]
+}

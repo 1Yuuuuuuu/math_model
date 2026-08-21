@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cumcm.local/contracts/evidence-link.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "claim_id", "claim_text", "artifact_id", "experiment_id", "locator", "boundary"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "claim_id": {"type": "string", "pattern": "^clm_[a-z0-9][a-z0-9_-]{2,63}$"},
+    "claim_text": {"type": "string", "minLength": 1},
+    "artifact_id": {"type": "string", "pattern": "^art_[a-z0-9][a-z0-9_-]{2,63}$"},
+    "experiment_id": {"type": "string", "pattern": "^exp_[a-z0-9][a-z0-9_-]{2,63}$"},
+    "locator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": {"enum": ["json_pointer", "csv_cell", "file_region", "figure", "table"]},
+        "value": {"type": "string", "pattern": "^(?!.*[\\r\\n]).+$"}
+      }
+    },
+    "boundary": {"type": "string", "minLength": 1}
+  }
+}

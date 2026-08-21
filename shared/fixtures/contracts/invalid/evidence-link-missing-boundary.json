@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "claim_id": "clm_rmse_result",
+  "claim_text": "The model achieved an RMSE of 0.125.",
+  "artifact_id": "art_result_table",
+  "experiment_id": "exp_prediction",
+  "locator": {
+    "kind": "table",
+    "value": "results.csv#row=1,column=rmse"
+  }
+}

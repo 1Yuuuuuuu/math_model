@@ -26,6 +26,24 @@
         "shared/fixtures/contracts/invalid/experiment-timezone-less.json",
         "shared/fixtures/contracts/invalid/experiment-linebreak-time.json"
       ]
+    },
+    {
+      "id": "evidence-link",
+      "schema": "shared/contracts/evidence-link.schema.json",
+      "valid_examples": ["shared/fixtures/contracts/valid/evidence-link.json"],
+      "invalid_examples": ["shared/fixtures/contracts/invalid/evidence-link-missing-boundary.json"]
+    },
+    {
+      "id": "decision",
+      "schema": "shared/contracts/decision.schema.json",
+      "valid_examples": ["shared/fixtures/contracts/valid/decision.json"],
+      "invalid_examples": ["shared/fixtures/contracts/invalid/decision-nonhuman.json"]
+    },
+    {
+      "id": "workflow-state",
+      "schema": "shared/contracts/workflow-state.schema.json",
+      "valid_examples": ["shared/fixtures/contracts/valid/workflow-state.json"],
+      "invalid_examples": ["shared/fixtures/contracts/invalid/workflow-state-skipped-gate.json"]
     }
   ]
 }
