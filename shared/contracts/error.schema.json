@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cumcm.local/contracts/error.schema.json",
+  "title": "Tool error envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "code", "message", "recoverable", "details"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$"},
+    "message": {"type": "string", "minLength": 1},
+    "recoverable": {"type": "boolean"},
+    "details": {"type": "object"}
+  }
+}

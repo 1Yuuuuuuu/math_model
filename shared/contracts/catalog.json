@@ -1,0 +1,11 @@
+{
+  "catalog_version": "1.0",
+  "contracts": [
+    {
+      "id": "error",
+      "schema": "shared/contracts/error.schema.json",
+      "valid_examples": ["shared/fixtures/contracts/valid/error.json"],
+      "invalid_examples": ["shared/fixtures/contracts/invalid/error-missing-code.json"]
+    }
+  ]
+}
