@@ -1,15 +1,28 @@
-import json
 import sys
+
+sys.dont_write_bytecode = True
+
+import json
+import re
 from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, SchemaError, ValidationError
+from jsonschema.exceptions import _WrappedReferencingError
+from referencing import Registry
+from referencing.exceptions import Unresolvable
 
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from scripts.contract_formats import FORMAT_CHECKER
+
+
+CONTRACT_ID = re.compile(r"[a-z][a-z0-9_-]*\Z")
+OFFLINE_REGISTRY = Registry()
+READ_ERRORS = (OSError, UnicodeDecodeError, json.JSONDecodeError)
+VALIDATION_ERRORS = (SchemaError, ValidationError, Unresolvable, _WrappedReferencingError)
 
 
 def load_json(path: Path) -> Any:
@@ -32,56 +45,125 @@ def resolve_catalog_path(root: Path, relative_path: object) -> Path:
     return resolved_path
 
 
+def make_validator(schema: Any) -> Draft202012Validator:
+    return Draft202012Validator(
+        schema,
+        format_checker=FORMAT_CHECKER,
+        registry=OFFLINE_REGISTRY,
+    )
+
+
+def validate_catalog_shape(root: Path, entries: list[Any]) -> list[str]:
+    errors: list[str] = []
+    required_fields = ("id", "schema", "valid_examples", "invalid_examples")
+
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            errors.append(f"catalog: contract entry at index {index} must be an object")
+            continue
+
+        contract_id = entry.get("id")
+        if not isinstance(contract_id, str) or not CONTRACT_ID.fullmatch(contract_id):
+            errors.append(
+                f"catalog: contract entry at index {index} id must be a non-empty lowercase ASCII identifier"
+            )
+            continue
+
+        missing = [field for field in required_fields if field not in entry]
+        if missing:
+            errors.append(f"{contract_id}: missing required catalog fields: {', '.join(missing)}")
+            continue
+
+        if not isinstance(entry["schema"], str) or not entry["schema"]:
+            errors.append(f"{contract_id}: schema must be a non-empty workspace-relative string")
+            continue
+
+        invalid_example_field = next(
+            (
+                field
+                for field in ("valid_examples", "invalid_examples")
+                if not isinstance(entry[field], list) or not entry[field]
+            ),
+            None,
+        )
+        if invalid_example_field is not None:
+            errors.append(
+                f"{contract_id}: {invalid_example_field} must be a non-empty list of workspace-relative strings"
+            )
+            continue
+
+        non_string_example_field = next(
+            (
+                field
+                for field in ("valid_examples", "invalid_examples")
+                if any(not isinstance(path, str) or not path for path in entry[field])
+            ),
+            None,
+        )
+        if non_string_example_field is not None:
+            errors.append(
+                f"{contract_id}: {non_string_example_field} must contain only non-empty workspace-relative strings"
+            )
+            continue
+
+        try:
+            resolve_catalog_path(root, entry["schema"])
+            for field in ("valid_examples", "invalid_examples"):
+                for relative_path in entry[field]:
+                    resolve_catalog_path(root, relative_path)
+        except ValueError as exc:
+            errors.append(f"{contract_id}: {exc}")
+
+    return sorted(errors)
+
+
 def validate_catalog(root: Path) -> tuple[list[str], int]:
     catalog_path = root / "shared/contracts/catalog.json"
     try:
         catalog = load_json(catalog_path)
-    except (OSError, json.JSONDecodeError) as exc:
+    except READ_ERRORS as exc:
         return [f"catalog: {exc}"], 0
 
     if not isinstance(catalog, dict):
         return ["catalog: top-level value must be an object"], 0
-    entries = catalog.get("contracts", [])
-    if not isinstance(entries, list):
-        return ["catalog: contracts must be a list"], 0
+    if "contracts" not in catalog:
+        return ["catalog: missing required property: contracts"], 0
+    entries = catalog["contracts"]
+    if not isinstance(entries, list) or not entries:
+        return ["catalog: contracts must be a non-empty list"], 0
 
+    shape_errors = validate_catalog_shape(root, entries)
+    if shape_errors:
+        return shape_errors, len(entries)
+
+    typed_entries: list[dict[str, Any]] = entries
+    ids = [entry["id"] for entry in typed_entries]
     errors: list[str] = []
-    ids = [entry.get("id") if isinstance(entry, dict) else None for entry in entries]
     if len(ids) != len(set(ids)):
         errors.append("catalog: duplicate contract id")
 
-    for entry in entries:
-        if not isinstance(entry, dict):
-            errors.append("catalog: contract entry must be an object")
-            continue
-
-        contract_id = str(entry.get("id", "<missing-id>"))
+    for entry in typed_entries:
+        contract_id = entry["id"]
         try:
-            schema_path = resolve_catalog_path(root, entry["schema"])
-            schema = load_json(schema_path)
+            schema = load_json(resolve_catalog_path(root, entry["schema"]))
             Draft202012Validator.check_schema(schema)
-            validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
+            validator = make_validator(schema)
 
-            valid_examples = entry["valid_examples"]
-            invalid_examples = entry["invalid_examples"]
-            if not isinstance(valid_examples, list) or not isinstance(invalid_examples, list):
-                raise ValueError("catalog example paths must be lists")
-
-            for relative_path in valid_examples:
+            for relative_path in entry["valid_examples"]:
                 fixture = load_json(resolve_catalog_path(root, relative_path))
                 try:
                     validator.validate(fixture)
                 except ValidationError as exc:
                     errors.append(f"{contract_id}: valid fixture failed: {relative_path}: {exc.message}")
 
-            for relative_path in invalid_examples:
+            for relative_path in entry["invalid_examples"]:
                 fixture = load_json(resolve_catalog_path(root, relative_path))
                 try:
                     validator.validate(fixture)
                 except ValidationError:
                     continue
                 errors.append(f"{contract_id}: invalid fixture passed: {relative_path}")
-        except (KeyError, OSError, json.JSONDecodeError, SchemaError, ValueError) as exc:
+        except READ_ERRORS + VALIDATION_ERRORS + (ValueError,) as exc:
             errors.append(f"{contract_id}: {exc}")
 
     return sorted(errors), len(entries)

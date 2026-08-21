@@ -4,6 +4,7 @@ import pytest
 from jsonschema import Draft202012Validator, ValidationError
 
 from scripts.contract_formats import FORMAT_CHECKER
+from scripts.validate_contracts import make_validator
 
 
 def test_catalog_examples_match_their_schemas(project_root) -> None:
@@ -13,7 +14,8 @@ def test_catalog_examples_match_their_schemas(project_root) -> None:
     for entry in catalog["contracts"]:
         schema = json.loads((project_root / entry["schema"]).read_text(encoding="utf-8"))
         Draft202012Validator.check_schema(schema)
-        validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
+        validator = make_validator(schema)
+        assert validator.format_checker is FORMAT_CHECKER
 
         for relative_path in entry["valid_examples"]:
             fixture = json.loads((project_root / relative_path).read_text(encoding="utf-8"))
