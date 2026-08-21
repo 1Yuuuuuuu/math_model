@@ -10,7 +10,7 @@ def test_validator_cli_reports_success(project_root) -> None:
 
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
-    assert payload == {"status": "ok", "contracts": 9, "errors": []}
+    assert payload == {"status": "ok", "contracts": 11, "errors": []}
 
 
 def test_validator_reports_a_registered_invalid_fixture_that_becomes_valid(
@@ -28,7 +28,7 @@ def test_validator_reports_a_registered_invalid_fixture_that_becomes_valid(
     assert result.returncode == 1
     payload = json.loads(result.stdout)
     assert payload["status"] == "failed"
-    assert payload["contracts"] == 9
+    assert payload["contracts"] == 11
     assert payload["errors"] == [
         "error: invalid fixture passed: shared/fixtures/contracts/invalid/error-missing-code.json"
     ]
@@ -46,7 +46,7 @@ def test_validator_rejects_duplicate_catalog_ids(project_root, tmp_path) -> None
     assert result.returncode == 1
     payload = json.loads(result.stdout)
     assert payload["status"] == "failed"
-    assert payload["contracts"] == 10
+    assert payload["contracts"] == 12
     assert payload["errors"] == ["catalog: duplicate contract id"]
 
 
@@ -69,12 +69,12 @@ def test_validator_rejects_nonstandard_json_constants_in_catalog_schema_and_fixt
 ) -> None:
     cases = (
         ("shared/contracts/catalog.json", '"catalog_version": "1.0"', '"catalog_version": NaN', 0),
-        ("shared/contracts/error.schema.json", '"title": "Tool error envelope"', '"title": Infinity', 9),
+        ("shared/contracts/error.schema.json", '"title": "Tool error envelope"', '"title": Infinity', 11),
         (
             "shared/fixtures/contracts/valid/error.json",
             '"recoverable":true',
             '"recoverable":-Infinity',
-            9,
+            11,
         ),
     )
     for index, (relative_path, old, new, expected_count) in enumerate(cases):
@@ -150,7 +150,7 @@ def test_validator_rejects_catalog_paths_that_escape_the_workspace(project_root,
     assert result.returncode == 1
     payload = json.loads(result.stdout)
     assert payload["status"] == "failed"
-    assert payload["contracts"] == 9
+    assert payload["contracts"] == 11
     assert payload["errors"] == ["error: catalog path escapes workspace: ../outside.json"]
 
 
@@ -166,7 +166,7 @@ def test_validator_rejects_absolute_catalog_paths(project_root, tmp_path) -> Non
     assert result.returncode == 1
     payload = json.loads(result.stdout)
     assert payload["status"] == "failed"
-    assert payload["contracts"] == 9
+    assert payload["contracts"] == 11
     assert payload["errors"] == [
         f"error: catalog path must be workspace-relative: {catalog['contracts'][0]['schema']}"
     ]
@@ -191,7 +191,7 @@ def test_validator_rejects_superscript_windows_device_catalog_paths(
         payload = json.loads(result.stdout)
         assert payload == {
             "status": "failed",
-            "contracts": 9,
+            "contracts": 11,
             "errors": [f"error: catalog path must be portable: {invalid_path}"],
         }
 
@@ -244,7 +244,7 @@ def test_validator_rejects_non_object_contract_entries(project_root, tmp_path) -
 
     assert result.returncode == 1
     payload = json.loads(result.stdout)
-    assert payload["contracts"] == 9
+    assert payload["contracts"] == 11
     assert payload["errors"] == ["catalog: contract entry at index 0 must be an object"]
     assert "Traceback" not in result.stderr
 
@@ -325,7 +325,7 @@ def test_validator_reports_invalid_utf8_schema_and_fixture_without_traceback(pro
 
         assert result.returncode == 1
         payload = json.loads(result.stdout)
-        assert payload["contracts"] == 9
+        assert payload["contracts"] == 11
         assert payload["status"] == "failed"
         assert len(payload["errors"]) == 1
         assert payload["errors"][0].startswith("error:")

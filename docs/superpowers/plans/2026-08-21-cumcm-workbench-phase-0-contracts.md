@@ -809,7 +809,7 @@ git commit -m "docs: define contract governance and acceptance gate"
 **Interfaces:**
 
 - Consumes: committed Phase 0 repository.
-- Produces: verified commit hash and the exact stable interfaces required to write the Phase 1 detailed plan.
+- Produces: verified commit hash and the exact stable interfaces required to write the Phase 0A detailed plan.
 
 - [ ] **Step 1: Verify repository cleanliness and commit history**
 
@@ -848,10 +848,10 @@ Expected: all tests PASS and validator reports 9 contracts with zero errors.
 
 Temporarily change the valid artifact fixture path from `data/input.csv` to `E:/data/input.csv`, run `uv run python scripts/validate_contracts.py`, and verify exit code `1` with an artifact validation error. Restore the original fixture using an editor patch, rerun the validator, and verify exit code `0`. Do not commit the temporary regression.
 
-- [ ] **Step 5: Handoff exact Phase 1 inputs**
+- [ ] **Step 5: Handoff exact Phase 0A inputs**
 
-Report the final commit hash, Python version, uv version, contract count, contract catalog path, validator command and any environment limitation. Phase 1 planning may begin only when the worktree is clean and all Phase 0 checks pass.
+Report the final commit hash, Python version, uv version, nine-contract count, contract catalog path, validator command and any environment limitation. Phase 0A planning may begin only when the worktree is clean and all Phase 0 checks pass.
 
 ## Phase 0 completion criteria
 
-Phase 0 is complete only when all eight tasks are committed, the full contract test suite passes, the read-only validator reports nine contracts and zero errors, the regression probe proves the validator can fail, and the repository is clean. Passing these conditions authorizes creation of the Phase 1 detailed plan; it does not authorize Phase 1 implementation without a separate user instruction.
+Phase 0 is complete only when all eight tasks are committed, the full contract test suite passes, the read-only validator reports nine contracts and zero errors, the regression probe proves the validator can fail, and the repository is clean. Passing these conditions authorizes creation of the Phase 0A detailed plan; it does not authorize Phase 0A implementation without a separate user instruction.

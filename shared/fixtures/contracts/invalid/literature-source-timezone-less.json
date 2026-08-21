@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "source_id": "src_timezone_less",
+  "title": "Synthetic source with timezone-less retrieval time",
+  "authors": ["Example Author"],
+  "year": 2026,
+  "venue_or_repository": "Synthetic search repository",
+  "identifiers": {},
+  "canonical_url": "https://example.invalid/timezone-less",
+  "retrieved_at": "2026-08-21T09:45:00",
+  "retrieval_backend": "paper-search",
+  "verification_status": "candidate",
+  "artifact_ids": [],
+  "content_sha256": null
+}

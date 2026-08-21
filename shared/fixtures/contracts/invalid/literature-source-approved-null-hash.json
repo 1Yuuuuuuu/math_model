@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "source_id": "src_approved_null_hash",
+  "title": "Synthetic approved source with null hash",
+  "authors": ["Example Author"],
+  "year": 2026,
+  "venue_or_repository": "Synthetic repository",
+  "identifiers": {},
+  "canonical_url": "https://example.invalid/approved-null-hash",
+  "retrieved_at": "2026-08-21T09:25:00+08:00",
+  "retrieval_backend": "user-provided",
+  "verification_status": "approved",
+  "artifact_ids": ["art_approved_null_hash"],
+  "content_sha256": null,
+  "decision_id": "dec_outline_null_hash"
+}

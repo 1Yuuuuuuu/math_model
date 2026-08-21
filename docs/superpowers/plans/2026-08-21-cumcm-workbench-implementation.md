@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 分九个可独立验收的阶段，建设一套以 Codex 为主要入口、兼容 DeepSeek Harness、可追溯并具备独立论文审批能力的国赛数学建模工作台。
+**Goal:** 按阶段 0–8 及不重编号的 Phase 0A 建设一套以 Codex 为主要入口、兼容 DeepSeek Harness、可追溯并具备独立论文审批能力的国赛数学建模工作台。
 
 **Architecture:** 开发仓库以 `shared/` 为唯一事实来源，`toolkit/` 提供 Python 确定性能力，`adapters/` 分别提供 Codex 与 DSH 适配。每个阶段先固定契约和验证，再让后续工具、Skill 与论文流程依赖该稳定接口。
 
@@ -23,18 +23,19 @@
 - 年度规则按年份、来源和核验日期维护；内部量表不得冒充官方评分权重。
 - 每道赛题使用独立工作区；比赛临时修改不得直接污染共享核心。
 - 每个阶段的详细计划只有在上一阶段验收通过后才定稿，以已验证接口为依据。
-- 当前目录尚未初始化 Git；阶段 0 的首个任务负责建立版本基线。
+- 仓库已经初始化；阶段 0 以九项契约建立历史基线，Phase 0A 追加 `literature-source` 与 `citation-link` 后将当前目录扩展为 11 项，并已完成论文与文献路线整合。
 
 ---
 
 ## Program structure
 
-本项目包含九个独立子计划。主计划只规定依赖、文件面和验收门；可直接执行的逐步任务写入对应阶段计划。
+本项目保留阶段 0–8 的编号，并在阶段 0 后加入不重编号的 Phase 0A。主计划只规定依赖、文件面和验收门；可直接执行的逐步任务写入对应阶段计划。
 
 | 阶段 | 子计划文件 | 依赖 | 独立交付物 |
 | --- | --- | --- | --- |
 | 0 规范与契约 | `docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-0-contracts.md` | 已批准总体设计 | 可验证的 Schema、样例、目录与变更规范 |
-| 1 可复现底座 | `docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-1-foundation.md` | 阶段 0 | 环境诊断、项目骨架、实验记录和最小 PDF |
+| Phase 0A 论文与文献整合底座 | `docs/superpowers/plans/2026-08-21-paper-research-integration-foundation.md` | 阶段 0 | `literature-source`、`citation-link` 与受控路由文档 |
+| 1 可复现底座 | `docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-1-foundation.md` | Phase 0A | 环境诊断、项目骨架、实验记录和最小 PDF |
 | 2 高频模型核心 | `docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-2-model-core.md` | 阶段 1 | 数据审计、统一模型运行、基线和敏感性能力 |
 | 3 Codex 建模 Skill | `docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-3-codex-skills.md` | 阶段 2 | 可追溯建模半链路 |
 | 4 论文生产线 | `docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-4-paper-pipeline.md` | 阶段 3 | 证据约束的 LaTeX 论文与 PDF |
@@ -45,7 +46,8 @@
 
 Program-level tracking:
 
-- [ ] 阶段 0：契约测试和只读验证器通过，批准进入阶段 1 规划。
+- [x] 阶段 0：九项基础契约的测试和只读验证器通过，完成向 Phase 0A 的历史交接。
+- [x] Phase 0A：论文与文献契约及路由文档通过，批准进入阶段 1 规划。
 - [ ] 阶段 1：新环境诊断、标准工作区和最小 PDF 通过，批准进入阶段 2 规划。
 - [ ] 阶段 2：评价、预测、优化代表场景通过，批准进入阶段 3 规划。
 - [ ] 阶段 3：Codex 建模半链路和资源一致性通过，批准进入阶段 4 规划。
@@ -78,7 +80,8 @@ Program-level tracking:
 
 ```mermaid
 flowchart LR
-    P0["0 契约"] --> P1["1 可复现底座"]
+    P0["0 契约"] --> P0A["Phase 0A 论文与文献底座"]
+    P0A --> P1["1 可复现底座"]
     P1 --> P2["2 模型核心"]
     P2 --> P3["3 Codex Skill"]
     P3 --> P4["4 论文生产"]
@@ -127,6 +130,35 @@ uv run python scripts/validate_contracts.py
 - 资产清单能够发现重复 ID、缺失文件和哈希不一致。
 - 文档说明破坏性契约变更的迁移与回归要求。
 
+## Phase 0A: Paper and literature integration foundation
+
+**Objective:** 在不创建运行时 Skill、检索 CLI 或 DSH 插件的前提下，固定论文与文献的共享契约、受控候选到人工批准路线，以及后续阶段的单一职责边界。
+
+**Primary files:**
+
+- `shared/contracts/literature-source.schema.json`
+- `shared/contracts/citation-link.schema.json`
+- `shared/fixtures/contracts/{valid,invalid}/literature-*.json`
+- `shared/fixtures/contracts/{valid,invalid}/citation-link*.json`
+- `shared/contracts/catalog.json`
+- `docs/architecture/contracts.md`
+- `docs/architecture/paper-skill-capability-matrix.md`
+- `docs/guides/paper-and-literature-workflow.md`
+- `tests/contracts/test_paper_integration_documentation.py`
+
+**Execution plan:** `docs/superpowers/plans/2026-08-21-paper-research-integration-foundation.md`
+
+**Verified inputs:** 阶段 0 的严格契约语义和当前 11 项契约目录；2026-08-21 的静态观察为三个个人 Skill 文件夹均存在、`paper-search` CLI 当前不可用、`cumcm_*` 运行时工具在所检会话中不可用或未确认。Task 1 的可复用盘点脚本已按用户指示跳过，Phase 0A 不依赖该脚本或盘点命令。
+
+**Exit criteria:**
+
+- `literature-source` 和 `citation-link` 具有正负样例并保持严格失败语义。
+- `cumcm-orchestrator` 明确为未来默认入口，`literature-researcher` 为按需子 Skill；两者均不得写成当前已安装能力。
+- `cumcm-paper` 与 `math-modeling-paper` 仅作为用户显式选择的 legacy 入口。
+- 候选文献只有在人工门 3 随提纲批准后才能形成正式引用，不新增第五个全局人工门。
+- Codex 为主要入口；DSH 通过后续打包消费同一 `shared/` 资产和契约。
+- Phase 0A 不提前创建 Phase 3、4、6、7 的可执行文件。
+
 ## Phase 1: Reproducible foundation
 
 **Objective:** 在全新 Windows 环境中诊断依赖、创建标准比赛工作区、记录实验并编译最小中文 PDF。
@@ -146,7 +178,7 @@ uv run python scripts/validate_contracts.py
 - `docs/operations/environment.md`
 - `docs/operations/workspace-layout.md`
 
-**Required detailed-plan inputs:** 阶段 0 的最终 Schema、实际探测到的 Python/uv/TeX 安装状态、选定的 MiKTeX 或 TeX Live 发行版。
+**Required detailed-plan inputs:** Phase 0A 的最终 Schema 与路由政策、实际探测到的 Python/uv/TeX 安装状态、选定的 MiKTeX 或 TeX Live 发行版。Phase 1 仅在 Phase 0A 验收完成后开始。
 
 **Verification:**
 
@@ -165,13 +197,16 @@ uv run pytest tests/integration/test_minimal_latex_build.py -v
 
 ## Phase 2: High-frequency model core
 
-**Objective:** 完成首批基础知识、模型卡以及评价、预测、优化共用的数据与实验工具。
+**Objective:** 完成首批基础知识、模型卡、文献检索与引用基础知识，以及评价、预测、优化共用的数据与实验工具。
 
 **Planned files:**
 
 - `shared/knowledge/foundations/*.md`
 - `shared/knowledge/model-cards/{data,evaluation,prediction,optimization,classification,statistics}/*.md`
 - `shared/knowledge/model-catalog.yaml`
+- `shared/knowledge/literature/search-strategy.md`
+- `shared/knowledge/literature/deduplication.md`
+- `shared/knowledge/literature/source-evaluation.md`
 - `toolkit/src/cumcm_toolkit/data/profile.py`
 - `toolkit/src/cumcm_toolkit/data/transform.py`
 - `toolkit/src/cumcm_toolkit/models/registry.py`
@@ -183,13 +218,15 @@ uv run pytest tests/integration/test_minimal_latex_build.py -v
 - `tests/integration/test_evaluation_scenario.py`
 - `tests/integration/test_prediction_scenario.py`
 - `tests/integration/test_optimization_scenario.py`
+- `tests/knowledge/test_literature_knowledge.py`
 
-**Required detailed-plan inputs:** 阶段 1 的工作区与实验接口、首批模型优先级统计、每个代表场景的合成数据与预期指标。
+**Required detailed-plan inputs:** 阶段 1 的工作区与实验接口、Phase 0A 的文献契约和受控路由政策、首批模型优先级统计、每个代表场景的合成数据与预期指标。
 
 **Verification:**
 
 ```powershell
 uv run pytest toolkit/tests/data toolkit/tests/models toolkit/tests/evaluation -v
+uv run pytest tests/knowledge/test_literature_knowledge.py -v
 uv run pytest tests/integration/test_evaluation_scenario.py tests/integration/test_prediction_scenario.py tests/integration/test_optimization_scenario.py -v
 ```
 
@@ -199,10 +236,15 @@ uv run pytest tests/integration/test_evaluation_scenario.py tests/integration/te
 - 三类代表场景均可从数据审计运行到结果导出。
 - 指标工具能识别至少一个数据泄漏或错误划分反例。
 - 敏感性输出包含扰动参数、范围、结果变化和稳定性结论所需数据。
+- 文献检索知识覆盖检索问题、中英文关键词、后端查询参数和候选用途，不把候选直接写成正式引用。
+- 去重规则按 DOI、规范化标题和来源标识形成确定性候选组；元数据冲突必须保持候选状态并交由人工核验，不能静默合并。
+- 来源评价规则区分元数据完整性、全文可用性、拟支持主张和支持边界；不得把引用量或期刊等级等同于来源质量或模型正确性。
+- 合成知识测试覆盖重复 DOI、规范化标题重复、标识冲突和仅有引用量信号的反例。
+- Phase 2 只交付共享知识与规则，不实现运行时 Skill；Codex `literature-researcher` 仍由 Phase 3 实现。
 
 ## Phase 3: Codex modeling skills
 
-**Objective:** 让 Codex 独立调用读题、数据审计、模型选择、求解和敏感性 Skill，形成可追溯建模半链路。
+**Objective:** 让 Codex 独立调用读题、数据审计、模型选择、求解、敏感性和按需文献研究 Skill，形成可追溯建模半链路与候选文献路由。
 
 **Planned files:**
 
@@ -211,29 +253,32 @@ uv run pytest tests/integration/test_evaluation_scenario.py tests/integration/te
 - `adapters/codex/skills/model-selector/`
 - `adapters/codex/skills/solver/`
 - `adapters/codex/skills/sensitivity-analyst/`
+- `adapters/codex/skills/literature-researcher/`
 - `scripts/package_codex_skills.py`
 - `tests/snapshots/codex-skills/`
 - `tests/e2e/test_codex_modeling_flow.py`
+- `tests/e2e/test_literature_researcher_routing.py`
 
-**Required detailed-plan inputs:** 阶段 2 的最终工具 CLI/API、模型目录和结构化结果样例。
+**Required detailed-plan inputs:** 阶段 2 的最终工具 CLI/API、模型目录、文献检索/去重/来源评价规则和结构化结果样例。
 
 **Verification:**
 
 ```powershell
 uv run python scripts/package_codex_skills.py --check
-uv run pytest tests/snapshots/codex-skills tests/e2e/test_codex_modeling_flow.py -v
+uv run pytest tests/snapshots/codex-skills tests/e2e/test_codex_modeling_flow.py tests/e2e/test_literature_researcher_routing.py -v
 ```
 
 **Exit criteria:**
 
 - 每个 Skill 的触发和不触发样例均通过。
 - Skill 缺少数据或工具失败时停止，不生成替代数值。
+- `literature-researcher` 通过触发、非触发、后端选择和无后端失败关闭测试；只输出候选文献，不批准引用。
 - 端到端建模半链路生成问题清单、候选模型、实验记录、结果和敏感性产物。
 - 打包后 Skill 自包含，且资源哈希与 `shared/` 一致。
 
 ## Phase 4: Evidence-bound paper pipeline
 
-**Objective:** 只使用固化结果和证据链生成提纲、正文、摘要、LaTeX 与 PDF。
+**Objective:** 只使用固化结果、实验与引用证据链生成提纲、正文、摘要、BibTeX、LaTeX 与 PDF。
 
 **Planned files:**
 
@@ -244,6 +289,9 @@ uv run pytest tests/snapshots/codex-skills tests/e2e/test_codex_modeling_flow.py
 - `toolkit/src/cumcm_toolkit/latex/lint.py`
 - `toolkit/src/cumcm_toolkit/pdf/inspect.py`
 - `toolkit/src/cumcm_toolkit/evidence/linker.py`
+- `toolkit/src/cumcm_toolkit/evidence/citation_linker.py`
+- `toolkit/src/cumcm_toolkit/latex/bibliography.py`
+- `toolkit/src/cumcm_toolkit/latex/citation_check.py`
 - `adapters/codex/skills/paper-outliner/`
 - `adapters/codex/skills/paper-writer/`
 - `adapters/codex/skills/latex-publisher/`
@@ -262,6 +310,7 @@ uv run pytest tests/e2e/test_paper_pipeline.py -v
 
 - 第三个人工门在论文正文生成前生效。
 - 摘要中的每个关键数值都能解析到证据 ID。
+- BibTeX/LaTeX 引用只能来自已批准的 `literature-source`，并由 `citation-check` 校验正文、参考文献、定位与 `citation-link` 一一对应。
 - LaTeX 编译无阻断错误、未定义引用或缺失图片。
 - PDF 页数、字体和空白页检查产生结构化报告。
 
@@ -311,6 +360,7 @@ uv run pytest tests/e2e/test_review_isolation.py tests/e2e/test_revision_require
 - `toolkit/src/cumcm_toolkit/workflow/state.py`
 - `toolkit/src/cumcm_toolkit/workflow/gates.py`
 - `tests/e2e/test_four_human_gates.py`
+- `tests/e2e/test_optional_literature_branch.py`
 - `tests/e2e/test_resume_after_failure.py`
 - `docs/competition/72-hour-playbook.md`
 - `docs/competition/recovery-playbook.md`
@@ -321,24 +371,26 @@ uv run pytest tests/e2e/test_review_isolation.py tests/e2e/test_revision_require
 
 ```powershell
 uv run pytest toolkit/tests/workflow -v
-uv run pytest tests/e2e/test_four_human_gates.py tests/e2e/test_resume_after_failure.py -v
+uv run pytest tests/e2e/test_four_human_gates.py tests/e2e/test_optional_literature_branch.py tests/e2e/test_resume_after_failure.py -v
 ```
 
 **Exit criteria:**
 
 - 未确认的人工门无法被总控跳过。
+- `cumcm-orchestrator` 仅在需要外部证据时启动可选文献分支；候选清单在人工门 3 随提纲批准，不新增第五个全局人工门。
 - 中断后能从最近固化阶段恢复，不重复覆盖有效产物。
 - 子 Skill 失败时状态保持一致并给出明确恢复动作。
 - 代表场景能从赛题运行到通过审批的 PDF。
 
 ## Phase 7: DeepSeek Harness adapter
 
-**Objective:** 在不复制开发源的前提下，为 DSH 提供同名 Skill、确定性 Tool 插件和真实组合测试。
+**Objective:** 在不复制开发源的前提下，为 DSH 提供同名 Skill、含显式网络权限的确定性搜索/读取 Tool 插件和真实组合测试。
 
 **Planned files:**
 
 - `adapters/dsh/skills/`
 - `adapters/dsh/plugins/cumcm-tools/`
+- `adapters/dsh/plugins/literature-tools/`
 - `adapters/dsh/presets/cumcm-agent/cordis.yml`
 - `scripts/package_dsh_assets.py`
 - `tests/contracts/test_codex_dsh_asset_parity.py`
@@ -351,7 +403,7 @@ uv run pytest tests/e2e/test_four_human_gates.py tests/e2e/test_resume_after_fai
 
 ```powershell
 uv run python scripts/package_dsh_assets.py --check
-uv run pytest tests/contracts/test_codex_dsh_asset_parity.py -v
+uv run pytest tests/contracts/test_codex_dsh_asset_parity.py tests/e2e/test_dsh_real_composition.py -v
 ```
 
 在 DSH 仓库中运行：
@@ -367,13 +419,14 @@ pnpm run hygiene
 **Exit criteria:**
 
 - DSH 通过 Tool 插件暴露稳定、校验严格的模型可调用能力。
+- DSH 提供与 Codex 语义一致的 `literature-researcher`，搜索/读取使用确定性 Tool 插件；网络访问、允许域与凭据权限必须显式配置并失败关闭。
 - `cordis.yml` 缺少必需配置时明确失败。
 - 产品可见插件通过 Loader 真实组合测试。
 - Codex 与 DSH 的共享资产哈希、契约版本和关键产物语义一致。
 
 ## Phase 8: Regression and controlled expansion
 
-**Objective:** 用合成场景和历年真题验证完整系统，再依据实际缺陷扩展模型与 Skill。
+**Objective:** 用合成场景和历年真题验证完整系统及引用相关性与来源 provenance，再依据实际缺陷扩展模型与 Skill。
 
 **Planned files:**
 
@@ -381,9 +434,11 @@ pnpm run hygiene
 - `shared/fixtures/scenarios/prediction/`
 - `shared/fixtures/scenarios/optimization/`
 - `shared/fixtures/historical/manifest.yaml`
+- `shared/fixtures/historical/citation-provenance.yaml`
 - `tests/e2e/test_full_evaluation_case.py`
 - `tests/e2e/test_full_prediction_case.py`
 - `tests/e2e/test_full_optimization_case.py`
+- `tests/e2e/test_historical_citation_provenance.py`
 - `docs/quality/regression-report-template.md`
 - `docs/quality/model-expansion-policy.md`
 
@@ -392,7 +447,7 @@ pnpm run hygiene
 **Verification:**
 
 ```powershell
-uv run pytest tests/e2e/test_full_evaluation_case.py tests/e2e/test_full_prediction_case.py tests/e2e/test_full_optimization_case.py -v
+uv run pytest tests/e2e/test_full_evaluation_case.py tests/e2e/test_full_prediction_case.py tests/e2e/test_full_optimization_case.py tests/e2e/test_historical_citation_provenance.py -v
 uv run python scripts/run_regression.py --suite representative
 ```
 
@@ -400,6 +455,7 @@ uv run python scripts/run_regression.py --suite representative
 
 - 三类完整场景均通过工具、Skill、论文和审批门禁。
 - 历年真题报告记录模型选择、失败点、审批分数和人工复核结论。
+- 历史案例回归由人工复核文献相关性、主张支持边界与来源 provenance，并验证 Codex/DSH 的引用降级语义一致。
 - 新模型只在真题频率或已观察缺陷证明需要时加入。
 - 回归发现的问题映射到具体工具、知识、Skill 或量表，不以笼统改写代替根因修复。
 
@@ -407,7 +463,7 @@ uv run python scripts/run_regression.py --suite representative
 
 | 里程碑 | 必须通过的门禁 | 可交付能力 |
 | --- | --- | --- |
-| M0 契约基线 | 阶段 0 全部测试 | 后续组件可共享稳定 Schema |
+| M0 契约与论文文献基线 | 阶段 0 与 Phase 0A 全部测试 | 后续组件可共享稳定 Schema 与受控引用路线 |
 | M1 可复现底座 | 阶段 1 全部测试 | 可创建工作区并编译最小 PDF |
 | M2 建模半链路 | 阶段 2–3 全部测试 | 可完成审计、选模、求解和敏感性 |
 | M3 完整 Codex 流程 | 阶段 4–6 全部测试 | 可经四个人工门产出审批 PDF |
@@ -418,11 +474,11 @@ uv run python scripts/run_regression.py --suite representative
 
 - 每个详细阶段计划必须引用本主计划与总体设计。
 - 每个任务遵循测试先行：先写失败测试，再实现最小行为，再运行相关门禁。
-- 每个任务形成独立、可审查的提交；当前仓库初始化后使用非交互 Git 命令。
+- 每个任务形成独立、可审查的提交，并使用非交互 Git 命令。
 - 阶段门未通过时，不创建依赖其未稳定接口的下一阶段详细计划。
 - 阶段验收由文件、命令输出、结构化报告和外部读取结果共同证明，不接受仅由 Skill 自述的“已通过”。
 - 任何范围扩展先更新总体设计，再更新主计划和受影响的阶段计划。
 
 ## Plan completion criteria
 
-本主计划完成不代表系统已经实现。只有阶段 0–8 的详细计划分别执行、验证并通过对应发布门，系统才达到总体设计中的完整验收标准。当前可执行入口是阶段 0 详细计划：`docs/superpowers/plans/2026-08-21-cumcm-workbench-phase-0-contracts.md`。
+本主计划完成不代表系统已经实现。只有 Phase 0A 以及阶段 0–8 的详细计划分别执行、验证并通过对应发布门，系统才达到总体设计中的完整验收标准。阶段 0 与 Phase 0A 已完成，当前目录登记 11 项契约；下一步是编写并审批阶段 1 详细计划。Phase 1 的实现仍须以该详细计划和单独授权为前提。

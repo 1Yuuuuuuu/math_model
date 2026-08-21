@@ -20,7 +20,7 @@ Select-String -Path shared/contracts/*.json,docs/architecture/contracts.md,docs/
 | 检查项 | 通过标准 | 失败时的处理 |
 | --- | --- | --- |
 | 契约测试 | `uv run pytest tests/contracts -v` 的 exit 0 | 修正 Schema、样例或文档后重新执行全部测试。 |
-| 验证器 | `uv run python scripts/validate_contracts.py` 的 exit 0，且 JSON 显示 `status = ok`、`contracts = 9`、`errors = []` | 不发布；按验证器返回的对象与路径修正，再从第一条命令重跑。 |
+| 验证器 | `uv run python scripts/validate_contracts.py` 的 exit 0，且 JSON 显示 `status = ok`、`contracts = 11`、`errors = []` | 不发布；按验证器返回的对象与路径修正，再从第一条命令重跑。 |
 | 目录与 JSON 边界 | `catalog_version` 必须是字符串 `1.0`；目录、Schema 和 fixtures 必须是严格 JSON，不含 `NaN`、`Infinity` 或 `-Infinity`；全部目录路径符合可移植工作区路径规则。 | 验证器 exit 1，输出稳定失败 JSON 且不得出现 traceback；未知目录版本按关闭失败处理。 |
 | 无效样例 | 每个无效样例必须仅因其命名原因失败。 | 若无效样例通过、或同时违反多项规则，拆分并修正样例或 Schema。 |
 | 未完成标记 | “未完成标记”扫描无输出。 | 删除标记并补齐相应内容，然后重新扫描。 |
@@ -28,9 +28,9 @@ Select-String -Path shared/contracts/*.json,docs/architecture/contracts.md,docs/
 
 ## 为什么要同时运行两类检查
 
-测试会检查具体边界，例如时区、路径、关卡顺序和格式校验；验证器则从 [契约目录](../../shared/contracts/catalog.json) 逐个加载九个登记对象，验证全部有效和无效样例。两者相互补足，而不是互相替代。
+测试会检查具体边界，例如时区、路径、关卡顺序和格式校验；验证器则从 [契约目录](../../shared/contracts/catalog.json) 逐个加载十一个登记对象，验证全部有效和无效样例。两者相互补足，而不是互相替代。
 
-例如，若把 `error-missing-code.json` 意外改成了完整错误对象，验证器会返回失败，因为一个应当失败的样例通过了。此时即使其他八个对象正常，整个关卡仍不得放行。
+例如，若把 `error-missing-code.json` 意外改成了完整错误对象，验证器会返回失败，因为一个应当失败的样例通过了。此时即使其他十个对象正常，整个关卡仍不得放行。
 
 ## 验证器的离线与只读边界
 

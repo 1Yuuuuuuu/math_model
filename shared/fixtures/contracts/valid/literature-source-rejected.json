@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "source_id": "src_rejected_comparison",
+  "title": "Synthetic rejected comparison source",
+  "authors": ["Rejected Author"],
+  "year": 2024,
+  "venue_or_repository": "Synthetic web repository",
+  "identifiers": {},
+  "canonical_url": "https://example.invalid/rejected-comparison",
+  "retrieved_at": "2026-08-21T09:15:00+08:00",
+  "retrieval_backend": "runtime-search",
+  "verification_status": "rejected",
+  "artifact_ids": [],
+  "content_sha256": null
+}

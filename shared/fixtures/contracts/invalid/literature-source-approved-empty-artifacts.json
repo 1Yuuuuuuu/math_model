@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "source_id": "src_approved_empty_artifacts",
+  "title": "Synthetic approved source with no artifact",
+  "authors": ["Example Author"],
+  "year": 2026,
+  "venue_or_repository": "Synthetic repository",
+  "identifiers": {},
+  "canonical_url": "https://example.invalid/approved-empty-artifacts",
+  "retrieved_at": "2026-08-21T09:20:00+08:00",
+  "retrieval_backend": "user-provided",
+  "verification_status": "approved",
+  "artifact_ids": [],
+  "content_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "decision_id": "dec_outline_empty_artifacts"
+}

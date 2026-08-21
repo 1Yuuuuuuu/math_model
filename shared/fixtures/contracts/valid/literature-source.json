@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "source_id": "src_synthetic_method",
+  "title": "Synthetic methodology source",
+  "authors": ["Example Author"],
+  "year": 2026,
+  "venue_or_repository": "Synthetic repository",
+  "identifiers": {"doi": "10.0000/example"},
+  "canonical_url": "https://example.invalid/synthetic-method",
+  "retrieved_at": "2026-08-21T09:00:00+08:00",
+  "retrieval_backend": "user-provided",
+  "verification_status": "approved",
+  "artifact_ids": ["art_synthetic_method"],
+  "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "decision_id": "dec_outline_sources"
+}

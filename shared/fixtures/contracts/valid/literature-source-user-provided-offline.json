@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "source_id": "src_offline_method_note",
+  "title": "Synthetic offline methodology note",
+  "authors": ["Example Author"],
+  "year": 2026,
+  "venue_or_repository": "User-provided synthetic document",
+  "identifiers": {},
+  "canonical_url": null,
+  "retrieved_at": "2026-08-21T09:05:00+08:00",
+  "retrieval_backend": "user-provided",
+  "verification_status": "approved",
+  "artifact_ids": ["art_offline_method_note"],
+  "content_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "decision_id": "dec_outline_offline_source"
+}

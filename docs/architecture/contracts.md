@@ -2,7 +2,7 @@
 
 > **前置约束。** `shared/` 是开发期的唯一事实来源。所有读取或写入契约的工具，必须按对应 Schema 和 `scripts/contract_formats.py` 的 `FORMAT_CHECKER` 校验；普通消费者不能忽略自定义格式校验。尤其是时间与年度规则来源 URL，不能仅靠 JSON Schema 的默认格式处理。
 
-本页说明九个可交换数据对象的用途与协作边界。可用 [契约目录](../../shared/contracts/catalog.json) 找到 Schema、有效样例和无效样例；字段的精确类型、枚举和正则表达式以 Schema 为准。
+本页说明十一个可交换数据对象的用途与协作边界。可用 [契约目录](../../shared/contracts/catalog.json) 找到 Schema、有效样例和无效样例；字段的精确类型、枚举和正则表达式以 Schema 为准。
 
 ## 先遵守通用表示规则
 
@@ -31,6 +31,16 @@
 | `review-finding` | 记录硬约束、复现、模型、论文或红队审查发现。 | 审批技能 → 修订与风险处置流程 | `finding_` | `schema_version`、`finding_id`、`review_gate`、`severity`、`summary`、`evidence_refs`、`recommendation`、`status` | 拒绝发现；没有证据引用或未定义严重性时不可据此阻断或放行。 | [review-finding.json](../../shared/fixtures/contracts/valid/review-finding.json) |
 | `annual-rule` | 保存某届规则的可核验来源与可执行条目。 | 规则核验流程 → 审批、交付检查 | `cumcm-`（规则集）与 `rule_`（条目） | `schema_version`、`rule_set_id`、`year`、`source_url`、`verified_at`、`items`；每个 `items[]` 还需 `rule_id`、`description`、`enforcement`、`blocking` | 拒绝该规则集，不能以其阻断交付或宣称符合规则。 | [annual-rule.json](../../shared/fixtures/contracts/valid/annual-rule.json) |
 | `asset-manifest` | 声明要交给 Codex 与 DSH 的共享资产。 | 打包流程 → Codex、DeepSeek Harness | 清单无独立对象 ID；资产为 `asset_` | `schema_version`、`manifest_version`、`assets`；每个 `assets[]` 还需 `asset_id`、`source_path`、`sha256`、`package_targets` | 拒绝清单；任一目标端不得使用未通过校验的资产。 | [asset-manifest.json](../../shared/fixtures/contracts/valid/asset-manifest.json) |
+| `literature-source` | 记录可追溯的文献来源、检索与核验状态。 | 文献检索流程 → 证据整理、论文写作 | `src_` | `schema_version`、`source_id`、`title`、`authors`、`year`、`venue_or_repository`、`identifiers`、`canonical_url`、`retrieved_at`、`retrieval_backend`、`verification_status`、`artifact_ids`、`content_sha256`；已批准来源还需 `decision_id` | 拒绝来源；不能据此建立经过批准的文献证据。 | [literature-source.json](../../shared/fixtures/contracts/valid/literature-source.json) |
+| `citation-link` | 将论文主张连到可定位的文献内容与支持边界。 | 证据整理工具 → 论文写作、审查 | `cite_` | `schema_version`、`citation_id`、`claim_id`、`source_id`、`usage`、`locator`、`support_boundary`、`verified_at`；`locator` 还需 `kind`、`value` | 拒绝引文；未定位或越过支持边界的主张不得引用该来源。 | [citation-link.json](../../shared/fixtures/contracts/valid/citation-link.json) |
+
+## 文献契约的跨记录边界
+
+`literature-source.canonical_url` 只有在 `retrieval_backend = user-provided` 时可以为 `null`，用于没有可伪造网络地址的离线用户文件；`paper-search` 与 `runtime-search` 记录仍必须提供通过 `cumcm-http-url` 校验的 HTTP(S) URL。
+
+当 `artifact_ids` 有多个条目时，`content_sha256` 表示用于引用核验的主检索内容（通常是主要 PDF 或规范化全文）的 SHA-256，而不是多个 artifact 哈希的拼接或聚合值。每个附属文件继续由自己的 `artifact.sha256` 记录；未来运行时应做逐 artifact 的交叉验证，不在当前字段中压缩多个哈希。
+
+以下约束需要解析多个记录，留给 Phase 4/6 的运行时校验：已批准来源的 `decision_id` 必须解析到 `gate = gate_3_outline` 的人工决定；每个 `citation-link.source_id` 必须解析到 `verification_status = approved` 的来源；`content_sha256` 必须与主检索 artifact 的实际哈希相符；提纲、主张、来源文件或定位修订后旧链接失效并重新核验。当前单记录 JSON Schema 不声称执行这些跨记录检查。
 
 ## 从样例开始验证
 
@@ -40,7 +50,7 @@
 uv run python scripts/validate_contracts.py
 ```
 
-输出成功时，九个已登记对象及其有效、无效样例都会被复核。无效样例只违反其文件名所表达的单一规则，因此适合在修改 Schema 后做回归检查。
+输出成功时，十一个已登记对象及其有效、无效样例都会被复核。无效样例只违反其文件名所表达的单一规则，因此适合在修改 Schema 后做回归检查。
 
 ## 年度规则样例的边界
 
