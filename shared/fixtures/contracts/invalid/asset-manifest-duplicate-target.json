@@ -1,0 +1,11 @@
+{
+  "manifest_version": "1.0",
+  "assets": [
+    {
+      "asset_id": "asset_model_card",
+      "source_path": "docs/model-card.md",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "package_targets": ["codex", "codex"]
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cumcm.local/contracts/asset-manifest.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["manifest_version", "assets"],
+  "properties": {
+    "manifest_version": {"const": "1.0"},
+    "assets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["asset_id", "source_path", "sha256", "package_targets"],
+        "properties": {
+          "asset_id": {"type": "string", "pattern": "^asset_[a-z0-9][a-z0-9_-]{2,63}$"},
+          "source_path": {"type": "string", "pattern": "^(?!.*[\\r\\n])(?![A-Za-z]:)(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"},
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "package_targets": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"enum": ["codex", "dsh"]}
+          }
+        }
+      }
+    }
+  }
+}

@@ -44,6 +44,24 @@
       "schema": "shared/contracts/workflow-state.schema.json",
       "valid_examples": ["shared/fixtures/contracts/valid/workflow-state.json"],
       "invalid_examples": ["shared/fixtures/contracts/invalid/workflow-state-skipped-gate.json"]
+    },
+    {
+      "id": "review-finding",
+      "schema": "shared/contracts/review-finding.schema.json",
+      "valid_examples": ["shared/fixtures/contracts/valid/review-finding.json"],
+      "invalid_examples": ["shared/fixtures/contracts/invalid/review-finding-bad-severity.json"]
+    },
+    {
+      "id": "annual-rule",
+      "schema": "shared/contracts/annual-rule.schema.json",
+      "valid_examples": ["shared/fixtures/contracts/valid/annual-rule.json"],
+      "invalid_examples": ["shared/fixtures/contracts/invalid/annual-rule-missing-source.json"]
+    },
+    {
+      "id": "asset-manifest",
+      "schema": "shared/contracts/asset-manifest.schema.json",
+      "valid_examples": ["shared/fixtures/contracts/valid/asset-manifest.json"],
+      "invalid_examples": ["shared/fixtures/contracts/invalid/asset-manifest-duplicate-target.json"]
     }
   ]
 }

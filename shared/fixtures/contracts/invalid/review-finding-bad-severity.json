@@ -1,0 +1,9 @@
+{
+  "finding_id": "finding_missing_sensitivity",
+  "review_gate": "model",
+  "severity": "critical",
+  "summary": "The model has no sensitivity analysis.",
+  "evidence_refs": ["clm_rmse_result"],
+  "recommendation": "Add and document a sensitivity analysis before review closes.",
+  "status": "open"
+}

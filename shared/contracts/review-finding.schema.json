@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cumcm.local/contracts/review-finding.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["finding_id", "review_gate", "severity", "summary", "evidence_refs", "recommendation", "status"],
+  "properties": {
+    "finding_id": {"type": "string", "pattern": "^finding_[a-z0-9][a-z0-9_-]{2,63}$"},
+    "review_gate": {"enum": ["hard", "reproducibility", "model", "paper", "red_team"]},
+    "severity": {"enum": ["S0", "S1", "S2", "S3"]},
+    "summary": {"type": "string", "minLength": 1},
+    "evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^clm_[a-z0-9][a-z0-9_-]{2,63}$"}
+    },
+    "recommendation": {"type": "string", "minLength": 1},
+    "status": {"enum": ["open", "resolved", "accepted_risk"]}
+  }
+}
