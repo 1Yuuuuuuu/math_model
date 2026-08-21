@@ -12,8 +12,8 @@
     "parameters": {"type": "object"},
     "random_seed": {"type": ["integer", "null"]},
     "environment": {"type": "object", "additionalProperties": false, "required": ["python_version", "lock_sha256"], "properties": {"python_version": {"const": "3.11"}, "lock_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}},
-    "started_at": {"type": "string", "format": "date-time"},
-    "finished_at": {"type": "string", "format": "date-time"},
+    "started_at": {"type": "string", "format": "date-time", "pattern": "(?:Z|[+-][0-9]{2}:[0-9]{2})$"},
+    "finished_at": {"type": "string", "format": "date-time", "pattern": "(?:Z|[+-][0-9]{2}:[0-9]{2})$"},
     "status": {"enum": ["succeeded", "failed", "cancelled"]},
     "output_artifact_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^art_[a-z0-9][a-z0-9_-]{2,63}$"}},
     "metrics": {"type": "object", "additionalProperties": {"type": "number"}}

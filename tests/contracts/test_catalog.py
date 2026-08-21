@@ -1,7 +1,7 @@
 import pytest
 from jsonschema import Draft202012Validator, ValidationError
 
-from conftest import load_json
+from conftest import FORMAT_CHECKER, load_json
 
 
 def test_catalog_paths_and_schemas_are_valid(project_root) -> None:
@@ -14,7 +14,7 @@ def test_catalog_paths_and_schemas_are_valid(project_root) -> None:
         assert schema_path.is_file()
         schema = load_json(schema_path)
         Draft202012Validator.check_schema(schema)
-        validator = Draft202012Validator(schema)
+        validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
         assert entry["valid_examples"]
         assert entry["invalid_examples"]
         assert all((project_root / path).is_file() for path in entry["valid_examples"])

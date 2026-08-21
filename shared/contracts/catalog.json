@@ -11,13 +11,19 @@
       "id": "artifact",
       "schema": "shared/contracts/artifact.schema.json",
       "valid_examples": ["shared/fixtures/contracts/valid/artifact.json"],
-      "invalid_examples": ["shared/fixtures/contracts/invalid/artifact-absolute-path.json"]
+      "invalid_examples": [
+        "shared/fixtures/contracts/invalid/artifact-absolute-path.json",
+        "shared/fixtures/contracts/invalid/artifact-parent-traversal.json"
+      ]
     },
     {
       "id": "experiment",
       "schema": "shared/contracts/experiment.schema.json",
       "valid_examples": ["shared/fixtures/contracts/valid/experiment.json"],
-      "invalid_examples": ["shared/fixtures/contracts/invalid/experiment-missing-input.json"]
+      "invalid_examples": [
+        "shared/fixtures/contracts/invalid/experiment-missing-input.json",
+        "shared/fixtures/contracts/invalid/experiment-timezone-less.json"
+      ]
     }
   ]
 }
