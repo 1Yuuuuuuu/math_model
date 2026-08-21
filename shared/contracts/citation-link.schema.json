@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cumcm.local/contracts/citation-link.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "citation_id", "claim_id", "source_id",
+    "usage", "locator", "support_boundary", "verified_at"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "citation_id": {"type": "string", "pattern": "^cite_[a-z0-9][a-z0-9_-]{2,63}(?![\\s\\S])"},
+    "claim_id": {"type": "string", "pattern": "^clm_[a-z0-9][a-z0-9_-]{2,63}(?![\\s\\S])"},
+    "source_id": {"type": "string", "pattern": "^src_[a-z0-9][a-z0-9_-]{2,63}(?![\\s\\S])"},
+    "usage": {"enum": ["background", "method", "baseline", "data", "limitation"]},
+    "locator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": {"enum": ["page", "section", "figure", "table", "paragraph"]},
+        "value": {"type": "string", "pattern": "^(?!.*[\\r\\n]).+(?![\\s\\S])"}
+      }
+    },
+    "support_boundary": {"type": "string", "minLength": 1},
+    "verified_at": {"type": "string", "format": "date-time"}
+  }
+}
