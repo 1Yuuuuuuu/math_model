@@ -4,11 +4,27 @@ from jsonschema import Draft202012Validator, ValidationError
 from conftest import FORMAT_CHECKER, load_json
 
 
+EXPECTED_CONTRACT_IDS = {
+    "error",
+    "artifact",
+    "experiment",
+    "evidence-link",
+    "decision",
+    "workflow-state",
+    "review-finding",
+    "annual-rule",
+    "asset-manifest",
+    "literature-source",
+    "citation-link",
+}
+
+
 def test_catalog_paths_and_schemas_are_valid(project_root) -> None:
     catalog = load_json(project_root / "shared/contracts/catalog.json")
     assert catalog["catalog_version"] == "1.0"
     ids = [entry["id"] for entry in catalog["contracts"]]
-    assert len(ids) == 9
+    assert set(ids) == EXPECTED_CONTRACT_IDS
+    assert len(ids) == 11
     assert len(ids) == len(set(ids))
     for entry in catalog["contracts"]:
         schema_path = project_root / entry["schema"]

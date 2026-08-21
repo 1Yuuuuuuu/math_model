@@ -68,7 +68,7 @@ def test_acceptance_gate_lists_exact_commands_and_operational_guarantees(project
         "uv run python scripts/validate_contracts.py",
         "exit 0",
         "status = ok",
-        "contracts = 9",
+        "contracts = 11",
         "errors = []",
         "未完成标记",
         "命名原因",

@@ -27,6 +27,8 @@ NAMED_INVALID_EXPECTATIONS = {
     "shared/fixtures/contracts/invalid/annual-rule-timezone-less.json": (("verified_at",), "format"),
     "shared/fixtures/contracts/invalid/annual-rule-userinfo-empty-host.json": (("source_url",), "format"),
     "shared/fixtures/contracts/invalid/asset-manifest-duplicate-target.json": (("assets", 0, "package_targets"), "uniqueItems"),
+    "shared/fixtures/contracts/invalid/literature-source-approved-without-decision.json": ((), "required"),
+    "shared/fixtures/contracts/invalid/citation-link-missing-locator.json": ((), "required"),
 }
 
 

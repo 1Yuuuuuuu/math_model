@@ -615,7 +615,7 @@ def test_validator_cli_reports_success(project_root) -> None:
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert payload["status"] == "ok"
-    assert payload["contracts"] == 9
+    assert payload["contracts"] == 11
     assert payload["errors"] == []
 ```
 
@@ -711,7 +711,7 @@ uv run pytest tests/contracts/test_contract_examples.py tests/contracts/test_val
 uv run python scripts/validate_contracts.py
 ```
 
-Expected: all tests PASS; CLI outputs `{"status": "ok", "contracts": 9, "errors": []}` with JSON spacing allowed to differ.
+Expected: all tests PASS; CLI outputs `{"status": "ok", "contracts": 11, "errors": []}` with JSON spacing allowed to differ.
 
 - [ ] **Step 5: Commit the validator**
 
@@ -731,7 +731,7 @@ git commit -m "test: add contract validation gate"
 
 **Interfaces:**
 
-- Consumes: all nine contracts and validator behavior.
+- Consumes: all eleven contracts and validator behavior.
 - Produces: maintainer-facing contract reference, phase gate, and migration policy used before later detailed plans are approved.
 
 - [ ] **Step 1: Write failing documentation tests**
@@ -774,7 +774,7 @@ Expected: FAIL because the three documents do not exist.
 
 `docs/architecture/contracts.md` must define each contract's purpose, producer, consumer, ID prefix, required fields, failure semantics and one valid fixture link. It must state that relative paths use `/` and all times include timezone offsets.
 
-`docs/quality/acceptance-gates.md` must list the two exact Phase 0 commands, expected zero exit codes, nine-contract count, unfinished-marker scan, and the requirement that each invalid fixture fails for its named reason.
+`docs/quality/acceptance-gates.md` must list the two exact Phase 0 commands, expected zero exit codes, eleven-contract count, unfinished-marker scan, and the requirement that each invalid fixture fails for its named reason.
 
 `docs/operations/change-policy.md` must classify additive optional fields as backward compatible; removing fields, changing types, narrowing enums, changing ID patterns, or changing semantics as breaking. Breaking changes require a new `schema_version`, migration script, old/new fixtures, Codex/DSH contract regression, documentation update and release note before consumers migrate.
 
@@ -790,7 +790,7 @@ Select-String -Path shared/contracts/*.json,docs/architecture/contracts.md,docs/
 git status --short
 ```
 
-Expected: tests PASS; validator returns status `ok` and 9 contracts; unfinished-marker search returns no matches; Git status lists only the Task 7 documentation and test before commit.
+Expected: tests PASS; validator returns status `ok` and 11 contracts; unfinished-marker search returns no matches; Git status lists only the Task 7 documentation and test before commit.
 
 - [ ] **Step 5: Commit Phase 0 documentation**
 
@@ -842,7 +842,7 @@ uv run pytest tests/contracts -v
 uv run python scripts/validate_contracts.py
 ```
 
-Expected: all tests PASS and validator reports 9 contracts with zero errors.
+Expected: all tests PASS and validator reports 11 contracts with zero errors.
 
 - [ ] **Step 4: Verify the validator detects a real regression**
 
@@ -854,4 +854,4 @@ Report the final commit hash, Python version, uv version, contract count, contra
 
 ## Phase 0 completion criteria
 
-Phase 0 is complete only when all eight tasks are committed, the full contract test suite passes, the read-only validator reports nine contracts and zero errors, the regression probe proves the validator can fail, and the repository is clean. Passing these conditions authorizes creation of the Phase 1 detailed plan; it does not authorize Phase 1 implementation without a separate user instruction.
+Phase 0 is complete only when all eight tasks are committed, the full contract test suite passes, the read-only validator reports eleven contracts and zero errors, the regression probe proves the validator can fail, and the repository is clean. Passing these conditions authorizes creation of the Phase 1 detailed plan; it does not authorize Phase 1 implementation without a separate user instruction.

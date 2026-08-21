@@ -70,6 +70,18 @@
       "schema": "shared/contracts/asset-manifest.schema.json",
       "valid_examples": ["shared/fixtures/contracts/valid/asset-manifest.json"],
       "invalid_examples": ["shared/fixtures/contracts/invalid/asset-manifest-duplicate-target.json"]
+    },
+    {
+      "id": "literature-source",
+      "schema": "shared/contracts/literature-source.schema.json",
+      "valid_examples": ["shared/fixtures/contracts/valid/literature-source.json"],
+      "invalid_examples": ["shared/fixtures/contracts/invalid/literature-source-approved-without-decision.json"]
+    },
+    {
+      "id": "citation-link",
+      "schema": "shared/contracts/citation-link.schema.json",
+      "valid_examples": ["shared/fixtures/contracts/valid/citation-link.json"],
+      "invalid_examples": ["shared/fixtures/contracts/invalid/citation-link-missing-locator.json"]
     }
   ]
 }
