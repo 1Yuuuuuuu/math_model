@@ -10,6 +10,13 @@ CASES = [
     ("asset-manifest", "asset-manifest", "asset-manifest-duplicate-target"),
 ]
 
+GOVERNANCE_SCHEMA_NAMES = ("review-finding", "annual-rule", "asset-manifest")
+
+ANNUAL_RULE_INVALID_EXAMPLES = (
+    "annual-rule-invalid-source-url",
+    "annual-rule-timezone-less",
+)
+
 
 @pytest.mark.parametrize(("schema_name", "valid_name", "invalid_name"), CASES)
 def test_valid_and_invalid_governance_contract_examples(
@@ -18,6 +25,26 @@ def test_valid_and_invalid_governance_contract_examples(
     schema = load_json(project_root / f"shared/contracts/{schema_name}.schema.json")
     validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
     validator.validate(load_json(project_root / f"shared/fixtures/contracts/valid/{valid_name}.json"))
+    with pytest.raises(ValidationError):
+        validator.validate(
+            load_json(project_root / f"shared/fixtures/contracts/invalid/{invalid_name}.json")
+        )
+
+
+@pytest.mark.parametrize("schema_name", GOVERNANCE_SCHEMA_NAMES)
+def test_governance_contracts_reject_a_missing_schema_version(project_root, schema_name) -> None:
+    schema = load_json(project_root / f"shared/contracts/{schema_name}.schema.json")
+    fixture = load_json(project_root / f"shared/fixtures/contracts/valid/{schema_name}.json")
+    fixture.pop("schema_version", None)
+    validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
+    with pytest.raises(ValidationError):
+        validator.validate(fixture)
+
+
+@pytest.mark.parametrize("invalid_name", ANNUAL_RULE_INVALID_EXAMPLES)
+def test_annual_rule_invalid_examples_are_rejected(project_root, invalid_name) -> None:
+    schema = load_json(project_root / "shared/contracts/annual-rule.schema.json")
+    validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
     with pytest.raises(ValidationError):
         validator.validate(
             load_json(project_root / f"shared/fixtures/contracts/invalid/{invalid_name}.json")

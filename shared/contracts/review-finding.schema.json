@@ -3,8 +3,9 @@
   "$id": "https://cumcm.local/contracts/review-finding.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["finding_id", "review_gate", "severity", "summary", "evidence_refs", "recommendation", "status"],
+  "required": ["schema_version", "finding_id", "review_gate", "severity", "summary", "evidence_refs", "recommendation", "status"],
   "properties": {
+    "schema_version": {"const": "1.0"},
     "finding_id": {"type": "string", "pattern": "^finding_[a-z0-9][a-z0-9_-]{2,63}$"},
     "review_gate": {"enum": ["hard", "reproducibility", "model", "paper", "red_team"]},
     "severity": {"enum": ["S0", "S1", "S2", "S3"]},

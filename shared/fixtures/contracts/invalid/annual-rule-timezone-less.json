@@ -3,7 +3,7 @@
   "rule_set_id": "cumcm-example-2026",
   "year": 2026,
   "source_url": "https://example.invalid/cumcm-rules",
-  "verified_at": "2026-08-21T09:00:00+08:00",
+  "verified_at": "2026-08-21T09:00:00",
   "items": [
     {
       "rule_id": "rule_synthetic_contract_example",

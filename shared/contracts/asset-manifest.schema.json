@@ -3,8 +3,9 @@
   "$id": "https://cumcm.local/contracts/asset-manifest.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["manifest_version", "assets"],
+  "required": ["schema_version", "manifest_version", "assets"],
   "properties": {
+    "schema_version": {"const": "1.0"},
     "manifest_version": {"const": "1.0"},
     "assets": {
       "type": "array",

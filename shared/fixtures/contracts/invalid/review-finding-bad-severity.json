@@ -1,4 +1,5 @@
 {
+  "schema_version": "1.0",
   "finding_id": "finding_missing_sensitivity",
   "review_gate": "model",
   "severity": "critical",

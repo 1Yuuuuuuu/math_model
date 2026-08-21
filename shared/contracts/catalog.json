@@ -55,7 +55,11 @@
       "id": "annual-rule",
       "schema": "shared/contracts/annual-rule.schema.json",
       "valid_examples": ["shared/fixtures/contracts/valid/annual-rule.json"],
-      "invalid_examples": ["shared/fixtures/contracts/invalid/annual-rule-missing-source.json"]
+      "invalid_examples": [
+        "shared/fixtures/contracts/invalid/annual-rule-missing-source.json",
+        "shared/fixtures/contracts/invalid/annual-rule-invalid-source-url.json",
+        "shared/fixtures/contracts/invalid/annual-rule-timezone-less.json"
+      ]
     },
     {
       "id": "asset-manifest",

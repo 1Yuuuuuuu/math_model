@@ -3,11 +3,12 @@
   "$id": "https://cumcm.local/contracts/annual-rule.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["rule_set_id", "year", "source_url", "verified_at", "items"],
+  "required": ["schema_version", "rule_set_id", "year", "source_url", "verified_at", "items"],
   "properties": {
+    "schema_version": {"const": "1.0"},
     "rule_set_id": {"type": "string", "pattern": "^cumcm-[a-z0-9][a-z0-9-]{2,63}$"},
     "year": {"type": "integer", "minimum": 2000},
-    "source_url": {"type": "string", "format": "uri"},
+    "source_url": {"type": "string", "format": "uri", "pattern": "^https?://[^\\s]+$"},
     "verified_at": {"type": "string", "format": "date-time"},
     "items": {
       "type": "array",
