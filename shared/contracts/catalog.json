@@ -13,7 +13,8 @@
       "valid_examples": ["shared/fixtures/contracts/valid/artifact.json"],
       "invalid_examples": [
         "shared/fixtures/contracts/invalid/artifact-absolute-path.json",
-        "shared/fixtures/contracts/invalid/artifact-parent-traversal.json"
+        "shared/fixtures/contracts/invalid/artifact-parent-traversal.json",
+        "shared/fixtures/contracts/invalid/artifact-linebreak-traversal.json"
       ]
     },
     {

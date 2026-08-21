@@ -28,6 +28,15 @@ def test_artifact_parent_traversal_example_is_invalid(project_root) -> None:
         )
 
 
+def test_artifact_linebreak_traversal_example_is_invalid(project_root) -> None:
+    schema = load_json(project_root / "shared/contracts/artifact.schema.json")
+    validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
+    with pytest.raises(ValidationError):
+        validator.validate(
+            load_json(project_root / "shared/fixtures/contracts/invalid/artifact-linebreak-traversal.json")
+        )
+
+
 def test_experiment_timezone_less_example_is_invalid(project_root) -> None:
     schema = load_json(project_root / "shared/contracts/experiment.schema.json")
     validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
@@ -44,3 +53,13 @@ def test_experiment_malformed_timestamp_requires_format_checker(project_root) ->
     validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
     with pytest.raises(ValidationError):
         validator.validate(invalid_experiment)
+
+
+@pytest.mark.parametrize("timestamp", ["2026-09-10t09:00:00z", "2016-12-31T23:59:60Z"])
+def test_experiment_accepts_rfc3339_case_and_leap_second(project_root, timestamp) -> None:
+    schema = load_json(project_root / "shared/contracts/experiment.schema.json")
+    experiment = load_json(project_root / "shared/fixtures/contracts/valid/experiment.json")
+    experiment["started_at"] = timestamp
+    experiment["finished_at"] = timestamp
+    validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
+    validator.validate(experiment)

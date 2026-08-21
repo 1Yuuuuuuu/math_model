@@ -1,26 +1,32 @@
 import json
 from pathlib import Path
 import re
-from datetime import datetime
 
 import pytest
+import rfc3339_validator
 from jsonschema import FormatChecker
 
 
-_RFC3339_DATETIME = re.compile(
-    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$"
-)
+_LEAP_SECOND = re.compile(r"(?<=T\d{2}:\d{2}:)60(?=(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$)")
+
+
+def _normalize_rfc3339_datetime(value: str) -> str:
+    normalized = value
+    if len(normalized) > 10 and normalized[10] == "t":
+        normalized = f"{normalized[:10]}T{normalized[11:]}"
+    if normalized.endswith("z"):
+        normalized = f"{normalized[:-1]}Z"
+    return _LEAP_SECOND.sub("59", normalized, count=1)
 
 
 FORMAT_CHECKER = FormatChecker()
 
 
-@FORMAT_CHECKER.checks("date-time", raises=ValueError)
-def is_rfc3339_datetime_with_timezone(value: object) -> bool:
-    if not isinstance(value, str) or not _RFC3339_DATETIME.fullmatch(value):
-        return False
-    datetime.fromisoformat(value.replace("Z", "+00:00"))
-    return True
+@FORMAT_CHECKER.checks("date-time")
+def is_rfc3339_datetime(value: object) -> bool:
+    return isinstance(value, str) and rfc3339_validator.validate_rfc3339(
+        _normalize_rfc3339_datetime(value)
+    )
 
 
 @pytest.fixture(scope="session")
