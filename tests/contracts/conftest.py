@@ -1,37 +1,19 @@
 import json
 from pathlib import Path
-import re
+import sys
 
 import pytest
-import rfc3339_validator
-from jsonschema import FormatChecker
 
 
-_LEAP_SECOND = re.compile(r"(?<=T\d{2}:\d{2}:)60(?=(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$)")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(PROJECT_ROOT))
 
-
-def _normalize_rfc3339_datetime(value: str) -> str:
-    normalized = value
-    if len(normalized) > 10 and normalized[10] == "t":
-        normalized = f"{normalized[:10]}T{normalized[11:]}"
-    if normalized.endswith("z"):
-        normalized = f"{normalized[:-1]}Z"
-    return _LEAP_SECOND.sub("59", normalized, count=1)
-
-
-FORMAT_CHECKER = FormatChecker()
-
-
-@FORMAT_CHECKER.checks("date-time")
-def is_rfc3339_datetime(value: object) -> bool:
-    if not isinstance(value, str) or "\r" in value or "\n" in value:
-        return False
-    return rfc3339_validator.validate_rfc3339(_normalize_rfc3339_datetime(value))
+from scripts.contract_formats import FORMAT_CHECKER
 
 
 @pytest.fixture(scope="session")
 def project_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+    return PROJECT_ROOT
 
 
 def load_json(path: Path) -> dict:

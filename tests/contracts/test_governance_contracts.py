@@ -15,6 +15,8 @@ GOVERNANCE_SCHEMA_NAMES = ("review-finding", "annual-rule", "asset-manifest")
 ANNUAL_RULE_INVALID_EXAMPLES = (
     "annual-rule-empty-host",
     "annual-rule-invalid-source-url",
+    "annual-rule-invalid-ipv6-colons",
+    "annual-rule-invalid-ipv6-nine-segments",
     "annual-rule-timezone-less",
     "annual-rule-userinfo-empty-host",
 )
@@ -24,6 +26,17 @@ NO_HOST_AUTHORITY_URLS = (
     "http://:80/path",
     "https://user@/path",
     "https://user@:80/path",
+)
+
+VALID_ANNUAL_RULE_SOURCE_URLS = (
+    "https://example.invalid/cumcm-rules",
+    "https://192.0.2.1:8443/cumcm-rules",
+    "https://[2001:db8::1]:443/cumcm-rules",
+)
+
+INVALID_ANNUAL_RULE_SOURCE_URLS = (
+    "https://example.invalid:65536/cumcm-rules",
+    "https://example.invalid/cumcm-rules\x00trailing",
 )
 
 
@@ -76,3 +89,24 @@ def test_annual_rule_accepts_a_bracketed_ipv6_host(project_root) -> None:
     annual_rule["source_url"] = "https://[2001:db8::1]:443/cumcm-rules"
     validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
     validator.validate(annual_rule)
+
+
+@pytest.mark.parametrize("source_url", VALID_ANNUAL_RULE_SOURCE_URLS)
+def test_annual_rule_accepts_semantically_valid_source_urls(project_root, source_url) -> None:
+    schema = load_json(project_root / "shared/contracts/annual-rule.schema.json")
+    annual_rule = load_json(project_root / "shared/fixtures/contracts/valid/annual-rule.json")
+    annual_rule["source_url"] = source_url
+    validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
+    validator.validate(annual_rule)
+
+
+@pytest.mark.parametrize("source_url", INVALID_ANNUAL_RULE_SOURCE_URLS)
+def test_annual_rule_rejects_out_of_range_ports_and_control_character_tails(
+    project_root, source_url
+) -> None:
+    schema = load_json(project_root / "shared/contracts/annual-rule.schema.json")
+    annual_rule = load_json(project_root / "shared/fixtures/contracts/valid/annual-rule.json")
+    annual_rule["source_url"] = source_url
+    validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
+    with pytest.raises(ValidationError):
+        validator.validate(annual_rule)
