@@ -109,3 +109,22 @@ def test_capability_matrix_marks_planned_and_legacy_rows_explicitly(
     assert "用户显式选择" in general_legacy[1]
     assert "CLI 当前不可用" in paper_search[4]
     assert "`cumcm_*` 工具在受检会话中不可用或未确认" in cumcm_legacy[4]
+
+
+def test_paper_and_literature_guide_covers_routes_and_recovery(project_root: Path) -> None:
+    guide = read(project_root, "docs/guides/paper-and-literature-workflow.md")
+    for phrase in (
+        "默认入口",
+        "备选入口",
+        "候选文献",
+        "人工确认",
+        "gate 3",
+        "Codex",
+        "DeepSeek Harness",
+        "paper-search",
+        "用户提供",
+        "不得伪造",
+        "当前不可用",
+        "恢复",
+    ):
+        assert phrase in guide
