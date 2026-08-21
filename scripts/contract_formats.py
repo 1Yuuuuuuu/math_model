@@ -1,5 +1,6 @@
 import ipaddress
 import re
+import unicodedata
 from urllib.parse import urlsplit
 
 import rfc3339_validator
@@ -33,6 +34,23 @@ def _is_dns_or_ipv4_hostname(hostname: str) -> bool:
     return all(_DNS_LABEL.fullmatch(label) for label in hostname.split("."))
 
 
+def _is_bracketed_ipv6_netloc(netloc: str) -> bool:
+    closing_bracket = netloc.find("]")
+    if not netloc.startswith("[") or closing_bracket == -1:
+        return False
+
+    raw_host = netloc[1:closing_bracket]
+    suffix = netloc[closing_bracket + 1 :]
+    if suffix and (not suffix.startswith(":") or not suffix[1:].isdigit()):
+        return False
+
+    try:
+        ipaddress.IPv6Address(raw_host)
+    except ValueError:
+        return False
+    return True
+
+
 FORMAT_CHECKER = FormatChecker()
 
 
@@ -45,7 +63,9 @@ def is_rfc3339_datetime(value: object) -> bool:
 
 @FORMAT_CHECKER.checks("cumcm-http-url")
 def is_cumcm_http_url(value: object) -> bool:
-    if not isinstance(value, str) or any(character.isspace() or ord(character) < 32 or ord(character) == 127 for character in value):
+    if not isinstance(value, str) or any(
+        character.isspace() or unicodedata.category(character) == "Cc" for character in value
+    ):
         return False
 
     try:
@@ -63,9 +83,5 @@ def is_cumcm_http_url(value: object) -> bool:
     if not hostname:
         return False
     if parts.netloc.startswith("["):
-        try:
-            ipaddress.IPv6Address(hostname)
-        except ValueError:
-            return False
-        return True
+        return _is_bracketed_ipv6_netloc(parts.netloc)
     return _is_dns_or_ipv4_hostname(hostname)

@@ -37,6 +37,10 @@ VALID_ANNUAL_RULE_SOURCE_URLS = (
 INVALID_ANNUAL_RULE_SOURCE_URLS = (
     "https://example.invalid:65536/cumcm-rules",
     "https://example.invalid/cumcm-rules\x00trailing",
+    "https://example.invalid/cumcm-rules\x80trailing",
+    "https://example.invalid/cumcm-rules\x9ftrailing",
+    "https://[::1]junk/path",
+    "https://[::1]example.com/path",
 )
 
 
@@ -101,7 +105,7 @@ def test_annual_rule_accepts_semantically_valid_source_urls(project_root, source
 
 
 @pytest.mark.parametrize("source_url", INVALID_ANNUAL_RULE_SOURCE_URLS)
-def test_annual_rule_rejects_out_of_range_ports_and_control_character_tails(
+def test_annual_rule_rejects_semantically_invalid_source_url_boundaries(
     project_root, source_url
 ) -> None:
     schema = load_json(project_root / "shared/contracts/annual-rule.schema.json")
