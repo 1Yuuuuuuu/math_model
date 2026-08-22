@@ -1,0 +1,64 @@
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+from cumcm_toolkit.environment.doctor import doctor
+
+
+def fake_which(present: set[str]) -> object:
+    def lookup(name: str) -> str | None:
+        if name in present:
+            return f"C:/tools/{name}.exe"
+        return None
+
+    return lookup
+
+
+def test_doctor_reports_ok_when_all_toolchains_present() -> None:
+    payload = doctor(fake_which({"uv", "xelatex", "latexmk"}))
+    assert payload["status"] == "ok"
+    assert payload["errors"] == []
+    names = {check["name"]: check for check in payload["checks"]}
+    assert set(names) == {"python", "uv", "xelatex", "latexmk"}
+    assert names["uv"]["found"] == "C:/tools/uv.exe"
+    assert names["uv"]["ok"] is True
+
+
+def test_doctor_fails_closed_on_missing_uv() -> None:
+    payload = doctor(fake_which({"xelatex", "latexmk"}))
+    assert payload["status"] == "failed"
+    uv = next(check for check in payload["checks"] if check["name"] == "uv")
+    assert uv["ok"] is False
+    assert uv["found"] is None
+
+
+def test_doctor_never_guesses_when_probe_errors() -> None:
+    def broken_lookup(name: str) -> str | None:
+        if name == "latexmk":
+            raise OSError("probe exploded")
+        return fake_which({"uv", "xelatex"})(name)
+
+    payload = doctor(broken_lookup)
+    assert payload["status"] == "failed"
+    latexmk = next(check for check in payload["checks"] if check["name"] == "latexmk")
+    assert latexmk["ok"] is False
+    assert any("latexmk" in error for error in payload["errors"])
+
+
+def test_doctor_cli_emits_stable_json(tmp_path: Path, project_root: Path) -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "cumcm_toolkit.environment.doctor"],
+        cwd=project_root,
+        env={**os.environ, "PYTHONPATH": str(project_root / "toolkit" / "src")},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode in (0, 1)
+    payload = json.loads(result.stdout)
+    assert set(payload) == {"doctor_version", "status", "checks", "errors"}
+    assert payload["doctor_version"] == "1.0"

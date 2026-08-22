@@ -16,3 +16,4 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests", "toolkit/tests"]
 addopts = "--strict-markers --strict-config"
+pythonpath = ["toolkit/src", "."]
