@@ -49,7 +49,7 @@ Program-level tracking:
 - [x] 阶段 0：九项基础契约的测试和只读验证器通过，完成向 Phase 0A 的历史交接。
 - [x] Phase 0A：论文与文献契约及路由文档通过，批准进入阶段 1 规划。
 - [x] 阶段 1：新环境诊断、标准工作区和最小 PDF 通过，完成向阶段 2 的历史交接。
-- [ ] 阶段 2：评价、预测、优化代表场景通过，批准进入阶段 3 规划。
+- [x] 阶段 2：评价、预测、优化代表场景通过，完成向阶段 3 的历史交接。
 - [ ] 阶段 3：Codex 建模半链路和资源一致性通过，批准进入阶段 4 规划。
 - [ ] 阶段 4：证据约束论文和 PDF 检查通过，批准进入阶段 5 规划。
 - [ ] 阶段 5：五层审批隔离与修订失效机制通过，批准进入阶段 6 规划。
@@ -243,6 +243,8 @@ uv run pytest tests/integration/test_evaluation_scenario.py tests/integration/te
 - 来源评价规则区分元数据完整性、全文可用性、拟支持主张和支持边界；不得把引用量或期刊等级等同于来源质量或模型正确性。
 - 合成知识测试覆盖重复 DOI、规范化标题重复、标识冲突和仅有引用量信号的反例。
 - Phase 2 只交付共享知识与规则，不实现运行时 Skill；Codex `literature-researcher` 仍由 Phase 3 实现。
+
+**Verified inputs (2026-08-22):** 依赖 numpy 2.4.6 / pandas 2.3.3 / scipy 1.17.1 / scikit-learn 1.9.0 / statsmodels 0.14.6 / matplotlib 3.x / PyYAML；`shared/knowledge/` 含 11 篇基础文档、33 张模型卡（model-card.schema.json + model-catalog.yaml）、文献知识三件套；`toolkit` 新增 data/models/evaluation/results 八模块；三类代表场景（评价熵权+TOPSIS、预测线性回归、优化 LP）从数据审计跑到结果导出；11 项契约不变。
 
 ## Phase 3: Codex modeling skills
 
@@ -483,4 +485,4 @@ uv run python scripts/run_regression.py --suite representative
 
 ## Plan completion criteria
 
-本主计划完成不代表系统已经实现。只有 Phase 0A 以及阶段 0–8 的详细计划分别执行、验证并通过对应发布门，系统才达到总体设计中的完整验收标准。阶段 0、Phase 0A 与阶段 1 已完成，当前目录登记 11 项契约；下一步是编写并审批阶段 2 详细计划。Phase 2 的实现仍须以该详细计划和单独授权为前提。
+本主计划完成不代表系统已经实现。只有 Phase 0A 以及阶段 0–8 的详细计划分别执行、验证并通过对应发布门，系统才达到总体设计中的完整验收标准。阶段 0、Phase 0A 与阶段 1 已完成，当前目录登记 11 项契约；下一步是编写并审批阶段 3 详细计划。Phase 3 的实现仍须以该详细计划和单独授权为前提。
