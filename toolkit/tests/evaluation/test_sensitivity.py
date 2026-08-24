@@ -35,3 +35,22 @@ def test_sensitivity_fails_when_no_point_succeeds() -> None:
 
     with pytest.raises(ValueError):
         sensitivity_report(base_params={"a": 1.0}, perturb={"a": [1.0]}, evaluate=evaluate)
+
+
+def test_sensitivity_non_finite_point_becomes_none_with_warning() -> None:
+    def evaluate(params: dict[str, float]) -> float:
+        return float("inf") if params["a"] > 1.0 else params["a"]
+
+    report = sensitivity_report(
+        base_params={"a": 1.0}, perturb={"a": [0.5, 1.5, 2.5]}, evaluate=evaluate
+    )
+    assert report["parameters"]["a"]["results"] == [0.5, None, None]
+    assert any("non-finite" in w for w in report["warnings"])
+
+
+def test_sensitivity_all_non_finite_points_fail() -> None:
+    def evaluate(params: dict[str, float]) -> float:
+        return float("inf")
+
+    with pytest.raises(ValueError):
+        sensitivity_report(base_params={"a": 1.0}, perturb={"a": [1.0, 2.0]}, evaluate=evaluate)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Callable
 
 from cumcm_toolkit.experiments.manifest import utc_now_rfc3339  # 复用 Phase 1 时间工具
@@ -23,7 +24,10 @@ def sensitivity_report(
             candidate = dict(base_params)
             candidate[name] = value
             try:
-                results.append(round(float(evaluate(candidate)), 6))
+                result = float(evaluate(candidate))
+                if not math.isfinite(result):
+                    raise ValueError("non-finite result")
+                results.append(round(result, 6))
                 ok_points += 1
             except Exception as exc:  # noqa: BLE001 - tolerate single-point failures
                 results.append(None)

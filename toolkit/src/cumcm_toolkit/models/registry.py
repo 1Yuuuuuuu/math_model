@@ -21,8 +21,13 @@ def get_model(name: str) -> Callable[..., Any]:
     return _REGISTRY[name]
 
 
-def _seed_kwargs(seed: int | None) -> dict[str, int]:
-    return {"random_state": seed} if seed is not None else {}
+def _seed_kwargs(seed: int | None, params: dict[str, Any]) -> dict[str, Any]:
+    kwargs = dict(params)
+    if seed is not None:
+        if "random_state" in kwargs:
+            raise ValueError("conflict: both seed and random_state provided")
+        kwargs["random_state"] = seed
+    return kwargs
 
 
 def _register_builtins() -> None:
@@ -30,9 +35,20 @@ def _register_builtins() -> None:
     from sklearn.linear_model import LinearRegression
     from sklearn.tree import DecisionTreeClassifier
 
-    register_model("linear-regression", lambda **kw: LinearRegression())
-    register_model("decision-tree", lambda **kw: DecisionTreeClassifier(**_seed_kwargs(kw.get("seed"))))
-    register_model("kmeans", lambda **kw: KMeans(n_clusters=kw.get("n_clusters", 3), **_seed_kwargs(kw.get("seed"))))
+    def _linear(seed: int | None, params: dict[str, Any]) -> Any:
+        return LinearRegression(**dict(params))
+
+    def _tree(seed: int | None, params: dict[str, Any]) -> Any:
+        return DecisionTreeClassifier(**_seed_kwargs(seed, params))
+
+    def _kmeans(seed: int | None, params: dict[str, Any]) -> Any:
+        kwargs = _seed_kwargs(seed, params)
+        kwargs.setdefault("n_clusters", 3)
+        return KMeans(**kwargs)
+
+    register_model("linear-regression", _linear)
+    register_model("decision-tree", _tree)
+    register_model("kmeans", _kmeans)
 
 
 _register_builtins()

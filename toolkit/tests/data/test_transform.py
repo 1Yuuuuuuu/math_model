@@ -60,3 +60,44 @@ def test_cast_invalid_dtype_fails_closed() -> None:
     df = pd.DataFrame({"a": [1, 2]})
     with pytest.raises(ValueError):
         transform_dataframe(df, [{"op": "cast", "columns": ["a"], "dtype": "bogus"}])
+
+
+def test_normalize_preserves_missing_mask() -> None:
+    df = pd.DataFrame({"x": [5.0, 5.0, None]})
+    out, record = transform_dataframe(df, [{"op": "normalize", "columns": ["x"], "method": "minmax"}])
+    assert out["x"].iloc[0] == pytest.approx(0.0)
+    assert out["x"].iloc[1] == pytest.approx(0.0)
+    assert pd.isna(out["x"].iloc[2])
+    assert any("constant" in w for w in record["warnings"])
+
+
+def test_normalize_all_missing_stays_missing() -> None:
+    df = pd.DataFrame({"x": [float("nan"), float("nan"), float("nan")]})
+    out, record = transform_dataframe(df, [{"op": "normalize", "columns": ["x"], "method": "minmax"}])
+    assert out["x"].isna().all()
+    assert any("constant" in w for w in record["warnings"])
+
+
+@pytest.mark.parametrize(
+    "step",
+    [
+        {"op": "drop_columns", "columns": "ab"},
+        {"op": "fill_missing", "columns": 1, "value": 0},
+        {"op": "normalize", "columns": None, "method": "minmax"},
+        {"op": "drop_missing", "subset": ["a", 1]},
+        {"op": "to_datetime", "columns": "x"},
+        {"op": "cast", "columns": "x", "dtype": "float64"},
+    ],
+)
+def test_invalid_columns_rejected(step: dict[str, object]) -> None:
+    df = pd.DataFrame({"a": [1.0, 2.0], "b": [3, 4], "x": ["2024-01-01", "2024-01-02"]})
+    with pytest.raises(ValueError):
+        transform_dataframe(df, [step])
+
+
+def test_invalid_step_leaves_input_untouched() -> None:
+    df = pd.DataFrame({"a": [1.0, 2.0], "b": [3, 4]})
+    original = df.copy()
+    with pytest.raises(ValueError):
+        transform_dataframe(df, [{"op": "drop_columns", "columns": "ab"}])
+    assert df.equals(original)

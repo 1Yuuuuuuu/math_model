@@ -52,3 +52,26 @@ def test_profile_csv_roundtrip(tmp_path: Path) -> None:
     result = profile_csv(path)
     assert result["row_count"] == 2
     assert result["column_count"] == 2
+
+
+def test_profile_excludes_non_finite_from_summary() -> None:
+    df = pd.DataFrame({"x": [1.0, 2.0, float("inf")]})
+    result = profile_dataframe(df)
+    summary = result["numeric_summary"]["x"]
+    assert summary["mean"] == pytest.approx(1.5)
+    assert summary["max"] == pytest.approx(2.0)
+    assert any("non-finite" in w and "x" in w for w in result["warnings"])
+
+
+def test_profile_all_non_finite_column_has_null_summary() -> None:
+    df = pd.DataFrame({"x": [float("inf"), float("-inf")]})
+    result = profile_dataframe(df)
+    assert result["numeric_summary"]["x"] is None
+    assert any("non-finite" in w and "x" in w for w in result["warnings"])
+
+
+def test_profile_mixed_nan_inf_keeps_finite_fraction() -> None:
+    df = pd.DataFrame({"x": [float("nan"), float("inf"), 3.0]})
+    result = profile_dataframe(df)
+    assert result["numeric_summary"]["x"]["mean"] == pytest.approx(3.0)
+    assert any("non-finite" in w for w in result["warnings"])

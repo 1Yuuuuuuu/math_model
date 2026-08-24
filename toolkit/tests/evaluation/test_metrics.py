@@ -27,6 +27,18 @@ def test_regression_metrics_mismatched_length_fails() -> None:
         regression_metrics(np.array([1.0]), np.array([1.0, 2.0]))
 
 
+def test_regression_metrics_rejects_empty() -> None:
+    with pytest.raises(ValueError):
+        regression_metrics(np.array([]), np.array([]))
+
+
+def test_regression_metrics_rejects_non_finite() -> None:
+    with pytest.raises(ValueError):
+        regression_metrics(np.array([1.0, 2.0]), np.array([1.0, float("nan")]))
+    with pytest.raises(ValueError):
+        regression_metrics(np.array([1.0, float("inf")]), np.array([1.0, 2.0]))
+
+
 def test_classification_metrics_binary() -> None:
     # string labels so the default positive_label="1" matches (int labels
     # would be rejected by sklearn pos_label matching)
@@ -40,13 +52,60 @@ def test_classification_metrics_binary() -> None:
     assert result["f1"] == pytest.approx(0.8)
 
 
+def test_classification_metrics_int_labels_infer_positive() -> None:
+    y_true = np.array([1, 0, 1, 1, 0])
+    y_pred = np.array([1, 0, 1, 0, 0])
+    result = classification_metrics(y_true, y_pred)
+    assert result["accuracy"] == pytest.approx(0.8)
+    assert result["precision"] == pytest.approx(1.0)
+    assert result["recall"] == pytest.approx(2 / 3)
+    assert result["f1"] == pytest.approx(0.8)
+
+
+def test_classification_metrics_bool_labels_infer_positive() -> None:
+    y_true = np.array([True, False, True, True, False])
+    y_pred = np.array([True, False, True, False, False])
+    result = classification_metrics(y_true, y_pred)
+    assert result["accuracy"] == pytest.approx(0.8)
+    assert result["f1"] == pytest.approx(0.8)
+
+
+def test_classification_metrics_ambiguous_positive_label_fails() -> None:
+    y_true = np.array([1, 1, 0])
+    y_pred = np.array(["1", "0", "1"])
+    with pytest.raises(ValueError):
+        classification_metrics(y_true, y_pred)
+
+
+def test_classification_metrics_explicit_positive_label_overrides() -> None:
+    y_true = np.array([1, 0, 1, 1, 0])
+    y_pred = np.array([1, 0, 1, 0, 0])
+    result = classification_metrics(y_true, y_pred, positive_label=1)
+    assert result["precision"] == pytest.approx(1.0)
+
+
 def test_detect_improper_split_finds_overlap() -> None:
     train = pd.DataFrame({"id": [1, 2, 3], "v": [1.0, 2.0, 3.0]})
     test = pd.DataFrame({"id": [3, 4], "v": [3.0, 4.0]})
     result = detect_improper_split(train, test, ["id"])
     assert result["overlap_rows"] == 1
-    assert result["overlapping_keys"] == [3]
+    assert result["overlapping_keys"] == [{"id": 3}]
     assert "overlap" in result["warning"].lower()
+
+
+def test_detect_improper_split_composite_key_returns_full_keys() -> None:
+    train = pd.DataFrame({"user": [1, 1, 2], "day": ["a", "b", "a"], "v": [1.0, 2.0, 3.0]})
+    test = pd.DataFrame({"user": [1, 3], "day": ["a", "a"], "v": [1.0, 4.0]})
+    result = detect_improper_split(train, test, ["user", "day"])
+    assert result["overlap_rows"] == 1
+    assert result["overlapping_keys"] == [{"user": 1, "day": "a"}]
+
+
+def test_detect_target_leakage_index_mismatch_fails_closed() -> None:
+    target = pd.Series([1.0, 2.0, 3.0], index=[0, 1, 2])
+    features = pd.DataFrame({"leak": [2.0, 4.0, 6.0]}, index=[10, 11, 12])
+    with pytest.raises(ValueError):
+        detect_target_leakage(features, target)
 
 
 def test_detect_target_leakage_finds_perfect_column() -> None:

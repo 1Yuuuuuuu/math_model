@@ -16,6 +16,10 @@ def regression_metrics(y_true: Any, y_pred: Any) -> dict[str, float]:
     _check_lengths(y_true, y_pred)
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
+    if y_true.size == 0:
+        raise ValueError("regression metrics require non-empty arrays")
+    if not (np.isfinite(y_true).all() and np.isfinite(y_pred).all()):
+        raise ValueError("regression metrics require finite values")
     errors = y_true - y_pred
     mse = float(np.mean(errors**2))
     return {
@@ -26,11 +30,22 @@ def regression_metrics(y_true: Any, y_pred: Any) -> dict[str, float]:
     }
 
 
+def _infer_positive_label(y_true: Any, y_pred: Any) -> object:
+    candidates = set(np.unique(y_true)) | set(np.unique(y_pred))
+    preferred = [p for p in (1, "1", True, "true") if p in candidates]
+    distinct = list(dict.fromkeys(preferred))  # 1 == True, so dedupe before counting
+    if len(distinct) > 1:
+        raise ValueError(f"ambiguous positive label: multiple candidates {distinct}")
+    if distinct:
+        return distinct[0]
+    raise ValueError(f"cannot infer positive label from labels: {sorted(map(str, candidates))}")
+
+
 def classification_metrics(
-    y_true: Any, y_pred: Any, *, positive_label: str | None = None
+    y_true: Any, y_pred: Any, *, positive_label: object | None = None
 ) -> dict[str, float]:
     _check_lengths(y_true, y_pred)
-    pos = positive_label or "1"
+    pos = positive_label if positive_label is not None else _infer_positive_label(y_true, y_pred)
     return {
         "accuracy": round(float(accuracy_score(y_true, y_pred)), 6),
         "precision": round(float(precision_score(y_true, y_pred, pos_label=pos, zero_division=0)), 6),
@@ -48,7 +63,10 @@ def detect_improper_split(
     train_keys = train[key_columns].drop_duplicates()
     test_keys = test[key_columns].drop_duplicates()
     merged = train_keys.merge(test_keys, on=key_columns)
-    overlapping = merged.sort_values(key_columns[0])[key_columns[0]].tolist()
+    overlapping = [
+        {key: row[key] for key in key_columns}
+        for _, row in merged.sort_values(key_columns).iterrows()
+    ]
     return {
         "overlap_rows": len(overlapping),
         "overlapping_keys": overlapping,
@@ -59,12 +77,20 @@ def detect_improper_split(
 def detect_target_leakage(
     features: pd.DataFrame, target: pd.Series, *, tolerance: float = 1e-9
 ) -> list[str]:
+    if len(features) != len(target):
+        raise ValueError(f"length mismatch: features {len(features)} vs target {len(target)}")
+    if not features.index.equals(target.index):
+        raise ValueError("features and target must share the same index (no silent alignment)")
     leaked = []
+    target_values = target.to_numpy(dtype=float)
     for column in features.columns:
         series = features[column]
         if not pd.api.types.is_numeric_dtype(series.dtype):
             continue
-        corr = float(pd.Series(series).corr(pd.Series(target)))
+        values = series.to_numpy(dtype=float)
+        if np.isnan(values).any() or np.isnan(target_values).any():
+            continue
+        corr = float(np.corrcoef(values, target_values)[0, 1])
         if np.isnan(corr):
             continue
         if abs(corr) >= 1.0 - tolerance:

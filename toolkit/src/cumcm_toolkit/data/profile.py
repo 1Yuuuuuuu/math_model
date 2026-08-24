@@ -37,7 +37,12 @@ def profile_dataframe(
         elif missing / row_count > 0.5:
             _warn(warnings, f"column mostly missing: {name}")
         if pd.api.types.is_numeric_dtype(series.dtype) and missing != row_count:
-            clean = pd.to_numeric(series, errors="coerce").dropna()
+            numeric = pd.to_numeric(series, errors="coerce")
+            non_finite_count = int((~np.isfinite(numeric.dropna())).sum())
+            if non_finite_count:
+                _warn(warnings, f"column has non-finite values: {name} ({non_finite_count})")
+            clean = numeric.dropna()
+            clean = clean[np.isfinite(clean)]
             if len(clean):
                 numeric_summary[str(name)] = {
                     "min": round(float(clean.min()), 6),
@@ -47,6 +52,7 @@ def profile_dataframe(
                 }
             else:
                 numeric_summary[str(name)] = None
+                _warn(warnings, f"column non-finite or empty: {name}")
         else:
             numeric_summary[str(name)] = None
 

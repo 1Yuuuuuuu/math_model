@@ -16,9 +16,11 @@ def run_model(
     params = dict(params or {})
     try:
         factory = get_model(name)
-        model = factory(seed=seed, **params)
+        model = factory(seed=seed, params=params)
     except KeyError as exc:
         raise ValueError(f"unknown model: {name}") from exc
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"cannot construct model {name}: {exc}") from exc
     try:
         model.fit(X, y)
     except Exception as exc:

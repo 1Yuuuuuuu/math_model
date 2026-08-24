@@ -1,8 +1,14 @@
 import json
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
 import pytest
 
+from cumcm_toolkit.data.profile import profile_dataframe
+from cumcm_toolkit.evaluation.baselines import constant_baseline
+from cumcm_toolkit.evaluation.metrics import regression_metrics
+from cumcm_toolkit.evaluation.sensitivity import sensitivity_report
 from cumcm_toolkit.results.export import export_csv, export_json, export_latex_table
 
 
@@ -35,3 +41,31 @@ def test_export_latex_table_escapes(tmp_path: Path) -> None:
 def test_export_empty_fails(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         export_csv([], tmp_path / "empty.csv")
+
+
+def test_export_json_numpy_scalars_roundtrip(tmp_path: Path) -> None:
+    data = {"a": np.float64(1.5), "b": np.int64(3), "c": np.float32(2.0)}
+    path = export_json(data, tmp_path / "np.json")
+    assert json.loads(path.read_text(encoding="utf-8")) == {"a": 1.5, "b": 3, "c": 2.0}
+
+
+def test_export_json_rejects_numpy_non_finite(tmp_path: Path) -> None:
+    with pytest.raises(ValueError):
+        export_json({"a": np.float64(float("inf"))}, tmp_path / "bad.json")
+
+
+def test_export_json_structured_results_roundtrip(tmp_path: Path) -> None:
+    metrics = regression_metrics(np.array([1.0, 2.0, 3.0]), np.array([1.0, 2.0, 3.5]))
+    baseline = constant_baseline(np.array([1, 1, 2]), strategy="majority")
+    report = sensitivity_report(
+        base_params={"a": 1.0}, perturb={"a": [0.5, 1.0, 1.5]}, evaluate=lambda p: p["a"]
+    )
+    profile = profile_dataframe(pd.DataFrame({"x": [1.0, 2.0, 3.0], "s": ["a", "b", "c"]}))
+    for label, data in [
+        ("metrics", metrics),
+        ("baseline", baseline),
+        ("sensitivity", report),
+        ("profile", profile),
+    ]:
+        path = export_json(data, tmp_path / f"{label}.json")
+        assert json.loads(path.read_text(encoding="utf-8")) == data, label

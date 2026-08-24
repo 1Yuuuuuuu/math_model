@@ -19,3 +19,22 @@ def test_compare_improvement_positive() -> None:
     # so improvement = (1.118034 - 0.5) / 1.118034 = 0.552786.
     # (The 0.8 in the original brief corresponds to MSE values, not RMSE.)
     assert result["improvement"] == pytest.approx(0.552786)
+
+
+def test_constant_baseline_rejects_empty_and_non_finite() -> None:
+    with pytest.raises(ValueError):
+        constant_baseline(np.array([]))
+    with pytest.raises(ValueError):
+        constant_baseline(np.array([1.0, float("inf")]))
+    with pytest.raises(ValueError):
+        constant_baseline(np.array([1.0, float("nan")]), strategy="median")
+
+
+def test_compare_to_baseline_rejects_non_finite() -> None:
+    with pytest.raises(ValueError):
+        compare_to_baseline(np.array([1.0, 2.0]), np.array([1.0, 2.0]), baseline_value=float("inf"))
+
+
+def test_constant_baseline_majority_returns_python_scalar() -> None:
+    result = constant_baseline(np.array([1, 1, 2]), strategy="majority")
+    assert type(result["value"]) is int

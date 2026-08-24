@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import csv
 import json
-import math
 from pathlib import Path
 from typing import Any
+
+from cumcm_toolkit.utils.numbers import is_finite_number, to_python_scalar
 
 
 def _reject_nonstandard_json_constant(value: str) -> None:
@@ -12,20 +13,25 @@ def _reject_nonstandard_json_constant(value: str) -> None:
 
 
 def _check_finite(value: object, where: str) -> None:
-    if isinstance(value, float) and not math.isfinite(value):
-        raise ValueError(f"non-finite number in {where}: {value}")
     if isinstance(value, dict):
         for key, item in value.items():
             _check_finite(item, f"{where}.{key}")
-    elif isinstance(value, list):
+    elif isinstance(value, (list, tuple)):
         for index, item in enumerate(value):
             _check_finite(item, f"{where}[{index}]")
+    elif value is None or isinstance(value, str):
+        return
+    elif not is_finite_number(value):
+        raise ValueError(f"non-finite number in {where}: {value}")
 
 
 def export_json(data: object, path: Path) -> Path:
     _check_finite(data, "root")
     try:
-        path.write_text(json.dumps(data, sort_keys=True, ensure_ascii=True, allow_nan=False), encoding="utf-8")
+        path.write_text(
+            json.dumps(data, sort_keys=True, ensure_ascii=True, allow_nan=False, default=to_python_scalar),
+            encoding="utf-8",
+        )
     except (TypeError, ValueError) as exc:
         raise ValueError(f"cannot serialize json to {path}: {exc}") from exc
     return path
