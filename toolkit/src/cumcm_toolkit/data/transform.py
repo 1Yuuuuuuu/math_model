@@ -18,6 +18,8 @@ def transform_dataframe(
         return [c for c in columns if c not in out.columns]
 
     for index, step in enumerate(steps):
+        if not isinstance(step, dict):
+            raise ValueError(f"step {index}: must be an object")
         op = step.get("op")
         if not isinstance(op, str):
             raise ValueError(f"step {index}: op must be a string")
@@ -34,7 +36,9 @@ def transform_dataframe(
                 missing = missing_columns(subset)
                 if missing:
                     warnings.append(f"drop_missing: missing columns {missing}")
-            out = out.dropna(subset=subset)
+                subset = [c for c in subset if c in out.columns]
+            if subset:
+                out = out.dropna(subset=subset)
         elif op == "fill_missing":
             columns = list(step.get("columns", []))
             value = step.get("value")
@@ -83,7 +87,10 @@ def transform_dataframe(
                 dtype = step.get("dtype")
                 if not isinstance(dtype, str):
                     raise ValueError(f"step {index}: cast requires dtype")
-                out[column] = out[column].astype(dtype)
+                try:
+                    out[column] = out[column].astype(dtype)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(f"step {index}: cannot cast {column} to {dtype}: {exc}") from exc
         else:
             raise ValueError(f"step {index}: unknown op {op}")
         applied += 1

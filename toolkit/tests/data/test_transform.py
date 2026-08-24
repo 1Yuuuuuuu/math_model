@@ -34,3 +34,22 @@ def test_missing_column_warns_but_continues() -> None:
     df = pd.DataFrame({"a": [1, 2]})
     out, record = transform_dataframe(df, [{"op": "drop_columns", "columns": ["zz"]}])
     assert any("zz" in w for w in record["warnings"])
+
+
+def test_drop_missing_with_missing_column_warns_and_continues() -> None:
+    df = pd.DataFrame({"a": [1.0, 2.0, None]})
+    out, record = transform_dataframe(df, [{"op": "drop_missing", "subset": ["zz"]}])
+    assert len(out) == 3
+    assert any("zz" in w for w in record["warnings"])
+
+
+def test_non_dict_step_fails_closed() -> None:
+    df = pd.DataFrame({"a": [1, 2]})
+    with pytest.raises(ValueError):
+        transform_dataframe(df, [None])
+
+
+def test_cast_invalid_dtype_fails_closed() -> None:
+    df = pd.DataFrame({"a": [1, 2]})
+    with pytest.raises(ValueError):
+        transform_dataframe(df, [{"op": "cast", "columns": ["a"], "dtype": "bogus"}])
