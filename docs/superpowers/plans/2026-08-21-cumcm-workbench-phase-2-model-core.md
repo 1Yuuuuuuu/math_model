@@ -1199,7 +1199,7 @@ def test_foundations_have_required_sections_and_no_markers(project_root: Path) -
   - optimization: `linear-programming`（线性规划）、`integer-programming`（整数规划）、`nonlinear-programming`（非线性规划）、`multi-objective`（多目标优化）、`dynamic-programming`（动态规划）、`heuristic`（启发式算法）
   - classification: `logistic-regression`（逻辑回归）、`decision-tree`（决策树）、`kmeans`（K-means）、`hierarchical-clustering`（层次聚类）、`dbscan`（DBSCAN）
   - statistics: `correlation-analysis`（相关分析）、`parametric-tests`（参数检验）、`nonparametric-tests`（非参数检验）、`anova`（方差分析）、`confidence-interval`（置信区间）
-  （合计 31 张卡；priority：评价/预测/优化高频卡为 1，其余 2-3。）
+  （合计 33 张卡；priority：评价/预测/优化高频卡为 1，其余 2-3。）
 - `test_model_card_structure.py`：① 目录 YAML（用 yaml.safe_load）与文件系统一致（每个 catalog 条目 file 存在、model_id/file/category 与 front-matter 一致、无重复 id）；② 每张卡 front-matter 通过 Schema 校验（jsonschema）；③ 每张卡正文包含 17 个 `##` 小节标题。
 
 - [ ] **Step 1: 写失败测试**（含 Schema 内容）
@@ -1272,7 +1272,7 @@ def test_every_card_has_all_required_sections(project_root: Path) -> None:
         assert len(card["text"].strip()) > 300, f"{card['entry']['file']} too short"
 ```
 
-- [ ] **Step 2: RED** → **Step 3: 创建 Schema、模板、目录与 31 张卡**（模板给出完整 17 节示例卡 `linear-regression`；其余卡按模板结构写，每节 1–3 句，不虚构数据；`model-catalog.yaml` 登记全部 31 张卡）→ **Step 4: GREEN + 契约回归** → **Step 5: 提交**（消息 `feat: add model card template, schema, catalog and first cards`）
+- [ ] **Step 2: RED** → **Step 3: 创建 Schema、模板、目录与 33 张卡**（模板给出完整 17 节示例卡 `linear-regression`；其余卡按模板结构写，每节 1–3 句，不虚构数据；`model-catalog.yaml` 登记全部 33 张卡）→ **Step 4: GREEN + 契约回归** → **Step 5: 提交**（消息 `feat: add model card template, schema, catalog and first cards`）
 
 ### Task 10: 文献知识三件套与负例测试
 
@@ -1413,7 +1413,7 @@ $env:PYTHONDONTWRITEBYTECODE = "1"
 预期：全部通过；验证器 11 契约 0 错。
 
 - [ ] **Step 2: 扫描标记与检查工作树**（TODO/TBD/FIXME/待定 扫描共享知识与 toolkit；`git diff --check`；`git status --short`）
-- [ ] **Step 3: 更新主计划**：Program-level tracking `- [ ] 阶段 2：...` → `- [x] 阶段 2：评价、预测、优化代表场景通过，完成向阶段 3 的历史交接。`；在 Phase 2 章节末尾加 Verified inputs（2026-08-22：依赖版本、31 张卡、三类场景、文献知识三件套、11 契约不变）；同步主计划结尾"下一步是编写并审批阶段 2 详细计划"→"阶段 3"，并更新 `tests/contracts/test_paper_integration_documentation.py` 对应断言（如 `test_master_plan_marks_phase_0a_and_phase_1_complete_and_phase_2_next` 改为断言 `- [x] 阶段 2：` 与"阶段 3"新句，函数名相应更新）。
+- [ ] **Step 3: 更新主计划**：Program-level tracking `- [ ] 阶段 2：...` → `- [x] 阶段 2：评价、预测、优化代表场景通过，完成向阶段 3 的历史交接。`；在 Phase 2 章节末尾加 Verified inputs（2026-08-22：依赖版本、33 张卡、三类场景、文献知识三件套、11 契约不变）；同步主计划结尾"下一步是编写并审批阶段 2 详细计划"→"阶段 3"，并更新 `tests/contracts/test_paper_integration_documentation.py` 对应断言（如 `test_master_plan_marks_phase_0a_and_phase_1_complete_and_phase_2_next` 改为断言 `- [x] 阶段 2：` 与"阶段 3"新句，函数名相应更新）。
 - [ ] **Step 4: 提交**（消息 `docs: mark phase 2 complete and record verified inputs`）
 - [ ] **Step 5: 交接报告**：最终提交哈希；依赖版本；模型卡数量与目录路径；三类场景路径；文献知识路径；Phase 3 已验证输入（registry/runner 接口、metrics 接口、sensitivity 接口、export 接口、模型卡结构 Schema）；显式声明未实现任何运行时 Skill 或 DSH 插件。
 
@@ -1433,6 +1433,6 @@ $env:PYTHONDONTWRITEBYTECODE = "1"
 - `registry.register_model/list_models/get_model`、`runner.run_model`（统一模型接口）。
 - `regression_metrics/classification_metrics/check_data_leakage`（指标与泄漏检测）、`compare_to_baseline`、`sensitivity_report`。
 - `export_json/export_csv/export_latex_table/save_figure`（结果导出）。
-- `shared/knowledge/model-card.schema.json`、`model-catalog.yaml`、31 张卡、11 篇基础文档、文献知识三件套。
+- `shared/knowledge/model-card.schema.json`、`model-catalog.yaml`、33 张卡、11 篇基础文档、文献知识三件套。
 - 三类代表场景测试（评价/预测/优化）作为 Phase 3 Skill 验证的黄金场景。
 - 本计划未创建 `adapters/` 下任何内容、未实现运行时 Skill、未安装 `paper-search` 或 `cumcm_*` 插件。

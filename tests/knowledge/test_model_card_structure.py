@@ -63,3 +63,33 @@ def test_every_card_has_all_required_sections(project_root: Path) -> None:
         for section in REQUIRED_SECTIONS:
             assert f"## {section}" in card["text"], f"{card['entry']['file']} missing ## {section}"
         assert len(card["text"].strip()) > 300, f"{card['entry']['file']} too short"
+
+
+def test_no_orphan_card_files(project_root: Path) -> None:
+    _, _, catalog = _load(project_root)
+    disk = {
+        str(p.relative_to(project_root)).replace("\\", "/")
+        for p in (project_root / "shared/knowledge/model-cards").rglob("*.md")
+    }
+    catalog_files = {entry["file"] for entry in catalog["cards"]}
+    assert disk == catalog_files, {
+        "orphans": sorted(disk - catalog_files),
+        "missing": sorted(catalog_files - disk),
+    }
+
+
+def test_catalog_full_field_consistency(project_root: Path) -> None:
+    _, cards, _ = _load(project_root)
+    for card in cards:
+        entry = card["entry"]
+        fm = _front_matter(card["text"])
+        for field in ("file", "title", "status", "priority", "category"):
+            assert fm.get(field) == entry.get(field), (
+                f"{entry['file']}: front-matter {field} {fm.get(field)!r} != catalog {entry.get(field)!r}"
+            )
+
+
+def test_catalog_no_duplicate_paths(project_root: Path) -> None:
+    _, _, catalog = _load(project_root)
+    files = [entry["file"] for entry in catalog["cards"]]
+    assert len(files) == len(set(files)), "duplicate catalog file paths"
