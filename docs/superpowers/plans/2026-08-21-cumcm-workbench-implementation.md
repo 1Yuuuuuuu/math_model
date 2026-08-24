@@ -48,7 +48,7 @@ Program-level tracking:
 
 - [x] 阶段 0：九项基础契约的测试和只读验证器通过，完成向 Phase 0A 的历史交接。
 - [x] Phase 0A：论文与文献契约及路由文档通过，批准进入阶段 1 规划。
-- [ ] 阶段 1：新环境诊断、标准工作区和最小 PDF 通过，批准进入阶段 2 规划。
+- [x] 阶段 1：新环境诊断、标准工作区和最小 PDF 通过，完成向阶段 2 的历史交接。
 - [ ] 阶段 2：评价、预测、优化代表场景通过，批准进入阶段 3 规划。
 - [ ] 阶段 3：Codex 建模半链路和资源一致性通过，批准进入阶段 4 规划。
 - [ ] 阶段 4：证据约束论文和 PDF 检查通过，批准进入阶段 5 规划。
@@ -194,6 +194,8 @@ uv run pytest tests/integration/test_minimal_latex_build.py -v
 - 项目骨架可重复创建，默认不覆盖已有文件。
 - 相同输入、参数和随机种子生成一致的实验身份与关键结果。
 - 最小 XeLaTeX 中文论文可编译，引用状态和页数可读取。
+
+**Verified inputs (2026-08-22):** Python 3.11.9（`D:\Python311`）；uv 由 `scripts/bootstrap.ps1` 引导至 `.superpowers/bootstrap-uv`；TeX 为 MiKTeX 用户级安装，`xelatex` 在 PATH；`latexmk` 在 PATH 但依赖 Perl（本机未装，不可用），Phase 1 最小编译链路使用 `xelatex` 双遍直编；11 项契约不变；toolkit 通过 pytest `pythonpath` 导入，无新增依赖。
 
 ## Phase 2: High-frequency model core
 
@@ -481,4 +483,4 @@ uv run python scripts/run_regression.py --suite representative
 
 ## Plan completion criteria
 
-本主计划完成不代表系统已经实现。只有 Phase 0A 以及阶段 0–8 的详细计划分别执行、验证并通过对应发布门，系统才达到总体设计中的完整验收标准。阶段 0 与 Phase 0A 已完成，当前目录登记 11 项契约；下一步是编写并审批阶段 1 详细计划。Phase 1 的实现仍须以该详细计划和单独授权为前提。
+本主计划完成不代表系统已经实现。只有 Phase 0A 以及阶段 0–8 的详细计划分别执行、验证并通过对应发布门，系统才达到总体设计中的完整验收标准。阶段 0、Phase 0A 与阶段 1 已完成，当前目录登记 11 项契约；下一步是编写并审批阶段 2 详细计划。Phase 2 的实现仍须以该详细计划和单独授权为前提。
