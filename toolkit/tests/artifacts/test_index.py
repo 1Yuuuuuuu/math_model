@@ -89,3 +89,19 @@ def test_index_cli_emits_json(tmp_path: Path, project_root: Path) -> None:
     records = json.loads(result.stdout)
     assert isinstance(records, list)
     assert {record["path"] for record in records} == {"data/input.csv", "code/solve.py", "README.md"}
+
+
+def test_index_artifacts_missing_root_raises(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError):
+        index_artifacts(tmp_path / "nope")
+
+
+def test_index_cli_missing_root_reports_failure_json(tmp_path: Path, project_root: Path) -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "cumcm_toolkit.artifacts.index", "--root", str(tmp_path / "nope")],
+        cwd=project_root, capture_output=True, text=True, check=False,
+        env={**os.environ, "PYTHONPATH": str(project_root / "toolkit" / "src") + os.pathsep + str(project_root)},
+    )
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "failed"

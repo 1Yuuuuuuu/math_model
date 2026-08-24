@@ -108,7 +108,7 @@ def main() -> int:
             metrics=json.loads(args.metrics),
             project_root=args.project_root,
         )
-    except (ValueError, json.JSONDecodeError, FileNotFoundError) as exc:
+    except (TypeError, ValueError, json.JSONDecodeError, FileNotFoundError, OSError) as exc:
         print(json.dumps({"status": "failed", "error": str(exc)}, sort_keys=True, ensure_ascii=True))
         return 1
     print(json.dumps(record, sort_keys=True, ensure_ascii=True))

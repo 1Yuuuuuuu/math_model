@@ -5,6 +5,8 @@ import hashlib
 import json
 from pathlib import Path
 
+from scripts.contract_formats import is_cumcm_workspace_path
+
 DEFAULT_TEMPLATE = Path(__file__).resolve().parents[4] / "shared" / "templates" / "project"
 
 
@@ -15,6 +17,14 @@ def scaffold_workspace(
     template_root: Path | None = None,
     overwrite: bool = False,
 ) -> dict[str, object]:
+    if (
+        not workspace_id
+        or "/" in workspace_id
+        or "\\" in workspace_id
+        or workspace_id in {".", ".."}
+        or not is_cumcm_workspace_path(workspace_id)
+    ):
+        raise ValueError(f"invalid workspace id: {workspace_id}")
     root = target_root.resolve()
     target = root / workspace_id
     template = (template_root or DEFAULT_TEMPLATE).resolve()
@@ -25,7 +35,7 @@ def scaffold_workspace(
 
     target.mkdir(parents=True, exist_ok=True)
     created = []
-    for source in sorted(template.rglob("*")):
+    for source in sorted(template.rglob("*"), key=lambda p: p.relative_to(template).as_posix()):
         if source.is_dir():
             continue
         relative = source.relative_to(template)
@@ -51,7 +61,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         result = scaffold_workspace(args.target, args.workspace_id, overwrite=args.overwrite)
-    except (FileExistsError, FileNotFoundError) as exc:
+    except (OSError, ValueError) as exc:
         print(json.dumps({"status": "failed", "error": str(exc)}, sort_keys=True, ensure_ascii=True))
         return 1
     print(json.dumps(result, sort_keys=True, ensure_ascii=True))

@@ -64,3 +64,11 @@ def test_scaffold_cli_reports_failure_json(tmp_path: Path, project_root: Path) -
     assert result.returncode == 1
     payload = json.loads(result.stdout)
     assert payload["status"] == "failed"
+
+
+@pytest.mark.parametrize("bad_id", ["../evil", "a/b", ".", "..", ""])
+def test_scaffold_rejects_escaping_or_nested_workspace_id(tmp_path: Path, bad_id: str) -> None:
+    template = tmp_path / "template"
+    write_template(template)
+    with pytest.raises(ValueError):
+        scaffold_workspace(tmp_path, bad_id, template_root=template)

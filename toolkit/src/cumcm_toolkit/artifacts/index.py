@@ -65,8 +65,10 @@ def index_artifacts(
     now: Callable[[], datetime] | None = None,
 ) -> list[dict[str, object]]:
     root = workspace_root.resolve()
+    if not root.is_dir():
+        raise FileNotFoundError(f"workspace root not found: {root}")
     records = []
-    for path in sorted(root.rglob("*")):
+    for path in sorted(root.rglob("*"), key=lambda p: p.relative_to(root).as_posix()):
         if not path.is_file() or path.name == ".gitkeep":
             continue
         relative = path.relative_to(root)
@@ -89,7 +91,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         records = index_artifacts(args.root)
-    except ValueError as exc:
+    except (OSError, ValueError) as exc:
         print(json.dumps({"status": "failed", "error": str(exc)}, sort_keys=True, ensure_ascii=True))
         return 1
     print(json.dumps(records, sort_keys=True, ensure_ascii=True))

@@ -25,6 +25,8 @@ def test_minimal_chinese_pdf_compiles_and_reports_pages(
             cwd=dest,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=600,
             check=False,
         )
