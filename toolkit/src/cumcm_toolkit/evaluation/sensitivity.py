@@ -44,17 +44,14 @@ def sensitivity_report(
             "range": round(max(finite) - min(finite), 6),
         }
     if not parameters:
-        if not perturb:
-            raise ValueError("no parameters perturbed")
+        raise ValueError("no parameters perturbed")
+    ranges = {name: parameters[name]["range"] for name in parameters}
+    dominant = max(ranges, key=ranges.get)
+    if max(ranges.values()) <= 1e-9:
         conclusion = "stable"
     else:
-        ranges = {name: parameters[name]["range"] for name in parameters}
-        dominant = max(ranges, key=ranges.get)
-        if max(ranges.values()) <= 1e-9:
-            conclusion = "stable"
-        else:
-            others = ", ".join(f"{k}={v}" for k, v in sorted(ranges.items()) if k != dominant)
-            conclusion = f"{dominant} dominates (range {ranges[dominant]}; others {others or 'none'})"
+        others = ", ".join(f"{k}={v}" for k, v in sorted(ranges.items()) if k != dominant)
+        conclusion = f"{dominant} dominates (range {ranges[dominant]}; others {others or 'none'})"
     return {
         "parameters": parameters,
         "conclusion": conclusion,

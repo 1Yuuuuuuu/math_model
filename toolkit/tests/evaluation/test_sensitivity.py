@@ -22,11 +22,26 @@ def test_sensitivity_range_and_conclusion() -> None:
 def test_sensitivity_skips_unknown_param_with_warning() -> None:
     report = sensitivity_report(
         base_params={"a": 1.0},
-        perturb={"zz": [0.0, 1.0]},
-        evaluate=lambda p: p["a"],
+        perturb={"a": [0.9, 1.0, 1.1], "zz": [0.0, 1.0]},
+        evaluate=lambda p: p["a"] * 10,
     )
     assert "zz" not in report["parameters"]
+    assert "a" in report["parameters"]
     assert any("zz" in w for w in report["warnings"])
+
+
+def test_sensitivity_fails_when_all_params_unknown() -> None:
+    with pytest.raises(ValueError):
+        sensitivity_report(
+            base_params={"a": 1.0},
+            perturb={"zz": [0.0, 1.0]},
+            evaluate=lambda p: p["a"],
+        )
+
+
+def test_sensitivity_fails_when_perturb_empty() -> None:
+    with pytest.raises(ValueError):
+        sensitivity_report(base_params={"a": 1.0}, perturb={}, evaluate=lambda p: p["a"])
 
 
 def test_sensitivity_fails_when_no_point_succeeds() -> None:
