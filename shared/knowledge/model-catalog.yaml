@@ -1,0 +1,203 @@
+# 模型卡目录（Model Card Catalog）
+# 每张卡对应 shared/knowledge/model-cards/<category>/<model_id>.md
+# status 统一为 draft；priority 1=高频核心卡，2=常用卡，3=低频/进阶卡
+
+cards:
+  - model_id: interpolation
+    category: data
+    title: 插值
+    file: shared/knowledge/model-cards/data/interpolation.md
+    status: draft
+    priority: 2
+  - model_id: anomaly-detection
+    category: data
+    title: 异常检测
+    file: shared/knowledge/model-cards/data/anomaly-detection.md
+    status: draft
+    priority: 2
+  - model_id: normalization
+    category: data
+    title: 归一化
+    file: shared/knowledge/model-cards/data/normalization.md
+    status: draft
+    priority: 1
+  - model_id: dimensionality-reduction
+    category: data
+    title: 降维
+    file: shared/knowledge/model-cards/data/dimensionality-reduction.md
+    status: draft
+    priority: 2
+  - model_id: entropy-weight
+    category: evaluation
+    title: 熵权法
+    file: shared/knowledge/model-cards/evaluation/entropy-weight.md
+    status: draft
+    priority: 1
+  - model_id: topsis
+    category: evaluation
+    title: TOPSIS
+    file: shared/knowledge/model-cards/evaluation/topsis.md
+    status: draft
+    priority: 1
+  - model_id: ahp
+    category: evaluation
+    title: 层次分析法（AHP）
+    file: shared/knowledge/model-cards/evaluation/ahp.md
+    status: draft
+    priority: 2
+  - model_id: pca
+    category: evaluation
+    title: 主成分分析
+    file: shared/knowledge/model-cards/evaluation/pca.md
+    status: draft
+    priority: 2
+  - model_id: factor-analysis
+    category: evaluation
+    title: 因子分析
+    file: shared/knowledge/model-cards/evaluation/factor-analysis.md
+    status: draft
+    priority: 3
+  - model_id: grey-relational
+    category: evaluation
+    title: 灰色关联分析
+    file: shared/knowledge/model-cards/evaluation/grey-relational.md
+    status: draft
+    priority: 2
+  - model_id: fuzzy-comprehensive
+    category: evaluation
+    title: 模糊综合评价
+    file: shared/knowledge/model-cards/evaluation/fuzzy-comprehensive.md
+    status: draft
+    priority: 3
+  - model_id: linear-regression
+    category: prediction
+    title: 线性回归
+    file: shared/knowledge/model-cards/prediction/linear-regression.md
+    status: draft
+    priority: 1
+  - model_id: nonlinear-regression
+    category: prediction
+    title: 非线性回归
+    file: shared/knowledge/model-cards/prediction/nonlinear-regression.md
+    status: draft
+    priority: 2
+  - model_id: exponential-smoothing
+    category: prediction
+    title: 指数平滑
+    file: shared/knowledge/model-cards/prediction/exponential-smoothing.md
+    status: draft
+    priority: 2
+  - model_id: arima
+    category: prediction
+    title: ARIMA 时间序列模型
+    file: shared/knowledge/model-cards/prediction/arima.md
+    status: draft
+    priority: 1
+  - model_id: grey-prediction
+    category: prediction
+    title: 灰色预测
+    file: shared/knowledge/model-cards/prediction/grey-prediction.md
+    status: draft
+    priority: 2
+  - model_id: ml-regression
+    category: prediction
+    title: 机器学习回归
+    file: shared/knowledge/model-cards/prediction/ml-regression.md
+    status: draft
+    priority: 2
+  - model_id: linear-programming
+    category: optimization
+    title: 线性规划
+    file: shared/knowledge/model-cards/optimization/linear-programming.md
+    status: draft
+    priority: 1
+  - model_id: integer-programming
+    category: optimization
+    title: 整数规划
+    file: shared/knowledge/model-cards/optimization/integer-programming.md
+    status: draft
+    priority: 2
+  - model_id: nonlinear-programming
+    category: optimization
+    title: 非线性规划
+    file: shared/knowledge/model-cards/optimization/nonlinear-programming.md
+    status: draft
+    priority: 2
+  - model_id: multi-objective
+    category: optimization
+    title: 多目标优化
+    file: shared/knowledge/model-cards/optimization/multi-objective.md
+    status: draft
+    priority: 2
+  - model_id: dynamic-programming
+    category: optimization
+    title: 动态规划
+    file: shared/knowledge/model-cards/optimization/dynamic-programming.md
+    status: draft
+    priority: 3
+  - model_id: heuristic
+    category: optimization
+    title: 启发式算法
+    file: shared/knowledge/model-cards/optimization/heuristic.md
+    status: draft
+    priority: 3
+  - model_id: logistic-regression
+    category: classification
+    title: 逻辑回归
+    file: shared/knowledge/model-cards/classification/logistic-regression.md
+    status: draft
+    priority: 2
+  - model_id: decision-tree
+    category: classification
+    title: 决策树
+    file: shared/knowledge/model-cards/classification/decision-tree.md
+    status: draft
+    priority: 2
+  - model_id: kmeans
+    category: classification
+    title: K-means 聚类
+    file: shared/knowledge/model-cards/classification/kmeans.md
+    status: draft
+    priority: 2
+  - model_id: hierarchical-clustering
+    category: classification
+    title: 层次聚类
+    file: shared/knowledge/model-cards/classification/hierarchical-clustering.md
+    status: draft
+    priority: 3
+  - model_id: dbscan
+    category: classification
+    title: DBSCAN 聚类
+    file: shared/knowledge/model-cards/classification/dbscan.md
+    status: draft
+    priority: 3
+  - model_id: correlation-analysis
+    category: statistics
+    title: 相关分析
+    file: shared/knowledge/model-cards/statistics/correlation-analysis.md
+    status: draft
+    priority: 2
+  - model_id: parametric-tests
+    category: statistics
+    title: 参数检验
+    file: shared/knowledge/model-cards/statistics/parametric-tests.md
+    status: draft
+    priority: 2
+  - model_id: nonparametric-tests
+    category: statistics
+    title: 非参数检验
+    file: shared/knowledge/model-cards/statistics/nonparametric-tests.md
+    status: draft
+    priority: 3
+  - model_id: anova
+    category: statistics
+    title: 方差分析
+    file: shared/knowledge/model-cards/statistics/anova.md
+    status: draft
+    priority: 2
+  - model_id: confidence-interval
+    category: statistics
+    title: 置信区间
+    file: shared/knowledge/model-cards/statistics/confidence-interval.md
+    status: draft
+    priority: 2
