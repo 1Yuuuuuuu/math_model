@@ -39,6 +39,8 @@ def transform_dataframe(
                 subset = [c for c in subset if c in out.columns]
             if subset:
                 out = out.dropna(subset=subset)
+            elif subset is None:
+                out = out.dropna(subset=None)
         elif op == "fill_missing":
             columns = list(step.get("columns", []))
             value = step.get("value")

@@ -43,6 +43,13 @@ def test_drop_missing_with_missing_column_warns_and_continues() -> None:
     assert any("zz" in w for w in record["warnings"])
 
 
+def test_drop_missing_without_subset_drops_any_na() -> None:
+    df = pd.DataFrame({"a": [1.0, None, 3.0], "b": [1, 2, 3]})
+    out, _ = transform_dataframe(df, [{"op": "drop_missing"}])
+    assert len(out) == 2
+    assert out["a"].isna().sum() == 0
+
+
 def test_non_dict_step_fails_closed() -> None:
     df = pd.DataFrame({"a": [1, 2]})
     with pytest.raises(ValueError):
