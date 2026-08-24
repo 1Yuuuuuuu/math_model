@@ -36,6 +36,14 @@ def test_scaffold_refuses_to_overwrite_existing_files(tmp_path: Path) -> None:
         scaffold_workspace(tmp_path, "ws_demo", template_root=template)
 
 
+def test_scaffold_refuses_target_with_only_subdirectory(tmp_path: Path) -> None:
+    template = tmp_path / "template"
+    write_template(template)
+    (tmp_path / "ws_demo" / "user_only_dir").mkdir(parents=True)
+    with pytest.raises(FileExistsError):
+        scaffold_workspace(tmp_path, "ws_demo", template_root=template)
+
+
 def test_scaffold_overwrite_flag_replaces_template_files(tmp_path: Path) -> None:
     template = tmp_path / "template"
     write_template(template)

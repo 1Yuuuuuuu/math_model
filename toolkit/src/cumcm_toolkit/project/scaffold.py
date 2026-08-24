@@ -30,7 +30,7 @@ def scaffold_workspace(
     template = (template_root or DEFAULT_TEMPLATE).resolve()
     if not template.is_dir():
         raise FileNotFoundError(f"template not found: {template}")
-    if target.exists() and not overwrite and any(p.is_file() for p in target.rglob("*")):
+    if target.exists() and not overwrite and any(target.iterdir()):
         raise FileExistsError(f"workspace already exists and is not empty: {target}")
 
     target.mkdir(parents=True, exist_ok=True)

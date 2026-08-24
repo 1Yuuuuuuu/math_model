@@ -25,7 +25,7 @@ pwsh -NoProfile -File scripts\bootstrap.ps1
 pwsh -NoProfile -File scripts\check_environment.ps1
 ```
 
-输出稳定 JSON（`doctor_version`、`status`、`checks`、`errors`）；任一必需项缺失时 `status = "failed"` 且退出码为 1。诊断只报告探测事实，缺失即失败，不猜测"可用"。
+输出稳定 JSON（`doctor_version`、`status`、`checks`、`errors`）；任一必需项缺失或不可运行时 `status = "failed"` 且退出码为 1。doctor 对 `uv`/`xelatex`/`latexmk` 先解析路径、再以 `--version` 探针验证可运行性（presence ≠ runnability）：二进制在 PATH 上但探针失败（例如本机 `latexmk` 缺 Perl 脚本引擎）时 `ok = false`。`uv` 不在 PATH 时回落探测仓库引导目录 `.superpowers\bootstrap-uv\Scripts`，且 `scripts\check_environment.ps1` 会把该目录加入 PATH 供 doctor 发现。
 
 ## 失败处理
 
