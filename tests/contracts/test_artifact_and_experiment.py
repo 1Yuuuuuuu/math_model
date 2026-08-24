@@ -1,7 +1,7 @@
 from jsonschema import Draft202012Validator, ValidationError
 import pytest
 
-from conftest import FORMAT_CHECKER, load_json
+from tests.contracts.conftest import FORMAT_CHECKER, load_json
 
 
 @pytest.mark.parametrize(

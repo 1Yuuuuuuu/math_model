@@ -3,7 +3,7 @@ from copy import deepcopy
 import pytest
 from jsonschema import Draft202012Validator, ValidationError
 
-from conftest import FORMAT_CHECKER, load_json
+from tests.contracts.conftest import FORMAT_CHECKER, load_json
 
 
 CASES = [
