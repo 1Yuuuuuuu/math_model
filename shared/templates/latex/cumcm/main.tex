@@ -1,0 +1,42 @@
+% CUMCM 论文模板（证据约束版）
+% 正文数值必须来自证据链（实验记录/结果导出/evidence-link）；
+% 引用必须来自已批准 literature-source（verification_status = approved）。
+\documentclass[11pt]{ctexart}
+\usepackage{cumcm}
+\title{论文标题（占位）}
+\author{姓名一 \and 姓名二 \and 姓名三}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{abstract}
+摘要占位：每个关键数值必须能解析到证据 ID；候选文献不得直接引用。
+\end{abstract}
+\noindent\textbf{关键词：}关键词一；关键词二；关键词三
+
+\section{引言}\label{sec:intro}
+引言占位。背景可引用已批准来源，如~\cite{src_example}。
+
+\section{问题重述}\label{sec:problem}
+问题重述占位。
+
+\section{模型假设}\label{sec:assumptions}
+模型假设占位。
+
+\section{符号说明}\label{sec:symbols}
+符号说明占位（表格）。
+
+\section{模型建立与求解}\label{sec:model}
+模型建立与求解占位。数值来自证据链，如第~\ref{sec:model}~节。
+
+\section{模型检验}\label{sec:validation}
+模型检验占位。
+
+\section{敏感性分析}\label{sec:sensitivity}
+敏感性分析占位。
+
+\section{模型评价与推广}\label{sec:evaluation}
+模型评价与推广占位。
+
+\bibliographystyle{plain}
+\bibliography{bibliography}
+\end{document}
