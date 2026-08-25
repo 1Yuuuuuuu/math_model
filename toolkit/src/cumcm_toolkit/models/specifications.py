@@ -114,6 +114,7 @@ def list_capabilities() -> list[dict[str, object]]:
 
 
 from .executors.evaluation import execute_ahp, execute_entropy_weight, execute_grey_relational, execute_topsis
+from .executors.optimization import execute_integer_programming, execute_linear_programming
 
 
 register_spec(
@@ -125,6 +126,28 @@ register_spec(
         False,
         ("matrix", "criteria"),
         execute_topsis,
+    )
+)
+register_spec(
+    ModelSpec(
+        "linear-programming",
+        "optimization",
+        "shared/knowledge/model-cards/optimization/linear-programming.md",
+        True,
+        False,
+        ("objective", "sense", "bounds"),
+        execute_linear_programming,
+    )
+)
+register_spec(
+    ModelSpec(
+        "integer-programming",
+        "optimization",
+        "shared/knowledge/model-cards/optimization/integer-programming.md",
+        True,
+        False,
+        ("objective", "sense", "bounds", "integrality"),
+        execute_integer_programming,
     )
 )
 register_spec(
