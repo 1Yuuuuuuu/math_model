@@ -45,6 +45,21 @@ NAMED_INVALID_EXPECTATIONS = {
     "shared/fixtures/contracts/invalid/model-execution-nonfinite-result.json": (("result", "nonfinite"), "oneOf"),
 }
 
+MULTI_RULE_INVALID_EXPECTATIONS = {
+    "shared/fixtures/contracts/invalid/annual-rule-invalid-source-url.json": [
+        (("source_url",), "format", "uri"),
+        (("source_url",), "format", "cumcm-http-url"),
+    ],
+    "shared/fixtures/contracts/invalid/annual-rule-invalid-ipv6-colons.json": [
+        (("source_url",), "format", "uri"),
+        (("source_url",), "format", "cumcm-http-url"),
+    ],
+    "shared/fixtures/contracts/invalid/annual-rule-invalid-ipv6-nine-segments.json": [
+        (("source_url",), "format", "uri"),
+        (("source_url",), "format", "cumcm-http-url"),
+    ],
+}
+
 
 def test_catalog_examples_match_their_schemas(project_root) -> None:
     catalog_path = project_root / "shared/contracts/catalog.json"
@@ -79,10 +94,17 @@ def test_each_invalid_fixture_fails_once_for_its_named_rule(project_root: Path) 
         schema = load_json(project_root / entry["schema"])
         validator = make_validator(schema)
         for relative_path in entry["invalid_examples"]:
-            expected_path, expected_validator = NAMED_INVALID_EXPECTATIONS[relative_path]
             fixture = load_json(project_root / relative_path)
             errors = list(validator.iter_errors(fixture))
 
+            if relative_path in MULTI_RULE_INVALID_EXPECTATIONS:
+                assert [
+                    (tuple(error.absolute_path), error.validator, error.validator_value)
+                    for error in errors
+                ] == MULTI_RULE_INVALID_EXPECTATIONS[relative_path]
+                continue
+
+            expected_path, expected_validator = NAMED_INVALID_EXPECTATIONS[relative_path]
             assert len(errors) == 1, relative_path
             error = errors[0]
             assert tuple(error.absolute_path) == expected_path, relative_path

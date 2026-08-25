@@ -147,6 +147,27 @@ def test_five_current_passed_reports_are_ready(project_root: Path, tmp_path: Pat
     assert set(bundle["report_ids"]) == set(REVIEW_SLOTS)  # type: ignore[arg-type]
 
 
+def test_bundle_reports_nonfinite_review_scorecard_as_schema_error(
+    project_root: Path, tmp_path: Path
+) -> None:
+    reports, inputs, rubrics, scores = _materials(project_root)
+    reports["model"]["scorecard"]["weighted_total"] = float("nan")  # type: ignore[index]
+
+    bundle = build_review_bundle(
+        reports=reports,
+        current_inputs=inputs,
+        rubrics=rubrics,
+        reviewed_files={slot: [] for slot in REVIEW_SLOTS},
+        reviewed_artifact_ids=["art_final_paper"],
+        file_root=tmp_path,
+        score_dimensions=scores,
+        created_at="2026-08-25T13:00:00+08:00",
+    )
+
+    assert bundle["readiness"] == "blocked"
+    assert any("not of type 'number'" in error for error in bundle["errors"])
+
+
 def test_missing_report_is_blocked_with_null_slot(project_root: Path, tmp_path: Path) -> None:
     reports, inputs, rubrics, scores = _materials(project_root)
     reports.pop("paper")

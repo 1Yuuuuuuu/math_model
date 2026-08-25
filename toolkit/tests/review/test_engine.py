@@ -8,6 +8,7 @@ import jsonschema
 import pytest
 
 from cumcm_toolkit.review.engine import (
+    _report_validator,
     canonical_digest,
     is_review_current,
     load_rubric,
@@ -86,6 +87,23 @@ def test_valid_model_review_passes_and_is_current(project_root: Path) -> None:
     jsonschema.Draft202012Validator(
         report_schema, format_checker=jsonschema.FormatChecker()
     ).validate(report)
+
+
+def test_review_report_validator_rejects_nonfinite_scorecard_number(project_root: Path) -> None:
+    rubric = load_rubric(project_root / "shared/rubrics/model-quality.yaml")
+    report = review(
+        _valid_inputs(),
+        rubric,
+        reviewed_at="2026-08-25T12:00:00+08:00",
+        score_dimensions=_valid_scores(rubric),
+    )
+    report["scorecard"]["weighted_total"] = float("nan")  # type: ignore[index]
+
+    errors = list(_report_validator().iter_errors(report))
+
+    assert [(tuple(error.absolute_path), error.validator) for error in errors] == [
+        (("scorecard", "weighted_total"), "type")
+    ]
 
 
 def test_s1_failure_emits_contract_valid_finding(project_root: Path) -> None:

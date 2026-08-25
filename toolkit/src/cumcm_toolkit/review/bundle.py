@@ -6,7 +6,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from jsonschema import Draft202012Validator, FormatChecker
+from jsonschema import Draft202012Validator
 from rfc3339_validator import validate_rfc3339
 
 from cumcm_toolkit.experiments.manifest import utc_now_rfc3339
@@ -18,6 +18,7 @@ from cumcm_toolkit.review.engine import (
 )
 from cumcm_toolkit.review.scorecard import evaluate_scorecard
 from cumcm_toolkit.review.severity import gate_status, is_blocking
+from scripts.validate_contracts import make_validator
 
 
 REVIEW_SLOTS: tuple[str, ...] = (
@@ -50,7 +51,7 @@ def _bundle_validator() -> Draft202012Validator:
     schema = json.loads(
         (root / "shared/contracts/review-bundle.schema.json").read_text(encoding="utf-8")
     )
-    return Draft202012Validator(schema, format_checker=FormatChecker())
+    return make_validator(schema)
 
 
 def build_review_bundle(
@@ -106,6 +107,12 @@ def build_review_bundle(
         if not isinstance(report_value, Mapping):
             continue
         report = dict(report_value)
+        validation_errors = sorted(
+            report_validator.iter_errors(report), key=lambda error: list(error.path)
+        )
+        if validation_errors:
+            errors.append(f"{slot}: invalid review report: {validation_errors[0].message}")
+            continue
         try:
             report_digests[slot] = canonical_digest(report)
         except ValueError as exc:
@@ -114,12 +121,6 @@ def build_review_bundle(
         report_id = report.get("review_id")
         if isinstance(report_id, str) and REVIEW_ID.fullmatch(report_id):
             report_ids[slot] = report_id
-        validation_errors = sorted(
-            report_validator.iter_errors(report), key=lambda error: list(error.path)
-        )
-        if validation_errors:
-            errors.append(f"{slot}: invalid review report: {validation_errors[0].message}")
-            continue
         if report.get("rubric_id") != EXPECTED_RUBRICS[slot]:
             errors.append(f"{slot}: report has the wrong rubric_id")
             continue

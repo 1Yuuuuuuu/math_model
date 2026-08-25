@@ -8,13 +8,14 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from jsonschema import Draft202012Validator, FormatChecker
+from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 from rfc3339_validator import validate_rfc3339
 
 from cumcm_toolkit.experiments.manifest import utc_now_rfc3339
 from cumcm_toolkit.review.scorecard import evaluate_scorecard, validate_scoring_definition
 from cumcm_toolkit.review.severity import gate_status, validate_severity
+from scripts.validate_contracts import make_validator
 
 
 CHECKERS = frozenset(
@@ -236,7 +237,7 @@ def _finding_validator() -> Draft202012Validator:
     schema = json.loads(
         (repo_root / "shared/contracts/review-finding.schema.json").read_text(encoding="utf-8")
     )
-    return Draft202012Validator(schema)
+    return make_validator(schema)
 
 
 def _report_validator() -> Draft202012Validator:
@@ -251,11 +252,7 @@ def _report_validator() -> Draft202012Validator:
     registry = Registry().with_resource(
         finding_schema["$id"], Resource.from_contents(finding_schema)
     )
-    return Draft202012Validator(
-        report_schema,
-        registry=registry,
-        format_checker=FormatChecker(),
-    )
+    return make_validator(report_schema, registry=registry)
 
 
 def _snapshot_files(

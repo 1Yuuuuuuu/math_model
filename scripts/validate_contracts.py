@@ -96,11 +96,13 @@ def resolve_catalog_path(root: Path, relative_path: object) -> Path:
     return resolved_path
 
 
-def make_validator(schema: Any) -> Draft202012Validator:
+def make_validator(
+    schema: Any, *, registry: Registry | None = None
+) -> Draft202012Validator:
     return OfflineDraft202012Validator(
         schema,
         format_checker=FORMAT_CHECKER,
-        registry=OFFLINE_REGISTRY,
+        registry=OFFLINE_REGISTRY if registry is None else registry,
     )
 
 
