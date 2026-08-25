@@ -5,8 +5,6 @@ from __future__ import annotations
 import copy
 from collections.abc import Mapping
 
-import numpy as np
-
 from .result import build_success_result
 from .specifications import get_spec
 
@@ -27,12 +25,12 @@ def execute(model_id: str, payload: Mapping[str, object]) -> dict[str, object]:
         )
     try:
         isolated_payload = copy.deepcopy(dict(payload))
-    except (TypeError, ValueError) as exc:
+    except ValueError as exc:
         raise ValueError(f"{model_id}: payload stage failed: cannot copy payload: {exc}") from exc
 
     try:
         raw = spec.function(isolated_payload)
-    except (ArithmeticError, KeyError, TypeError, ValueError, np.linalg.LinAlgError) as exc:
+    except ValueError as exc:
         raise ValueError(f"{model_id}: execution stage failed: {exc}") from exc
 
     try:
@@ -42,5 +40,5 @@ def execute(model_id: str, payload: Mapping[str, object]) -> dict[str, object]:
             raw,
             deterministic=spec.deterministic,
         )
-    except (KeyError, TypeError, ValueError) as exc:
+    except ValueError as exc:
         raise ValueError(f"{model_id}: result stage failed: {exc}") from exc

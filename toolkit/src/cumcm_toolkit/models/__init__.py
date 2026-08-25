@@ -1,6 +1,7 @@
 """Public model capability interfaces."""
 
-from .execution import execute
+from collections.abc import Mapping
+
 from .specifications import (
     CapabilityRegistry,
     ModelSpec,
@@ -8,6 +9,14 @@ from .specifications import (
     list_capabilities,
     register_spec,
 )
+
+
+def execute(model_id: str, payload: Mapping[str, object]) -> dict[str, object]:
+    """Lazily dispatch a registered model without coupling legacy imports to the repo."""
+    from .execution import execute as dispatch
+
+    return dispatch(model_id, payload)
+
 
 __all__ = [
     "CapabilityRegistry",

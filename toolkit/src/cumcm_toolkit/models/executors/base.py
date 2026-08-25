@@ -40,8 +40,8 @@ def numeric_array(
     value = required_field(payload, field)
     if isinstance(value, (str, bytes, bytearray, Mapping)):
         raise ValueError(f"{field}: must be a numeric array")
-    if not isinstance(min_size, Integral) or isinstance(min_size, bool) or min_size < 0:
-        raise ValueError(f"{field}: min_size must be a non-negative integer")
+    if not isinstance(min_size, Integral) or isinstance(min_size, bool) or min_size < 1:
+        raise ValueError(f"{field}: min_size must be a positive integer")
     if ndim is not None and (
         not isinstance(ndim, Integral) or isinstance(ndim, bool) or ndim < 0
     ):
@@ -52,7 +52,7 @@ def numeric_array(
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{field}: must be a rectangular numeric array") from exc
 
-    if array.size < min_size:
+    if array.size == 0 or array.size < min_size:
         raise ValueError(f"{field}: must contain at least {min_size} value(s)")
     if ndim is not None and array.ndim != ndim:
         raise ValueError(f"{field}: must have exactly {ndim} dimension(s)")

@@ -38,6 +38,13 @@ def test_numeric_array_requires_present_field_and_exact_dimension() -> None:
         numeric_array({"x": [[1, 2]]}, "x", ndim=1)
 
 
+@pytest.mark.parametrize("min_size", [0, -1])
+def test_numeric_array_never_allows_an_empty_array(min_size: int) -> None:
+    """Relaxing min_size must not allow an executor to receive empty numeric input."""
+    with pytest.raises(ValueError, match="x"):
+        numeric_array({"x": []}, "x", min_size=min_size)
+
+
 def test_required_mapping_rejects_missing_and_non_mapping_values() -> None:
     """Removing mapping validation would allow malformed nested executor payloads."""
     with pytest.raises(ValueError, match="options"):
