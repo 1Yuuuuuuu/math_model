@@ -1,12 +1,41 @@
 from __future__ import annotations
 
+import copy
 import json
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
 
 from cumcm_toolkit.models.execution import execute
+from cumcm_toolkit.models.executors import optimization
 from cumcm_toolkit.models.specifications import get_spec, list_capabilities
+
+
+def _constant(value: object) -> dict[str, object]:
+    return {"op": "constant", "value": value}
+
+
+def _variable(index: int = 0) -> dict[str, object]:
+    return {"op": "variable", "index": index}
+
+
+def _binary(op: str, left: object, right: object) -> dict[str, object]:
+    return {"op": op, "args": [left, right]}
+
+
+def _square(node: object) -> dict[str, object]:
+    return _binary("power", node, _constant(2))
+
+
+def _nonlinear_payload() -> dict[str, object]:
+    return {
+        "objective": _square(_binary("subtract", _variable(), _constant(3))),
+        "initial": [0],
+        "bounds": [[-10, 10]],
+        "sense": "minimize",
+        "constraints": [],
+    }
 
 
 def test_linear_programming_known_optimum() -> None:
@@ -79,6 +108,241 @@ def test_integer_programming_maximize_restores_the_mip_dual_bound_sign() -> None
 
     assert result["result"]["objective"] == pytest.approx(9)
     assert result["diagnostics"]["mip_dual_bound"] == pytest.approx(9)
+
+
+def test_nonlinear_programming_minimizes_quadratic() -> None:
+    """Failing to optimize the expression tree leaves the initial point away from x=3."""
+    result = execute("nonlinear-programming", _nonlinear_payload())
+
+    assert result["result"]["solution"] == pytest.approx([3], abs=1e-5)
+    assert result["result"]["objective"] == pytest.approx(0, abs=1e-10)
+
+
+def test_nonlinear_programming_supports_equality_and_interval_constraints() -> None:
+    """Ignoring either constraint admits a lower but infeasible objective value."""
+    objective = _binary("add", _square(_variable(0)), _square(_variable(1)))
+    result = execute(
+        "nonlinear-programming",
+        {
+            "objective": objective,
+            "initial": [1.4, 1.6],
+            "bounds": [[0, 3], [0, 3]],
+            "sense": "minimize",
+            "constraints": [
+                {
+                    "type": "equality",
+                    "expression": _binary("add", _variable(0), _variable(1)),
+                    "target": 3,
+                },
+                {
+                    "type": "interval",
+                    "expression": _variable(0),
+                    "lower": 1,
+                    "upper": 2,
+                },
+            ],
+        },
+    )
+
+    assert result["result"]["solution"] == pytest.approx([1.5, 1.5], abs=1e-5)
+    assert result["result"]["objective"] == pytest.approx(4.5, abs=1e-8)
+    assert result["diagnostics"]["feasibility"]["feasible"] is True
+    assert result["diagnostics"]["feasibility"]["max_violation"] <= 1e-8
+
+
+def test_nonlinear_programming_maximize_restores_objective_sign() -> None:
+    """Returning SciPy's internally negated value would report -5 instead of 5."""
+    peak = _binary(
+        "add",
+        {"op": "negate", "args": [_square(_binary("subtract", _variable(), _constant(2)))]},
+        _constant(5),
+    )
+    result = execute(
+        "nonlinear-programming",
+        {
+            "objective": peak,
+            "initial": [0],
+            "bounds": [[-10, 10]],
+            "sense": "maximize",
+            "constraints": [],
+        },
+    )
+
+    assert result["result"]["solution"] == pytest.approx([2], abs=1e-5)
+    assert result["result"]["objective"] == pytest.approx(5, abs=1e-9)
+
+
+@pytest.mark.parametrize(
+    ("replacement", "field"),
+    [
+        ({"objective": "(x - 3) ** 2"}, "objective"),
+        ({"objective": lambda values: values[0]}, "objective"),
+        ({"initial": []}, "initial"),
+        ({"initial": [[0]]}, "initial"),
+        ({"initial": [np.nan]}, "initial"),
+        ({"initial": [True]}, "initial"),
+        ({"bounds": []}, "bounds"),
+        ({"bounds": [[0, 1], [0, 1]]}, "bounds"),
+        ({"bounds": [[True, 1]]}, "bounds"),
+        ({"bounds": [[0, np.inf]]}, "bounds"),
+        ({"bounds": [[2, 1]]}, "bounds"),
+        ({"sense": "minimum"}, "sense"),
+        ({"constraints": {}}, "constraints"),
+        ({"constraints": [{"type": "unknown", "expression": _variable()}]}, "constraints"),
+        (
+            {
+                "constraints": [
+                    {
+                        "type": "equality",
+                        "expression": _variable(),
+                        "target": 0,
+                        "extra": 1,
+                    }
+                ]
+            },
+            "constraints",
+        ),
+        (
+            {
+                "constraints": [
+                    {"type": "equality", "expression": _variable(), "target": True}
+                ]
+            },
+            "constraints",
+        ),
+        (
+            {
+                "constraints": [
+                    {
+                        "type": "interval",
+                        "expression": _variable(),
+                        "lower": None,
+                        "upper": None,
+                    }
+                ]
+            },
+            "constraints",
+        ),
+        (
+            {
+                "constraints": [
+                    {
+                        "type": "interval",
+                        "expression": _variable(),
+                        "lower": 2,
+                        "upper": 1,
+                    }
+                ]
+            },
+            "constraints",
+        ),
+        (
+            {
+                "constraints": [
+                    {
+                        "type": "interval",
+                        "expression": "x",
+                        "lower": 0,
+                        "upper": 1,
+                    }
+                ]
+            },
+            "constraints",
+        ),
+    ],
+)
+def test_nonlinear_programming_rejects_malformed_payloads(
+    replacement: dict[str, object], field: str
+) -> None:
+    """Permissive parsing would submit ambiguous or unsafe nonlinear models to SciPy."""
+    payload = _nonlinear_payload()
+    payload.update(replacement)
+
+    with pytest.raises(ValueError, match=rf"nonlinear-programming: execution stage failed: {field}"):
+        execute("nonlinear-programming", payload)
+
+
+def test_nonlinear_programming_rejects_domain_errors() -> None:
+    """A log-domain failure at the initial point must not become a solver result."""
+    payload = _nonlinear_payload()
+    payload.update(
+        {
+            "objective": {"op": "log", "args": [_variable()]},
+            "initial": [0],
+            "bounds": [[0, 1]],
+        }
+    )
+
+    with pytest.raises(ValueError, match="nonlinear-programming: execution stage failed"):
+        execute("nonlinear-programming", payload)
+
+
+def test_nonlinear_programming_rejects_infeasible_constraints() -> None:
+    """Solver failure for an impossible equality must not be surfaced as a solution."""
+    payload = _nonlinear_payload()
+    payload["bounds"] = [[0, 1]]
+    payload["constraints"] = [
+        {"type": "equality", "expression": _variable(), "target": 2}
+    ]
+
+    with pytest.raises(ValueError, match="nonlinear-programming: execution stage failed: solver"):
+        execute("nonlinear-programming", payload)
+
+
+def test_nonlinear_programming_rejects_nonconverged_solver_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A finite iterate is not a solution when SciPy reports non-convergence."""
+    monkeypatch.setattr(
+        optimization,
+        "minimize",
+        lambda *args, **kwargs: SimpleNamespace(
+            success=False,
+            status=9,
+            message="iteration limit reached",
+            x=np.array([2.5]),
+            nit=100,
+            nfev=200,
+        ),
+    )
+
+    with pytest.raises(ValueError, match="solver failed.*iteration limit"):
+        optimization.execute_nonlinear_programming(_nonlinear_payload())
+
+
+def test_nonlinear_programming_rechecks_final_feasibility(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A solver success flag cannot override a violated final interval constraint."""
+    monkeypatch.setattr(
+        optimization,
+        "minimize",
+        lambda *args, **kwargs: SimpleNamespace(
+            success=True,
+            status=0,
+            message="claimed success",
+            x=np.array([0.0]),
+            nit=1,
+            nfev=2,
+        ),
+    )
+    payload = _nonlinear_payload()
+    payload["constraints"] = [
+        {"type": "interval", "expression": _variable(), "lower": 1, "upper": 2}
+    ]
+
+    with pytest.raises(ValueError, match="infeasible"):
+        optimization.execute_nonlinear_programming(payload)
+
+
+def test_nonlinear_programming_preserves_input_and_returns_finite_json() -> None:
+    """Mutation or NumPy/non-finite output would break repeatability and JSON transport."""
+    payload = _nonlinear_payload()
+    before = copy.deepcopy(payload)
+
+    result = execute("nonlinear-programming", payload)
+
+    assert payload == before
+    assert json.loads(json.dumps(result, allow_nan=False)) == result
+    assert result["parameters"] == before
+    assert result["reproducibility"] == {"seed": None, "deterministic": True}
+    assert set(result["diagnostics"]) >= {"status", "message", "nit", "nfev", "feasibility"}
 
 
 @pytest.mark.parametrize("model_id", ["linear-programming", "integer-programming"])
@@ -194,6 +458,11 @@ def test_optimization_specifications_are_registered_with_documented_contracts() 
     for model_id, card, fields in (
         ("linear-programming", "shared/knowledge/model-cards/optimization/linear-programming.md", ("objective", "sense", "bounds")),
         ("integer-programming", "shared/knowledge/model-cards/optimization/integer-programming.md", ("objective", "sense", "bounds", "integrality")),
+        (
+            "nonlinear-programming",
+            "shared/knowledge/model-cards/optimization/nonlinear-programming.md",
+            ("objective", "initial", "bounds", "sense", "constraints"),
+        ),
     ):
         assert get_spec(model_id).function is not None
         assert capabilities[model_id] == {

@@ -114,7 +114,11 @@ def list_capabilities() -> list[dict[str, object]]:
 
 
 from .executors.evaluation import execute_ahp, execute_entropy_weight, execute_grey_relational, execute_topsis
-from .executors.optimization import execute_integer_programming, execute_linear_programming
+from .executors.optimization import (
+    execute_integer_programming,
+    execute_linear_programming,
+    execute_nonlinear_programming,
+)
 
 
 register_spec(
@@ -148,6 +152,17 @@ register_spec(
         False,
         ("objective", "sense", "bounds", "integrality"),
         execute_integer_programming,
+    )
+)
+register_spec(
+    ModelSpec(
+        "nonlinear-programming",
+        "optimization",
+        "shared/knowledge/model-cards/optimization/nonlinear-programming.md",
+        True,
+        False,
+        ("objective", "initial", "bounds", "sense", "constraints"),
+        execute_nonlinear_programming,
     )
 )
 register_spec(

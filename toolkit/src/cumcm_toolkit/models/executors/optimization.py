@@ -1,20 +1,26 @@
-"""Deterministic linear and mixed-integer programming executors."""
+"""Deterministic linear, mixed-integer, and nonlinear programming executors."""
 
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from numbers import Integral, Real
 
 import numpy as np
-from scipy.optimize import Bounds, LinearConstraint, linprog, milp
+from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint, linprog, milp, minimize
 
 from .base import numeric_array, required_mapping, string_enum
+from .expression import compile_expression
 
 
 _SENSES = frozenset({"minimize", "maximize"})
 _INTEGRALITY_CODES = frozenset({0, 1, 2, 3})
 _FEASIBILITY_TOLERANCE = 1e-8
+
+
+NonlinearExpressionConstraint = tuple[
+    str, Callable[[np.ndarray], float], float, float
+]
 
 
 def _objective(payload: Mapping[str, object]) -> np.ndarray:
@@ -49,6 +55,83 @@ def _bounds(payload: Mapping[str, object], variables: int) -> tuple[np.ndarray, 
         upper[index] = np.inf if endpoints[1] is None else endpoints[1]
         normalized.append(endpoints)
     return lower, upper, normalized
+
+
+def _constraint_endpoint(value: object, *, field: str, allow_none: bool) -> float | None:
+    if value is None and allow_none:
+        return None
+    if isinstance(value, (bool, np.bool_)) or not isinstance(value, Real):
+        raise ValueError(f"{field}: must be a finite number{' or null' if allow_none else ''}")
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError(f"{field}: must be a finite number{' or null' if allow_none else ''}")
+    return number
+
+
+def _nonlinear_constraints(
+    payload: Mapping[str, object], variables: int
+) -> tuple[list[NonlinearExpressionConstraint], list[dict[str, object]]]:
+    value = payload.get("constraints")
+    if not isinstance(value, (list, tuple)):
+        raise ValueError("constraints: must be an array")
+    compiled: list[NonlinearExpressionConstraint] = []
+    normalized: list[dict[str, object]] = []
+    for index, item in enumerate(value):
+        field = f"constraints[{index}]"
+        if not isinstance(item, Mapping) or any(not isinstance(key, str) for key in item):
+            raise ValueError(f"{field}: must be a mapping with string keys")
+        kind = item.get("type")
+        if kind == "equality":
+            if set(item) != {"type", "expression", "target"}:
+                raise ValueError(
+                    f"{field}: equality must contain exactly type, expression, and target"
+                )
+            target = _constraint_endpoint(
+                item["target"], field=f"{field}.target", allow_none=False
+            )
+            assert target is not None
+            lower = upper = target
+            normalized_item = {
+                "type": "equality",
+                "expression": item["expression"],
+                "target": target,
+            }
+        elif kind == "interval":
+            if set(item) != {"type", "expression", "lower", "upper"}:
+                raise ValueError(
+                    f"{field}: interval must contain exactly type, expression, lower, and upper"
+                )
+            lower_value = _constraint_endpoint(
+                item["lower"], field=f"{field}.lower", allow_none=True
+            )
+            upper_value = _constraint_endpoint(
+                item["upper"], field=f"{field}.upper", allow_none=True
+            )
+            if lower_value is None and upper_value is None:
+                raise ValueError(f"{field}: interval must have at least one finite endpoint")
+            if (
+                lower_value is not None
+                and upper_value is not None
+                and lower_value > upper_value
+            ):
+                raise ValueError(f"{field}: lower endpoint must not exceed upper endpoint")
+            lower = -math.inf if lower_value is None else lower_value
+            upper = math.inf if upper_value is None else upper_value
+            normalized_item = {
+                "type": "interval",
+                "expression": item["expression"],
+                "lower": lower_value,
+                "upper": upper_value,
+            }
+        else:
+            raise ValueError(f"{field}: type must be equality or interval")
+        try:
+            function = compile_expression(item["expression"], variable_count=variables)
+        except ValueError as exc:
+            raise ValueError(f"{field}.expression: {exc}") from exc
+        compiled.append((kind, function, lower, upper))
+        normalized.append(normalized_item)
+    return compiled, normalized
 
 
 def _constraint(
@@ -296,3 +379,146 @@ def execute_integer_programming(payload: Mapping[str, object]) -> dict[str, obje
         integrality=integrality,
         mip_result=result,
     )
+
+
+def _nonlinear_feasibility_summary(
+    solution: np.ndarray,
+    lower: np.ndarray,
+    upper: np.ndarray,
+    constraints: list[NonlinearExpressionConstraint],
+) -> tuple[dict[str, float | bool], list[float]]:
+    max_bound_violation = float(
+        max(
+            np.maximum(lower - solution, 0.0).max(initial=0.0),
+            np.maximum(solution - upper, 0.0).max(initial=0.0),
+        )
+    )
+    max_inequality_violation = 0.0
+    max_equality_violation = 0.0
+    constraint_values: list[float] = []
+    for kind, function, constraint_lower, constraint_upper in constraints:
+        value = function(solution)
+        constraint_values.append(value)
+        if kind == "equality":
+            max_equality_violation = max(
+                max_equality_violation, abs(value - constraint_lower)
+            )
+        else:
+            max_inequality_violation = max(
+                max_inequality_violation,
+                max(constraint_lower - value, 0.0),
+                max(value - constraint_upper, 0.0),
+            )
+    max_violation = float(
+        max(max_bound_violation, max_inequality_violation, max_equality_violation)
+    )
+    if not math.isfinite(max_violation):
+        raise ValueError("solver returned non-finite feasibility violations")
+    return (
+        {
+            "tolerance": _FEASIBILITY_TOLERANCE,
+            "feasible": max_violation <= _FEASIBILITY_TOLERANCE,
+            "max_bound_violation": max_bound_violation,
+            "max_inequality_violation": max_inequality_violation,
+            "max_equality_violation": max_equality_violation,
+            "max_violation": max_violation,
+        },
+        constraint_values,
+    )
+
+
+def _solver_integer(result: object, attribute: str) -> int:
+    value = getattr(result, attribute, None)
+    if isinstance(value, (bool, np.bool_)) or not isinstance(value, Integral):
+        raise ValueError(f"solver returned an invalid {attribute}")
+    number = int(value)
+    if number < 0:
+        raise ValueError(f"solver returned an invalid {attribute}")
+    return number
+
+
+def execute_nonlinear_programming(payload: Mapping[str, object]) -> dict[str, object]:
+    """Solve a bounded nonlinear program from validated expression trees using SLSQP."""
+    initial = numeric_array(payload, "initial", ndim=1).astype(float, copy=False)
+    variables = initial.size
+    lower, upper, normalized_bounds = _bounds(payload, variables)
+    sense = string_enum(payload, "sense", _SENSES)
+    try:
+        objective_node = payload["objective"]
+    except KeyError as exc:
+        raise ValueError("objective: field is required") from exc
+    try:
+        objective = compile_expression(objective_node, variable_count=variables)
+    except ValueError as exc:
+        raise ValueError(f"objective: {exc}") from exc
+    constraints, normalized_constraints = _nonlinear_constraints(payload, variables)
+
+    solver_constraints = [
+        NonlinearConstraint(function, constraint_lower, constraint_upper)
+        for _, function, constraint_lower, constraint_upper in constraints
+    ]
+
+    def solver_objective(values: np.ndarray) -> float:
+        value = objective(values)
+        return -value if sense == "maximize" else value
+
+    result = minimize(
+        solver_objective,
+        initial,
+        method="SLSQP",
+        bounds=Bounds(lower, upper),
+        constraints=solver_constraints,
+        options={"ftol": 1e-12, "maxiter": 1000},
+    )
+    if not bool(getattr(result, "success", False)):
+        raise ValueError(
+            f"solver failed (status {getattr(result, 'status', 'unknown')}): "
+            f"{getattr(result, 'message', 'unknown failure')}"
+        )
+
+    solution = np.asarray(getattr(result, "x", None), dtype=float)
+    if solution.shape != initial.shape or not np.all(np.isfinite(solution)):
+        raise ValueError("solver returned a non-finite solution")
+    objective_value = objective(solution)
+    feasibility, constraint_values = _nonlinear_feasibility_summary(
+        solution, lower, upper, constraints
+    )
+    if not feasibility["feasible"]:
+        raise ValueError(
+            f"solver returned an infeasible solution (maximum violation "
+            f"{feasibility['max_violation']})"
+        )
+
+    diagnostics: dict[str, object] = {
+        "status": _solver_integer(result, "status"),
+        "message": str(getattr(result, "message", "")),
+        "nit": _solver_integer(result, "nit"),
+        "nfev": _solver_integer(result, "nfev"),
+        "constraint_values": constraint_values,
+        "feasibility": feasibility,
+    }
+    if hasattr(result, "njev"):
+        diagnostics["njev"] = _solver_integer(result, "njev")
+    return {
+        "parameters": {
+            "objective": objective_node,
+            "initial": initial.tolist(),
+            "bounds": normalized_bounds,
+            "sense": sense,
+            "constraints": normalized_constraints,
+        },
+        "input_summary": {
+            "variables": variables,
+            "constraints": len(constraints),
+            "equality_constraints": sum(
+                kind == "equality" for kind, *_ in constraints
+            ),
+            "interval_constraints": sum(
+                kind == "interval" for kind, *_ in constraints
+            ),
+        },
+        "result": {"solution": solution.tolist(), "objective": objective_value},
+        "diagnostics": diagnostics,
+        "warnings": [],
+        "seed": None,
+    }
