@@ -155,9 +155,19 @@ def test_evaluation_specifications_are_registered_with_documented_contracts() ->
     """Unregistered models cannot be dispatched, even when their executors exist."""
     capabilities = {item["model_id"]: item for item in list_capabilities()}
 
-    for model_id, card in (
-        ("topsis", "shared/knowledge/model-cards/evaluation/topsis.md"),
-        ("entropy-weight", "shared/knowledge/model-cards/evaluation/entropy-weight.md"),
+    for model_id, card, payload_fields in (
+        ("topsis", "shared/knowledge/model-cards/evaluation/topsis.md", ("matrix", "criteria")),
+        (
+            "entropy-weight",
+            "shared/knowledge/model-cards/evaluation/entropy-weight.md",
+            ("matrix", "criteria"),
+        ),
+        ("ahp", "shared/knowledge/model-cards/evaluation/ahp.md", ("pairwise_matrix",)),
+        (
+            "grey-relational-analysis",
+            "shared/knowledge/model-cards/evaluation/grey-relational.md",
+            ("reference", "comparatives"),
+        ),
     ):
         assert get_spec(model_id).function is not None
         assert capabilities[model_id] == {
@@ -166,7 +176,7 @@ def test_evaluation_specifications_are_registered_with_documented_contracts() ->
             "knowledge_card": card,
             "deterministic": True,
             "seed_supported": False,
-            "payload_fields": ("matrix", "criteria"),
+            "payload_fields": payload_fields,
         }
 
 
@@ -204,6 +214,35 @@ def test_ahp_small_matrices_skip_consistency_ratio(size: int) -> None:
 
     assert result["result"]["CR"] is None
     assert "not required" in result["diagnostics"]["consistency_note"]
+
+
+def test_ahp_stably_solves_a_consistent_high_dynamic_range_matrix() -> None:
+    """Ordinary floating-point eigendecomposition loses the tiny positive principal weights."""
+    result = execute(
+        "ahp",
+        {
+            "pairwise_matrix": [
+                [1, 1e-150, 1e-300],
+                [1e150, 1, 1e-150],
+                [1e300, 1e150, 1],
+            ]
+        },
+    )
+
+    weights = result["result"]["weights"]
+    assert np.log10(weights[0]) == pytest.approx(-300, abs=1e-6)
+    assert np.log10(weights[1]) == pytest.approx(-150, abs=1e-6)
+    assert weights[2] == pytest.approx(1.0)
+    assert result["result"]["lambda_max"] == pytest.approx(3.0)
+    assert result["diagnostics"]["consistent"] is True
+
+
+def test_ahp_uses_the_ri_value_at_the_upper_supported_size() -> None:
+    """An off-by-one RI lookup would make the size-15 consistency result incorrect."""
+    result = execute("ahp", {"pairwise_matrix": [[1.0] * 15 for _ in range(15)]})
+
+    assert result["result"]["CI"] == pytest.approx(0.0)
+    assert result["result"]["CR"] == pytest.approx(0.0)
 
 
 @pytest.mark.parametrize(
@@ -244,6 +283,73 @@ def test_grey_relational_all_identical_series_have_unit_coefficients() -> None:
     assert result["result"]["coefficients"] == [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]
     assert result["result"]["grades"] == [1.0, 1.0]
     assert result["result"]["ranking"] == [0, 1]
+
+
+def test_grey_relational_mean_normalization_is_stable_at_large_finite_scale() -> None:
+    """Overflowing a finite mean to infinity must not silently normalize the sequence to zero."""
+    result = execute(
+        "grey-relational-analysis",
+        {
+            "reference": [1e308, 1e308],
+            "comparatives": [[1e308, 1e308]],
+            "normalization": "mean",
+        },
+    )
+
+    assert result["diagnostics"]["normalized_reference"] == pytest.approx([1.0, 1.0])
+    assert result["diagnostics"]["normalized_comparatives"][0] == pytest.approx([1.0, 1.0])
+
+
+def test_grey_relational_mean_normalization_rejects_an_all_zero_sequence() -> None:
+    """A zero scale still represents a zero mean and must not first create NaN values."""
+    with pytest.raises(ValueError, match="mean normalization requires nonzero sequence mean"):
+        execute(
+            "grey-relational-analysis",
+            {
+                "reference": [0, 0],
+                "comparatives": [[1, 2]],
+                "normalization": "mean",
+            },
+        )
+
+
+def test_grey_relational_keeps_the_smallest_positive_rho_finite() -> None:
+    """Multiplying rho by delta_max must not underflow and create a 0/0 coefficient."""
+    rho = float(np.nextafter(0.0, 1.0))
+    result = execute(
+        "grey-relational-analysis",
+        {"reference": [2, 3], "comparatives": [[2, 2]], "rho": rho},
+    )
+
+    assert result["result"]["coefficients"][0][0] == pytest.approx(1.0)
+    assert result["result"]["coefficients"][0][1] == rho
+    assert result["result"]["grades"][0] == pytest.approx(0.5)
+
+
+@pytest.mark.parametrize("normalization", ["mean", "range"])
+def test_grey_relational_accepts_each_noninitial_normalization(normalization: str) -> None:
+    """Rejecting a documented normalization mode would unnecessarily narrow the public contract."""
+    result = execute(
+        "grey-relational-analysis",
+        {
+            "reference": [1, 2, 3],
+            "comparatives": [[2, 4, 6]],
+            "normalization": normalization,
+        },
+    )
+
+    assert result["result"]["grades"] == pytest.approx([1.0])
+
+
+def test_grey_relational_uses_the_nontrivial_coefficient_formula() -> None:
+    """Replacing the denominator with only the difference changes this hand-derived grade."""
+    result = execute(
+        "grey-relational-analysis",
+        {"reference": [2, 3], "comparatives": [[2, 2]], "rho": 0.5},
+    )
+
+    assert result["result"]["coefficients"][0] == pytest.approx([1.0, 1 / 3])
+    assert result["result"]["grades"] == pytest.approx([2 / 3])
 
 
 @pytest.mark.parametrize(

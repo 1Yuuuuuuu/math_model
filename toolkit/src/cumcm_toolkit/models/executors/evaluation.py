@@ -15,6 +15,7 @@ _WEIGHT_SUM_ABS_TOLERANCE = 1e-12
 _AHP_MAX_SIZE = 15
 _AHP_MATRIX_TOLERANCE = 1e-8
 _AHP_EIGEN_TOLERANCE = 1e-8
+_AHP_POWER_ITERATION_LIMIT = 10_000
 _SAATY_RI = (0.0, 0.0, 0.58, 0.90, 1.12, 1.24, 1.32, 1.41, 1.45, 1.49, 1.51, 1.48, 1.56, 1.57, 1.59)
 _GREY_NORMALIZATIONS = frozenset({"initial", "mean", "range"})
 
@@ -224,52 +225,7 @@ def execute_ahp(payload: Mapping[str, object]) -> dict[str, object]:
     """Derive AHP weights from a strictly positive reciprocal comparison matrix."""
     matrix = _ahp_matrix(payload)
     size = matrix.shape[0]
-    eigenvalues, eigenvectors = np.linalg.eig(matrix)
-    if not np.all(np.isfinite(eigenvalues)) or not np.all(np.isfinite(eigenvectors)):
-        raise ValueError("pairwise_matrix: eigendecomposition produced non-finite values")
-
-    principal_index = int(np.argmax(eigenvalues.real))
-    principal_value = eigenvalues[principal_index]
-    if not np.isclose(
-        principal_value.imag,
-        0.0,
-        rtol=_AHP_EIGEN_TOLERANCE,
-        atol=_AHP_EIGEN_TOLERANCE,
-    ):
-        raise ValueError("pairwise_matrix: principal eigenvalue must be real")
-    repeated = np.isclose(
-        eigenvalues,
-        principal_value,
-        rtol=_AHP_EIGEN_TOLERANCE,
-        atol=_AHP_EIGEN_TOLERANCE,
-    )
-    repeated[principal_index] = False
-    if np.any(repeated):
-        raise ValueError("pairwise_matrix: principal eigenvalue is not unique")
-
-    principal_vector = eigenvectors[:, principal_index]
-    if not np.allclose(
-        principal_vector.imag,
-        0.0,
-        rtol=_AHP_EIGEN_TOLERANCE,
-        atol=_AHP_EIGEN_TOLERANCE,
-    ):
-        raise ValueError("pairwise_matrix: principal eigenvector must be real")
-    weights = principal_vector.real
-    if np.all(weights < 0):
-        weights = -weights
-    if np.any(weights <= 0):
-        raise ValueError("pairwise_matrix: principal eigenvector must be strictly positive")
-    weight_total = float(weights.sum())
-    if not np.isfinite(weight_total) or weight_total <= 0:
-        raise ValueError("pairwise_matrix: principal eigenvector cannot be normalized")
-    weights = weights / weight_total
-    if not np.all(np.isfinite(weights)) or np.any(weights <= 0):
-        raise ValueError("pairwise_matrix: principal weights are invalid")
-
-    lambda_max = float(principal_value.real)
-    if not np.isfinite(lambda_max):
-        raise ValueError("pairwise_matrix: principal eigenvalue is non-finite")
+    lambda_max, weights = _principal_ahp_eigenpair(matrix)
     if size <= 2:
         ci = 0.0
         cr: float | None = None
@@ -300,6 +256,36 @@ def execute_ahp(payload: Mapping[str, object]) -> dict[str, object]:
     )
 
 
+def _principal_ahp_eigenpair(matrix: np.ndarray) -> tuple[float, np.ndarray]:
+    """Return the Perron eigenpair with log-domain power iteration.
+
+    Iterating ``log(A @ w)`` by log-sum-exp is algebraically equivalent to
+    ordinary power iteration, while avoiding overflow for valid pairwise
+    matrices whose reciprocal entries span most of the floating-point range.
+    """
+    size = matrix.shape[0]
+    log_matrix = np.log(matrix)
+    log_weights = np.full(size, -np.log(size), dtype=float)
+    for _ in range(_AHP_POWER_ITERATION_LIMIT):
+        log_products = np.logaddexp.reduce(log_matrix + log_weights[None, :], axis=1)
+        log_next = log_products - np.logaddexp.reduce(log_products)
+        if not np.all(np.isfinite(log_next)):
+            raise ValueError("pairwise_matrix: principal iteration produced non-finite values")
+        log_weights = log_next
+        log_products = np.logaddexp.reduce(log_matrix + log_weights[None, :], axis=1)
+        log_ratios = log_products - log_weights
+        if float(log_ratios.max() - log_ratios.min()) <= _AHP_EIGEN_TOLERANCE:
+            log_lambda = float(log_ratios.mean())
+            lambda_max = float(np.exp(log_lambda))
+            weights = np.exp(log_weights)
+            if not np.isfinite(lambda_max) or not np.all(np.isfinite(weights)):
+                raise ValueError("pairwise_matrix: principal eigenpair is non-finite")
+            if np.any(weights <= 0):
+                raise ValueError("pairwise_matrix: principal eigenvector must be strictly positive")
+            return lambda_max, weights
+    raise ValueError("pairwise_matrix: principal eigenpair did not converge")
+
+
 def _grey_normalize(values: np.ndarray, method: str, field: str) -> np.ndarray:
     """Normalize each grey-analysis sequence with an explicitly defined denominator."""
     if method == "initial":
@@ -308,7 +294,7 @@ def _grey_normalize(values: np.ndarray, method: str, field: str) -> np.ndarray:
             raise ValueError(f"{field}: initial normalization requires nonzero first value")
         normalized = values / np.expand_dims(denominator, axis=-1)
     elif method == "mean":
-        denominator = values.mean(axis=-1)
+        denominator = _stable_sequence_mean(values)
         if np.any(denominator == 0):
             raise ValueError(f"{field}: mean normalization requires nonzero sequence mean")
         normalized = values / np.expand_dims(denominator, axis=-1)
@@ -324,6 +310,19 @@ def _grey_normalize(values: np.ndarray, method: str, field: str) -> np.ndarray:
     if not np.all(np.isfinite(normalized)):
         raise ValueError(f"{field}: normalization produced non-finite values")
     return normalized
+
+
+def _stable_sequence_mean(values: np.ndarray) -> np.ndarray:
+    """Compute finite sequence means without overflowing a finite sum."""
+    scales = np.max(np.abs(values), axis=-1)
+    expanded_scales = np.expand_dims(scales, axis=-1)
+    scaled_values = np.divide(
+        values,
+        expanded_scales,
+        out=np.zeros_like(values),
+        where=expanded_scales != 0,
+    )
+    return scaled_values.mean(axis=-1) * scales
 
 
 def execute_grey_relational(payload: Mapping[str, object]) -> dict[str, object]:
@@ -349,7 +348,9 @@ def execute_grey_relational(payload: Mapping[str, object]) -> dict[str, object]:
     if delta_max == 0:
         coefficients = np.ones_like(differences)
     else:
-        coefficients = (delta_min + rho * delta_max) / (differences + rho * delta_max)
+        relative_minimum = delta_min / delta_max
+        relative_differences = differences / delta_max
+        coefficients = (relative_minimum + rho) / (relative_differences + rho)
     grades = coefficients.mean(axis=1)
     if not np.all(np.isfinite(coefficients)) or not np.all(np.isfinite(grades)):
         raise ValueError("comparatives: grey relation produced non-finite values")
