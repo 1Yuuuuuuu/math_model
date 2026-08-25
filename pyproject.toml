@@ -12,6 +12,7 @@ dependencies = [
   "scikit-learn>=1.4,<2",
   "statsmodels>=0.14,<1",
   "matplotlib>=3.8,<4",
+  "pypdf>=4,<7",
 ]
 
 [dependency-groups]

@@ -320,6 +320,8 @@ uv run pytest tests/e2e/test_paper_pipeline.py -v
 - LaTeX 编译无阻断错误、未定义引用或缺失图片。
 - PDF 页数、字体和空白页检查产生结构化报告。
 
+**Verified inputs (2026-08-22):** `toolkit` 新增 latex/{scaffold,build,lint,bibliography,citation_check} 与 pdf/inspect、evidence/{linker,citation_linker} 八模块；`shared/templates/latex/cumcm/` CUMCM 模板；`shared/knowledge/writing/` 六篇写作知识；`tests/e2e/test_paper_pipeline.py` 证据绑定论文管线（build/lint/citation_check/inspect/resolve 全绿）；`evidence-link.schema.json` locator.kind 枚举向后兼容新增 `metric` 并登记新样例；11 项契约不变；pypdf 依赖入锁。`adapters/codex/skills/paper-{outliner,writer,latex-publisher}` 属 Codex 轨道，Phase 4 tracking 行待双轨道合拢后标记完成（本阶段不勾选）。
+
 ## Phase 5: Independent review gates
 
 **Objective:** 建立硬性、复现、模型、论文和评委质询五层独立审批。

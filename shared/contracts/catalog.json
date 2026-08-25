@@ -30,7 +30,10 @@
     {
       "id": "evidence-link",
       "schema": "shared/contracts/evidence-link.schema.json",
-      "valid_examples": ["shared/fixtures/contracts/valid/evidence-link.json"],
+      "valid_examples": [
+        "shared/fixtures/contracts/valid/evidence-link.json",
+        "shared/fixtures/contracts/valid/evidence-link-metric.json"
+      ],
       "invalid_examples": ["shared/fixtures/contracts/invalid/evidence-link-missing-boundary.json"]
     },
     {
