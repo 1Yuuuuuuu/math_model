@@ -5,9 +5,20 @@ import re
 from typing import Any
 
 
-def _bib_key(source: dict[str, Any]) -> str:
-    digest = hashlib.sha256(source["source_id"].encode("utf-8")).hexdigest()
+def bib_key_for_source_id(source_id: str) -> str:
+    """Derive the deterministic BibTeX key for a literature source id.
+
+    Key = ``src_`` + sha256(source_id)[:8]. The same derivation is used by
+    ``bibtex_entry``/``generate_bibliography`` so callers (e.g.
+    ``citation_check``) can bridge document-side ``\\cite{<bib key>}`` back to
+    the citation link's ``source_id``.
+    """
+    digest = hashlib.sha256(source_id.encode("utf-8")).hexdigest()
     return f"src_{digest[:8]}"
+
+
+def _bib_key(source: dict[str, Any]) -> str:
+    return bib_key_for_source_id(source["source_id"])
 
 
 def _escape(value: object) -> str:

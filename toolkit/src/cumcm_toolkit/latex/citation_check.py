@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from cumcm_toolkit.latex.bibliography import bib_key_for_source_id
+
 _CITE = re.compile(r"\\cite\{([^}]+)\}")
 
 
@@ -32,11 +34,19 @@ def citation_check(
     if approved_source_ids is None:
         approved_source_ids = {c["source_id"] for c in citations}
     citation_source_ids = {c["source_id"] for c in citations}
+    # generate_bibliography derives BibTeX keys from the source_id
+    # (src_<sha256-8>), so a citation's document-side key is its source_id
+    # itself OR the derived key. Accept both namespaces when matching
+    # cite<->bib<->citation-link; every rule below still must hold
+    # (fail-closed preserved).
+    known_keys = citation_source_ids | {
+        bib_key_for_source_id(source_id) for source_id in citation_source_ids
+    }
 
     missing_bibtex = sorted(cited - entries)
     unapproved_sources = sorted(source for source in citation_source_ids if source not in approved_source_ids)
-    uncited_entries = sorted((entries - cited) | (entries - citation_source_ids))
-    unmatched_citations = sorted(cited - citation_source_ids)
+    uncited_entries = sorted((entries - cited) | (entries - known_keys))
+    unmatched_citations = sorted(cited - known_keys)
     errors: list[str] = []
     if missing_bibtex:
         errors.append(f"cite without bib entry: {missing_bibtex}")
