@@ -111,3 +111,30 @@ def get_spec(model_id: str) -> ModelSpec:
 def list_capabilities() -> list[dict[str, object]]:
     """Return isolated public capability descriptions from the global registry."""
     return _REGISTRY.list_capabilities()
+
+
+from .executors.evaluation import execute_entropy_weight, execute_topsis
+
+
+register_spec(
+    ModelSpec(
+        "topsis",
+        "evaluation",
+        "shared/knowledge/model-cards/evaluation/topsis.md",
+        True,
+        False,
+        ("matrix", "criteria"),
+        execute_topsis,
+    )
+)
+register_spec(
+    ModelSpec(
+        "entropy-weight",
+        "evaluation",
+        "shared/knowledge/model-cards/evaluation/entropy-weight.md",
+        True,
+        False,
+        ("matrix", "criteria"),
+        execute_entropy_weight,
+    )
+)
