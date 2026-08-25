@@ -14,6 +14,7 @@ from .base import numeric_array, required_mapping, string_enum
 
 _SENSES = frozenset({"minimize", "maximize"})
 _INTEGRALITY_CODES = frozenset({0, 1, 2, 3})
+_FEASIBILITY_TOLERANCE = 1e-8
 
 
 def _objective(payload: Mapping[str, object]) -> np.ndarray:
@@ -134,11 +135,52 @@ def _residuals(
     return diagnostics
 
 
+def _feasibility_summary(
+    solution: np.ndarray,
+    lower: np.ndarray,
+    upper: np.ndarray,
+    inequality: tuple[np.ndarray, np.ndarray] | None,
+    equality: tuple[np.ndarray, np.ndarray] | None,
+) -> dict[str, float | bool]:
+    """Calculate finite primal violations from the returned solution, not solver status."""
+    max_bound_violation = float(
+        max(
+            np.maximum(lower - solution, 0.0).max(initial=0.0),
+            np.maximum(solution - upper, 0.0).max(initial=0.0),
+        )
+    )
+    max_inequality_violation = 0.0
+    if inequality is not None:
+        matrix, upper_rhs = inequality
+        max_inequality_violation = float(
+            np.maximum(matrix @ solution - upper_rhs, 0.0).max(initial=0.0)
+        )
+    max_equality_violation = 0.0
+    if equality is not None:
+        matrix, target = equality
+        max_equality_violation = float(np.abs(matrix @ solution - target).max(initial=0.0))
+    max_violation = float(
+        max(max_bound_violation, max_inequality_violation, max_equality_violation)
+    )
+    if not math.isfinite(max_violation):
+        raise ValueError("solver returned non-finite feasibility violations")
+    return {
+        "tolerance": _FEASIBILITY_TOLERANCE,
+        "feasible": max_violation <= _FEASIBILITY_TOLERANCE,
+        "max_bound_violation": max_bound_violation,
+        "max_inequality_violation": max_inequality_violation,
+        "max_equality_violation": max_equality_violation,
+        "max_violation": max_violation,
+    }
+
+
 def _raw_result(
     *,
     objective: np.ndarray,
     sense: str,
     bounds: list[list[float | None]],
+    lower: np.ndarray,
+    upper: np.ndarray,
     solution: np.ndarray,
     objective_value: float,
     inequality: tuple[np.ndarray, np.ndarray] | None,
@@ -152,13 +194,14 @@ def _raw_result(
         "solver_status": int(status),
         "solver_message": str(message),
         **_residuals(solution, inequality, equality),
+        "feasibility": _feasibility_summary(solution, lower, upper, inequality, equality),
     }
     warnings: list[str] = []
     if mip_result is not None:
         for attribute, name in (("mip_dual_bound", "mip_dual_bound"), ("mip_gap", "mip_gap")):
             value = getattr(mip_result, attribute, None)
             if isinstance(value, Real) and not isinstance(value, (bool, np.bool_)) and math.isfinite(float(value)):
-                diagnostics[name] = float(value)
+                diagnostics[name] = -float(value) if name == "mip_dual_bound" and sense == "maximize" else float(value)
             else:
                 warnings.append(f"MILP solver did not report a finite {name}")
     parameters: dict[str, object] = {
@@ -206,6 +249,8 @@ def execute_linear_programming(payload: Mapping[str, object]) -> dict[str, objec
         objective=objective,
         sense=sense,
         bounds=normalized_bounds,
+        lower=lower,
+        upper=upper,
         solution=solution,
         objective_value=objective_value,
         inequality=inequality,
@@ -240,6 +285,8 @@ def execute_integer_programming(payload: Mapping[str, object]) -> dict[str, obje
         objective=objective,
         sense=sense,
         bounds=normalized_bounds,
+        lower=lower,
+        upper=upper,
         solution=solution,
         objective_value=objective_value,
         inequality=inequality,

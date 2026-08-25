@@ -65,6 +65,47 @@ def test_integer_programming_does_not_round_continuous_solution() -> None:
     assert result["result"]["objective"] == pytest.approx(2)
 
 
+def test_integer_programming_maximize_restores_the_mip_dual_bound_sign() -> None:
+    """Leaking the internally negated objective makes a maximum bound of 9 appear as -9."""
+    result = execute(
+        "integer-programming",
+        {
+            "objective": [9],
+            "sense": "maximize",
+            "bounds": [[0, 1]],
+            "integrality": [1],
+        },
+    )
+
+    assert result["result"]["objective"] == pytest.approx(9)
+    assert result["diagnostics"]["mip_dual_bound"] == pytest.approx(9)
+
+
+@pytest.mark.parametrize("model_id", ["linear-programming", "integer-programming"])
+def test_optimization_models_report_calculated_feasibility_summary(model_id: str) -> None:
+    """Hard-coding solver success as feasibility would hide violations in the returned solution."""
+    payload: dict[str, object] = {
+        "objective": [1, 2],
+        "sense": "minimize",
+        "bounds": [[None, 2], [0, None]],
+        "equality": {"matrix": [[1, 1]], "target": [3]},
+        "inequality": {"matrix": [[1, 0]], "upper": [2]},
+    }
+    if model_id == "integer-programming":
+        payload["integrality"] = [1, 1]
+
+    result = execute(model_id, payload)
+
+    assert result["diagnostics"]["feasibility"] == {
+        "tolerance": 1e-8,
+        "feasible": True,
+        "max_bound_violation": 0.0,
+        "max_inequality_violation": 0.0,
+        "max_equality_violation": 0.0,
+        "max_violation": 0.0,
+    }
+
+
 @pytest.mark.parametrize(
     ("model_id", "payload", "field"),
     [
