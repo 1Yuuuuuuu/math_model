@@ -168,3 +168,116 @@ def test_evaluation_specifications_are_registered_with_documented_contracts() ->
             "seed_supported": False,
             "payload_fields": ("matrix", "criteria"),
         }
+
+
+def test_ahp_consistent_matrix_returns_expected_weights() -> None:
+    """Choosing a non-principal eigenvector would change these hand-checked weights."""
+    result = execute(
+        "ahp",
+        {"pairwise_matrix": [[1, 2, 4], [0.5, 1, 2], [0.25, 0.5, 1]]},
+    )
+
+    assert result["result"]["weights"] == pytest.approx([4 / 7, 2 / 7, 1 / 7], abs=1e-6)
+    assert result["result"]["lambda_max"] == pytest.approx(3.0)
+    assert result["result"]["CI"] == pytest.approx(0.0)
+    assert result["result"]["CR"] == pytest.approx(0.0)
+    assert result["diagnostics"]["consistent"] is True
+
+
+def test_ahp_reports_inconsistent_judgements_without_failing() -> None:
+    """Rejecting an inconsistent but valid matrix would hide the consistency diagnosis."""
+    result = execute(
+        "ahp",
+        {"pairwise_matrix": [[1, 9, 1 / 9], [1 / 9, 1, 9], [9, 1 / 9, 1]]},
+    )
+
+    assert result["result"]["CR"] > 0.1
+    assert result["diagnostics"]["consistent"] is False
+
+
+@pytest.mark.parametrize("size", [1, 2])
+def test_ahp_small_matrices_skip_consistency_ratio(size: int) -> None:
+    """Dividing by RI for one or two criteria would fabricate a consistency ratio."""
+    matrix = [[1.0]] if size == 1 else [[1.0, 3.0], [1 / 3, 1.0]]
+
+    result = execute("ahp", {"pairwise_matrix": matrix})
+
+    assert result["result"]["CR"] is None
+    assert "not required" in result["diagnostics"]["consistency_note"]
+
+
+@pytest.mark.parametrize(
+    "matrix",
+    [
+        [[1, 2], [0.4, 1]],
+        [[1, 0], [1, 1]],
+        [[1, 2, 3], [0.5, 1, 2]],
+        [[1] * 16 for _ in range(16)],
+        [[1, np.inf], [0, 1]],
+    ],
+)
+def test_ahp_rejects_invalid_pairwise_matrices(matrix: object) -> None:
+    """Admitting non-reciprocal, nonpositive, malformed, oversized, or nonfinite matrices is invalid."""
+    with pytest.raises(ValueError, match="ahp: execution stage failed: pairwise_matrix"):
+        execute("ahp", {"pairwise_matrix": matrix})
+
+
+def test_grey_relational_identical_series_ranks_first() -> None:
+    """Losing the all-zero-difference branch would turn an identical series into NaN."""
+    result = execute(
+        "grey-relational-analysis",
+        {"reference": [1, 2, 3], "comparatives": [[1, 2, 3], [3, 2, 1]], "rho": 0.5},
+    )
+
+    assert result["result"]["coefficients"][0] == pytest.approx([1.0, 1.0, 1.0])
+    assert result["result"]["grades"][0] == pytest.approx(1.0)
+    assert result["result"]["ranking"][0] == 0
+
+
+def test_grey_relational_all_identical_series_have_unit_coefficients() -> None:
+    """An all-zero delta maximum must produce finite unit coefficients for every series."""
+    result = execute(
+        "grey-relational-analysis",
+        {"reference": [2, 4, 6], "comparatives": [[2, 4, 6], [2, 4, 6]]},
+    )
+
+    assert result["result"]["coefficients"] == [[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]]
+    assert result["result"]["grades"] == [1.0, 1.0]
+    assert result["result"]["ranking"] == [0, 1]
+
+
+@pytest.mark.parametrize(
+    ("payload", "field"),
+    [
+        ({"reference": [1, 2], "comparatives": [[1, 2]], "rho": 0}, "rho"),
+        ({"reference": [1, 2], "comparatives": [[1, 2]], "rho": 1.1}, "rho"),
+        ({"reference": [1, 2], "comparatives": [[1, 2]], "normalization": "zscore"}, "normalization"),
+        ({"reference": [1, 2], "comparatives": [[1, 2, 3]]}, "comparatives"),
+        ({"reference": [0, 2], "comparatives": [[1, 2]], "normalization": "initial"}, "reference"),
+        ({"reference": [1, 2], "comparatives": [[0, 2]], "normalization": "initial"}, "comparatives"),
+        ({"reference": [1, -1], "comparatives": [[1, 2]], "normalization": "mean"}, "reference"),
+        ({"reference": [1, 2], "comparatives": [[2, -2]], "normalization": "mean"}, "comparatives"),
+        ({"reference": [1, 1], "comparatives": [[1, 2]], "normalization": "range"}, "reference"),
+        ({"reference": [1, 2], "comparatives": [[3, 3]], "normalization": "range"}, "comparatives"),
+        ({"reference": [1, np.nan], "comparatives": [[1, 2]]}, "reference"),
+    ],
+)
+def test_grey_relational_rejects_invalid_inputs(payload: dict[str, object], field: str) -> None:
+    """Invalid coefficients, shapes, normalization divisors, or nonfinite values cannot be ranked."""
+    with pytest.raises(ValueError, match=rf"grey-relational-analysis: execution stage failed: {field}"):
+        execute("grey-relational-analysis", payload)
+
+
+@pytest.mark.parametrize("model_id", ["ahp", "grey-relational-analysis"])
+def test_new_evaluation_results_are_finite_json_round_trippable(model_id: str) -> None:
+    """Non-JSON values in either new evaluation result must be rejected at the public boundary."""
+    payload = (
+        {"pairwise_matrix": [[1, 2, 4], [0.5, 1, 2], [0.25, 0.5, 1]]}
+        if model_id == "ahp"
+        else {"reference": [1, 2, 3], "comparatives": [[1, 2, 3], [3, 2, 1]]}
+    )
+
+    result = execute(model_id, payload)
+
+    serialized = json.dumps(result, allow_nan=False)
+    assert json.loads(serialized) == result

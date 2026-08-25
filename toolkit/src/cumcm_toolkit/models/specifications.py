@@ -113,7 +113,7 @@ def list_capabilities() -> list[dict[str, object]]:
     return _REGISTRY.list_capabilities()
 
 
-from .executors.evaluation import execute_entropy_weight, execute_topsis
+from .executors.evaluation import execute_ahp, execute_entropy_weight, execute_grey_relational, execute_topsis
 
 
 register_spec(
@@ -125,6 +125,28 @@ register_spec(
         False,
         ("matrix", "criteria"),
         execute_topsis,
+    )
+)
+register_spec(
+    ModelSpec(
+        "ahp",
+        "evaluation",
+        "shared/knowledge/model-cards/evaluation/ahp.md",
+        True,
+        False,
+        ("pairwise_matrix",),
+        execute_ahp,
+    )
+)
+register_spec(
+    ModelSpec(
+        "grey-relational-analysis",
+        "evaluation",
+        "shared/knowledge/model-cards/evaluation/grey-relational.md",
+        True,
+        False,
+        ("reference", "comparatives"),
+        execute_grey_relational,
     )
 )
 register_spec(
