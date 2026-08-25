@@ -96,6 +96,43 @@ def test_expression_tree_rejects_unknown_fields_wrong_arity_and_bare_numbers(
         compile_expression(node, variable_count=1)
 
 
+def test_expression_tree_rejects_dict_subclasses_before_mapping_hooks() -> None:
+    """A dict subclass must not present inconsistent keys and operation values."""
+    calls: list[str] = []
+
+    class InconsistentDict(dict[str, object]):
+        def __iter__(self):  # type: ignore[no-untyped-def]
+            calls.append("__iter__")
+            return super().__iter__()
+
+        def get(self, key: str, default: object = None) -> object:
+            calls.append("get")
+            return "constant" if key == "op" else super().get(key, default)
+
+    node = InconsistentDict({"op": "python", "value": 1})
+
+    with pytest.raises(ValueError):
+        compile_expression(node, variable_count=0)
+    assert calls == []
+
+
+def test_expression_tree_rejects_list_subclasses_before_sequence_hooks() -> None:
+    """A list subclass must not spoof arity and later expose fewer children."""
+    calls: list[str] = []
+
+    class InconsistentList(list[object]):
+        def __len__(self) -> int:
+            calls.append("__len__")
+            return 2
+
+    node = _binary("add", _constant(1), _constant(2))
+    node["args"] = InconsistentList([_constant(1)])
+
+    with pytest.raises(ValueError):
+        compile_expression(node, variable_count=0)
+    assert calls == []
+
+
 @pytest.mark.parametrize("index", [True, 0.0, -1, 1])
 def test_expression_tree_rejects_invalid_variable_indexes(index: object) -> None:
     """Coercing indexes would allow booleans, fractions, or out-of-range variables."""
@@ -103,11 +140,48 @@ def test_expression_tree_rejects_invalid_variable_indexes(index: object) -> None
         compile_expression(_variable(index), variable_count=1)
 
 
+@pytest.mark.parametrize("location", ["index", "exponent"])
+def test_expression_tree_rejects_integer_subclasses_before_conversion_hooks(
+    location: str,
+) -> None:
+    """An integer subclass must not rewrite a validated index or exponent via __int__."""
+    calls: list[str] = []
+
+    class RewritingInteger(int):
+        def __int__(self) -> int:
+            calls.append("__int__")
+            return 99
+
+    value = RewritingInteger(0)
+    node = (
+        _variable(value)
+        if location == "index"
+        else _binary("power", _constant(2), _constant(value))
+    )
+    with pytest.raises(ValueError):
+        compile_expression(node, variable_count=1)
+    assert calls == []
+
+
 @pytest.mark.parametrize("value", [True, np.nan, np.inf, -np.inf, "1"])
 def test_expression_tree_rejects_invalid_constants(value: object) -> None:
     """Non-real or non-finite constants can leak invalid values into the solver."""
     with pytest.raises(ValueError, match="constant"):
         compile_expression(_constant(value), variable_count=1)
+
+
+def test_expression_tree_rejects_float_subclasses_before_conversion_hooks() -> None:
+    """A float subclass must not replace its validated constant through __float__."""
+    calls: list[str] = []
+
+    class RewritingFloat(float):
+        def __float__(self) -> float:
+            calls.append("__float__")
+            return 99.0
+
+    with pytest.raises(ValueError):
+        compile_expression(_constant(RewritingFloat(2.0)), variable_count=0)
+    assert calls == []
 
 
 @pytest.mark.parametrize("exponent", [-9, 9, 2.0, True])

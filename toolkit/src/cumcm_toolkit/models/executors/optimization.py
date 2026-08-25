@@ -9,7 +9,7 @@ from numbers import Integral, Real
 import numpy as np
 from scipy.optimize import Bounds, LinearConstraint, NonlinearConstraint, linprog, milp, minimize
 
-from .base import numeric_array, required_mapping, string_enum
+from .base import json_finite_number, numeric_array, required_mapping, string_enum
 from .expression import compile_expression
 
 
@@ -40,15 +40,9 @@ def _bounds(payload: Mapping[str, object], variables: int) -> tuple[np.ndarray, 
             raise ValueError("bounds: each bound must be a [lower, upper] pair")
         endpoints: list[float | None] = []
         for endpoint in pair:
-            if endpoint is None:
-                endpoints.append(None)
-            elif isinstance(endpoint, (bool, np.bool_)) or not isinstance(endpoint, Real):
-                raise ValueError("bounds: endpoints must be finite numbers or null")
-            else:
-                number = float(endpoint)
-                if not math.isfinite(number):
-                    raise ValueError("bounds: endpoints must be finite numbers or null")
-                endpoints.append(number)
+            endpoints.append(
+                json_finite_number(endpoint, "bounds: endpoints", allow_none=True)
+            )
         if endpoints[0] is not None and endpoints[1] is not None and endpoints[0] > endpoints[1]:
             raise ValueError("bounds: lower endpoint must not exceed upper endpoint")
         lower[index] = -np.inf if endpoints[0] is None else endpoints[0]
@@ -58,54 +52,57 @@ def _bounds(payload: Mapping[str, object], variables: int) -> tuple[np.ndarray, 
 
 
 def _constraint_endpoint(value: object, *, field: str, allow_none: bool) -> float | None:
-    if value is None and allow_none:
-        return None
-    if isinstance(value, (bool, np.bool_)) or not isinstance(value, Real):
-        raise ValueError(f"{field}: must be a finite number{' or null' if allow_none else ''}")
-    number = float(value)
-    if not math.isfinite(number):
-        raise ValueError(f"{field}: must be a finite number{' or null' if allow_none else ''}")
-    return number
+    return json_finite_number(value, field, allow_none=allow_none)
 
 
 def _nonlinear_constraints(
     payload: Mapping[str, object], variables: int
 ) -> tuple[list[NonlinearExpressionConstraint], list[dict[str, object]]]:
     value = payload.get("constraints")
-    if not isinstance(value, (list, tuple)):
-        raise ValueError("constraints: must be an array")
+    if type(value) is not list:
+        raise ValueError("constraints: must be a plain JSON array")
     compiled: list[NonlinearExpressionConstraint] = []
     normalized: list[dict[str, object]] = []
     for index, item in enumerate(value):
         field = f"constraints[{index}]"
-        if not isinstance(item, Mapping) or any(not isinstance(key, str) for key in item):
-            raise ValueError(f"{field}: must be a mapping with string keys")
-        kind = item.get("type")
+        if type(item) is not dict or any(
+            type(key) is not str for key in dict.keys(item)
+        ):
+            raise ValueError(f"{field}: must be a plain JSON object with string keys")
+        kind = dict.get(item, "type")
+        if type(kind) is not str:
+            raise ValueError(f"{field}: type must be equality or interval")
         if kind == "equality":
-            if set(item) != {"type", "expression", "target"}:
+            if set(dict.keys(item)) != {"type", "expression", "target"}:
                 raise ValueError(
                     f"{field}: equality must contain exactly type, expression, and target"
                 )
             target = _constraint_endpoint(
-                item["target"], field=f"{field}.target", allow_none=False
+                dict.__getitem__(item, "target"),
+                field=f"{field}.target",
+                allow_none=False,
             )
             assert target is not None
             lower = upper = target
             normalized_item = {
                 "type": "equality",
-                "expression": item["expression"],
+                "expression": dict.__getitem__(item, "expression"),
                 "target": target,
             }
         elif kind == "interval":
-            if set(item) != {"type", "expression", "lower", "upper"}:
+            if set(dict.keys(item)) != {"type", "expression", "lower", "upper"}:
                 raise ValueError(
                     f"{field}: interval must contain exactly type, expression, lower, and upper"
                 )
             lower_value = _constraint_endpoint(
-                item["lower"], field=f"{field}.lower", allow_none=True
+                dict.__getitem__(item, "lower"),
+                field=f"{field}.lower",
+                allow_none=True,
             )
             upper_value = _constraint_endpoint(
-                item["upper"], field=f"{field}.upper", allow_none=True
+                dict.__getitem__(item, "upper"),
+                field=f"{field}.upper",
+                allow_none=True,
             )
             if lower_value is None and upper_value is None:
                 raise ValueError(f"{field}: interval must have at least one finite endpoint")
@@ -119,14 +116,16 @@ def _nonlinear_constraints(
             upper = math.inf if upper_value is None else upper_value
             normalized_item = {
                 "type": "interval",
-                "expression": item["expression"],
+                "expression": dict.__getitem__(item, "expression"),
                 "lower": lower_value,
                 "upper": upper_value,
             }
         else:
             raise ValueError(f"{field}: type must be equality or interval")
         try:
-            function = compile_expression(item["expression"], variable_count=variables)
+            function = compile_expression(
+                dict.__getitem__(item, "expression"), variable_count=variables
+            )
         except ValueError as exc:
             raise ValueError(f"{field}.expression: {exc}") from exc
         compiled.append((kind, function, lower, upper))
@@ -427,8 +426,14 @@ def _nonlinear_feasibility_summary(
     )
 
 
-def _solver_integer(result: object, attribute: str) -> int:
-    value = getattr(result, attribute, None)
+def _solver_integer(
+    result: object, attribute: str, *, missing_default: int | None = None
+) -> int:
+    if not hasattr(result, attribute):
+        if missing_default is not None:
+            return missing_default
+        raise ValueError(f"solver returned an invalid {attribute}")
+    value = getattr(result, attribute)
     if isinstance(value, (bool, np.bool_)) or not isinstance(value, Integral):
         raise ValueError(f"solver returned an invalid {attribute}")
     number = int(value)
@@ -490,10 +495,10 @@ def execute_nonlinear_programming(payload: Mapping[str, object]) -> dict[str, ob
         )
 
     diagnostics: dict[str, object] = {
-        "status": _solver_integer(result, "status"),
+        "status": _solver_integer(result, "status", missing_default=0),
         "message": str(getattr(result, "message", "")),
-        "nit": _solver_integer(result, "nit"),
-        "nfev": _solver_integer(result, "nfev"),
+        "nit": _solver_integer(result, "nit", missing_default=0),
+        "nfev": _solver_integer(result, "nfev", missing_default=0),
         "constraint_values": constraint_values,
         "feasibility": feasibility,
     }

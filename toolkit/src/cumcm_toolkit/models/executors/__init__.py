@@ -3,6 +3,7 @@
 from .base import (
     bounded_integer,
     finite_float,
+    json_finite_number,
     numeric_array,
     reject_seed_random_state_conflict,
     required_field,
@@ -13,6 +14,7 @@ from .base import (
 __all__ = [
     "bounded_integer",
     "finite_float",
+    "json_finite_number",
     "numeric_array",
     "reject_seed_random_state_conflict",
     "required_field",

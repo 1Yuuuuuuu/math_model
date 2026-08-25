@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Mapping
-from numbers import Integral, Real
 
 import numpy as np
+
+from .base import json_finite_number
 
 
 _MAX_DEPTH = 16
@@ -99,13 +100,9 @@ def compile_expression(
     node: object, *, variable_count: int
 ) -> Callable[[np.ndarray], float]:
     """Validate and compile a bounded expression tree into a numerical callable."""
-    if (
-        isinstance(variable_count, (bool, np.bool_))
-        or not isinstance(variable_count, Integral)
-        or variable_count < 0
-    ):
+    if type(variable_count) is not int or variable_count < 0:
         raise ValueError("variable_count must be a non-negative integer")
-    count = int(variable_count)
+    count = variable_count
     nodes_seen = 0
     active: set[int] = set()
 
@@ -116,66 +113,58 @@ def compile_expression(
         nodes_seen += 1
         if nodes_seen > _MAX_NODES:
             raise ValueError(f"expression node count exceeds {_MAX_NODES}")
-        if not isinstance(current, Mapping):
-            raise ValueError("each expression node must be a mapping")
-        if any(not isinstance(key, str) for key in current):
+        if type(current) is not dict:
+            raise ValueError("each expression node must be a plain JSON object")
+        keys = dict.keys(current)
+        if any(type(key) is not str for key in keys):
             raise ValueError("expression node keys must be strings")
         identity = id(current)
         if identity in active:
             raise ValueError("expression tree contains a cyclic reference")
         active.add(identity)
         try:
-            op = current.get("op")
-            if not isinstance(op, str):
+            op = dict.get(current, "op")
+            if type(op) is not str:
                 raise ValueError("expression node op must be a string")
             if op == "constant":
-                if set(current) != {"op", "value"}:
+                if set(dict.keys(current)) != {"op", "value"}:
                     raise ValueError("constant node must contain exactly op and value")
-                value = current["value"]
-                if isinstance(value, (bool, np.bool_)) or not isinstance(value, Real):
-                    raise ValueError("constant value must be a finite number")
-                try:
-                    finite_value = _finite(value)
-                except ValueError as exc:
-                    raise ValueError("constant value must be a finite number") from exc
+                finite_value = json_finite_number(
+                    dict.__getitem__(current, "value"), "constant value"
+                )
+                assert finite_value is not None
                 return (op, finite_value)
             if op == "variable":
-                if set(current) != {"op", "index"}:
+                if set(dict.keys(current)) != {"op", "index"}:
                     raise ValueError("variable node must contain exactly op and index")
-                index = current["index"]
-                if (
-                    isinstance(index, (bool, np.bool_))
-                    or not isinstance(index, Integral)
-                    or not 0 <= index < count
-                ):
+                index = dict.__getitem__(current, "index")
+                if type(index) is not int or not 0 <= index < count:
                     raise ValueError("variable index is outside the declared range")
-                return (op, int(index))
+                return (op, index)
             if op not in _UNARY_OPERATIONS and op not in _BINARY_OPERATIONS:
                 raise ValueError(f"unknown expression operation: {op}")
-            if set(current) != {"op", "args"}:
+            if set(dict.keys(current)) != {"op", "args"}:
                 raise ValueError(f"{op} node must contain exactly op and args")
-            args = current["args"]
+            args = dict.__getitem__(current, "args")
             arity = 1 if op in _UNARY_OPERATIONS else 2
-            if not isinstance(args, (list, tuple)) or len(args) != arity:
+            if type(args) is not list or len(args) != arity:
                 raise ValueError(f"{op} operation requires exactly {arity} argument(s)")
             if op == "power":
                 exponent_node = args[1]
                 if (
-                    not isinstance(exponent_node, Mapping)
-                    or set(exponent_node) != {"op", "value"}
-                    or exponent_node.get("op") != "constant"
+                    type(exponent_node) is not dict
+                    or any(type(key) is not str for key in dict.keys(exponent_node))
+                    or set(dict.keys(exponent_node)) != {"op", "value"}
+                    or type(dict.get(exponent_node, "op")) is not str
+                    or dict.get(exponent_node, "op") != "constant"
                 ):
                     raise ValueError("power exponent must be a constant integer from -8 to 8")
-                exponent = exponent_node["value"]
-                if (
-                    isinstance(exponent, (bool, np.bool_))
-                    or not isinstance(exponent, Integral)
-                    or not -8 <= exponent <= 8
-                ):
+                exponent = dict.__getitem__(exponent_node, "value")
+                if type(exponent) is not int or not -8 <= exponent <= 8:
                     raise ValueError("power exponent must be a constant integer from -8 to 8")
             compiled = tuple(build(child, depth + 1) for child in args)
             if op == "power":
-                return (op, compiled[0], compiled[1], int(exponent))
+                return (op, compiled[0], compiled[1], exponent)
             return (op, *compiled)
         finally:
             active.remove(identity)

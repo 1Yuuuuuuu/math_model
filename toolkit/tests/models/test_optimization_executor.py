@@ -172,6 +172,25 @@ def test_nonlinear_programming_maximize_restores_objective_sign() -> None:
     assert result["result"]["objective"] == pytest.approx(5, abs=1e-9)
 
 
+def test_nonlinear_programming_accepts_all_fixed_variables() -> None:
+    """SciPy may omit status and counts for a successful all-fixed problem."""
+    result = execute(
+        "nonlinear-programming",
+        {
+            "objective": _square(_binary("subtract", _variable(), _constant(1))),
+            "initial": [1],
+            "bounds": [[1, 1]],
+            "sense": "minimize",
+            "constraints": [],
+        },
+    )
+
+    assert result["result"] == {"solution": [1.0], "objective": 0.0}
+    assert result["diagnostics"]["status"] == 0
+    assert result["diagnostics"]["nit"] == 0
+    assert result["diagnostics"]["feasibility"]["feasible"] is True
+
+
 @pytest.mark.parametrize(
     ("replacement", "field"),
     [
@@ -260,6 +279,109 @@ def test_nonlinear_programming_rejects_malformed_payloads(
 
     with pytest.raises(ValueError, match=rf"nonlinear-programming: execution stage failed: {field}"):
         execute("nonlinear-programming", payload)
+
+
+@pytest.mark.parametrize("location", ["bounds", "target", "interval"])
+def test_nonlinear_json_numbers_reject_float_subclasses_before_conversion_hooks(
+    location: str,
+) -> None:
+    """A float subclass must not rewrite a validated bound or constraint endpoint."""
+    calls: list[str] = []
+
+    class RewritingFloat(float):
+        def __float__(self) -> float:
+            calls.append("__float__")
+            return 99.0
+
+    value = RewritingFloat(1.0)
+    payload = _nonlinear_payload()
+    if location == "bounds":
+        payload["bounds"] = [[value, 10]]
+    elif location == "target":
+        payload["constraints"] = [
+            {"type": "equality", "expression": _variable(), "target": value}
+        ]
+    else:
+        payload["constraints"] = [
+            {
+                "type": "interval",
+                "expression": _variable(),
+                "lower": value,
+                "upper": 10,
+            }
+        ]
+
+    with pytest.raises(ValueError):
+        optimization.execute_nonlinear_programming(payload)
+    assert calls == []
+
+
+@pytest.mark.parametrize("location", ["bounds", "target", "interval"])
+def test_nonlinear_programming_wraps_huge_json_integers_as_field_errors(
+    location: str,
+) -> None:
+    """Integer-to-float overflow must not escape the public execution error contract."""
+    huge = 10**1000
+    payload = _nonlinear_payload()
+    if location == "bounds":
+        payload["bounds"] = [[huge, huge]]
+    elif location == "target":
+        payload["constraints"] = [
+            {"type": "equality", "expression": _variable(), "target": huge}
+        ]
+    else:
+        payload["constraints"] = [
+            {
+                "type": "interval",
+                "expression": _variable(),
+                "lower": huge,
+                "upper": None,
+            }
+        ]
+
+    with pytest.raises(
+        ValueError,
+        match=rf"nonlinear-programming: execution stage failed: (bounds|constraints)",
+    ):
+        execute("nonlinear-programming", payload)
+
+
+def test_public_nonlinear_execute_rejects_subclasses_before_deepcopy_hooks() -> None:
+    """The dispatcher must establish plain JSON before invoking any copy protocol."""
+    calls: list[str] = []
+
+    class HookedInteger(int):
+        def __deepcopy__(self, memo: object) -> int:
+            calls.append("int.__deepcopy__")
+            return 0
+
+    class HookedFloat(float):
+        def __deepcopy__(self, memo: object) -> float:
+            calls.append("float.__deepcopy__")
+            return 2.0
+
+    class HookedDict(dict[str, object]):
+        def __deepcopy__(self, memo: object) -> dict[str, object]:
+            calls.append("dict.__deepcopy__")
+            return _constant(2)
+
+    class HookedList(list[object]):
+        def __deepcopy__(self, memo: object) -> list[object]:
+            calls.append("list.__deepcopy__")
+            return [_constant(1), _constant(2)]
+
+    objectives = [
+        {"op": "variable", "index": HookedInteger(0)},
+        _constant(HookedFloat(2.0)),
+        HookedDict({"op": "python"}),
+        {"op": "add", "args": HookedList([_constant(1)])},
+    ]
+    for objective in objectives:
+        payload = _nonlinear_payload()
+        payload["objective"] = objective
+        with pytest.raises(ValueError):
+            execute("nonlinear-programming", payload)
+        assert calls == []
 
 
 def test_nonlinear_programming_rejects_domain_errors() -> None:

@@ -9,6 +9,24 @@ from numbers import Integral, Real
 import numpy as np
 
 
+def json_finite_number(
+    value: object, field: str, *, allow_none: bool = False
+) -> float | None:
+    """Normalize one plain-JSON number without invoking subclass conversions."""
+    if value is None and allow_none:
+        return None
+    suffix = " or null" if allow_none else ""
+    if type(value) not in (int, float):
+        raise ValueError(f"{field}: must be a finite number{suffix}")
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(f"{field}: must be a finite number{suffix}") from exc
+    if not math.isfinite(number):
+        raise ValueError(f"{field}: must be a finite number{suffix}")
+    return number
+
+
 def required_field(payload: Mapping[str, object], field: str) -> object:
     """Return a required payload value, preserving a field-specific error."""
     if not isinstance(payload, Mapping):
