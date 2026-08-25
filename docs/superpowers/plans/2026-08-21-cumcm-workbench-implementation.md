@@ -280,6 +280,8 @@ uv run pytest tests/snapshots/codex-skills tests/e2e/test_codex_modeling_flow.py
 - 端到端建模半链路生成问题清单、候选模型、实验记录、结果和敏感性产物。
 - 打包后 Skill 自包含，且资源哈希与 `shared/` 一致。
 
+**Verified inputs (2026-08-25):** Codex 适配层交付 `problem-reader`、`data-auditor`、`model-selector`、`solver`、`sensitivity-analyst`、`literature-researcher` 六个独立 Skill；统一 complete/blocked 交接外壳与候选文献后端路由；打包器将声明资源（含 33 张模型卡）复制到自包含目录并记录 SHA-256。Phase 3 定向测试 15/15，通过六个 Skill 快速校验和 `package_codex_skills.py --check`；全仓回归 473 passed、1 skipped。
+
 ## Phase 4: Evidence-bound paper pipeline
 
 **Objective:** 只使用固化结果、实验与引用证据链生成提纲、正文、摘要、BibTeX、LaTeX 与 PDF。
