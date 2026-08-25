@@ -2,7 +2,7 @@
 
 > **前置约束。** `shared/` 是开发期的唯一事实来源。所有读取或写入契约的工具，必须按对应 Schema 和 `scripts/contract_formats.py` 的 `FORMAT_CHECKER` 校验；普通消费者不能忽略自定义格式校验。尤其是时间与年度规则来源 URL，不能仅靠 JSON Schema 的默认格式处理。
 
-本页说明十五个可交换数据对象的用途与协作边界。可用 [契约目录](../../shared/contracts/catalog.json) 找到 Schema、有效样例和无效样例；字段的精确类型、枚举和正则表达式以 Schema 为准。
+本页说明十六个可交换数据对象的用途与协作边界。可用 [契约目录](../../shared/contracts/catalog.json) 找到 Schema、有效样例和无效样例；字段的精确类型、枚举和正则表达式以 Schema 为准。
 
 ## 先遵守通用表示规则
 
@@ -37,6 +37,7 @@
 | `review-report` | 保存单道只读评审、评分卡、发现和输入/量表哈希。 | Reviewer Skill → 汇总器、修订流程 | `review_` | `schema_version`、评审身份、状态、scorecard、findings、errors 和哈希 | 拒绝报告；不得据此放行或进入 Phase 6。 | [review-report.json](../../shared/fixtures/contracts/valid/review-report.json) |
 | `review-bundle` | 汇总五份仍为当前状态的评审报告并表达 Phase 6 readiness。 | 评审汇总器 → Phase 6 总控 | `review_bundle_` | 五个报告槽、报告摘要、readiness、阻断发现和时间 | 缺门为 blocked，过期或失败为 not_ready。 | [review-bundle.json](../../shared/fixtures/contracts/valid/review-bundle.json) |
 | `workflow-event` | 记录可重放的总控事件、前序摘要、人工决定和恢复信息。 | 总控与人工门 → Codex/DSH 状态重放器 | `evt_` | 工作区、sequence、previous digest、事件类型、阶段和事件专属字段 | 断号、重排、错误决定或字段组合不合法时拒绝事件链。 | [workflow-event.json](../../shared/fixtures/contracts/valid/workflow-event.json) |
+| `model-execution` | 统一模型执行成功结果与未来持久化失败记录。 | 模型执行器 → Codex、DSH、审查流程 | `model_id` 为小写连字符标识 | `schema_version`、`status`、`model_id`、`executor`、参数、输入摘要、诊断、警告、可复现性；成功时还需 `result` | 公共执行失败以异常表达；持久化 `failed` 记录不得伪造 `result`。所有数值必须有限且结果可严格 JSON 往返。 | [model-execution.json](../../shared/fixtures/contracts/valid/model-execution.json) |
 
 ## 文献契约的跨记录边界
 
@@ -54,7 +55,7 @@
 uv run python scripts/validate_contracts.py
 ```
 
-输出成功时，十五个已登记对象及其有效、无效样例都会被复核。无效样例只违反其文件名所表达的单一规则，因此适合在修改 Schema 后做回归检查。
+输出成功时，十六个已登记对象及其有效、无效样例都会被复核。无效样例只违反其文件名所表达的单一规则，因此适合在修改 Schema 后做回归检查。
 
 ## 年度规则样例的边界
 

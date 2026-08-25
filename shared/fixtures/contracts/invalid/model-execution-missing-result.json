@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "status": "succeeded",
+  "model_id": "topsis",
+  "executor": "evaluation",
+  "parameters": {},
+  "input_summary": {"rows": 4},
+  "diagnostics": {},
+  "warnings": [],
+  "reproducibility": {"seed": null, "deterministic": true}
+}

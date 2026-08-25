@@ -21,6 +21,7 @@ EXPECTED_CONTRACT_IDS = {
     "review-report",
     "review-bundle",
     "workflow-event",
+    "model-execution",
 }
 
 
@@ -29,7 +30,7 @@ def test_catalog_paths_and_schemas_are_valid(project_root) -> None:
     assert catalog["catalog_version"] == "1.0"
     ids = [entry["id"] for entry in catalog["contracts"]]
     assert set(ids) == EXPECTED_CONTRACT_IDS
-    assert len(ids) == 15
+    assert len(ids) == 16
     assert len(ids) == len(set(ids))
     for entry in catalog["contracts"]:
         schema_path = project_root / entry["schema"]

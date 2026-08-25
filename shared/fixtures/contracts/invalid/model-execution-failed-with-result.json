@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "status": "failed",
+  "model_id": "topsis",
+  "executor": "evaluation",
+  "parameters": {},
+  "input_summary": {"rows": 4},
+  "result": {"scores": []},
+  "diagnostics": {},
+  "warnings": [],
+  "reproducibility": {"seed": null, "deterministic": true}
+}

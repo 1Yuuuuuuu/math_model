@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cumcm.local/contracts/model-execution.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "model_id",
+    "executor",
+    "parameters",
+    "input_summary",
+    "diagnostics",
+    "warnings",
+    "reproducibility"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "status": {"enum": ["succeeded", "failed"]},
+    "model_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]{1,63}(?![\\s\\S])"},
+    "executor": {
+      "enum": [
+        "evaluation",
+        "optimization",
+        "forecasting",
+        "data-processing",
+        "statistics",
+        "supervised",
+        "clustering"
+      ]
+    },
+    "parameters": {"$ref": "#/$defs/json-object"},
+    "input_summary": {"$ref": "#/$defs/json-object"},
+    "result": {"$ref": "#/$defs/json-object"},
+    "diagnostics": {"$ref": "#/$defs/json-object"},
+    "warnings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string"}
+    },
+    "reproducibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "deterministic"],
+      "properties": {
+        "seed": {"type": ["integer", "null"]},
+        "deterministic": {"type": "boolean"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "succeeded"}}, "required": ["status"]},
+      "then": {"required": ["result"]}
+    },
+    {
+      "if": {"properties": {"status": {"const": "failed"}}, "required": ["status"]},
+      "then": {"not": {"required": ["result"]}}
+    }
+  ],
+  "$defs": {
+    "json-object": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/json-value"}
+    },
+    "json-value": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "boolean"},
+        {"type": "string"},
+        {"type": "number"},
+        {"type": "array", "items": {"$ref": "#/$defs/json-value"}},
+        {"$ref": "#/$defs/json-object"}
+      ]
+    }
+  }
+}

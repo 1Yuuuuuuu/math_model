@@ -11,7 +11,7 @@ def test_phase6_operator_and_handoff_docs_cover_governance() -> None:
     combined = "\n".join((playbook, recovery, handoff))
     for phrase in (
         "gate_1_problem", "gate_2_model", "gate_3_outline", "gate_4_submission",
-        "optional literature", "ready_for_phase_6", "resume_when", "15 contracts",
+        "optional literature", "ready_for_phase_6", "resume_when", "16 contracts",
         "12 Codex Skills", "Phase 7", "DeepSeek Harness",
     ):
         assert phrase in combined

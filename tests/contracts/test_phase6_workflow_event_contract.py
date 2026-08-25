@@ -11,7 +11,7 @@ from scripts.validate_contracts import load_json, make_validator
 def test_workflow_event_contract_is_registered_and_strict(project_root: Path) -> None:
     catalog = load_json(project_root / "shared/contracts/catalog.json")
     entries = {entry["id"]: entry for entry in catalog["contracts"]}
-    assert len(entries) == 15
+    assert len(entries) == 16
     assert "workflow-event" in entries
     entry = entries["workflow-event"]
     schema = load_json(project_root / entry["schema"])

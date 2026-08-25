@@ -27,7 +27,7 @@ def test_phase5_contracts_are_registered_and_have_positive_negative_fixtures(
     project_root: Path,
 ) -> None:
     catalog = load_json(project_root / "shared/contracts/catalog.json")
-    assert len(catalog["contracts"]) == 15
+    assert len(catalog["contracts"]) == 16
     assert set(EXPECTED).issubset({item["id"] for item in catalog["contracts"]})
 
     for contract_id, (valid_name, invalid_name) in EXPECTED.items():

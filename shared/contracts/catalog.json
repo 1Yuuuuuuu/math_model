@@ -128,6 +128,16 @@
       "schema": "shared/contracts/workflow-event.schema.json",
       "valid_examples": ["shared/fixtures/contracts/valid/workflow-event.json"],
       "invalid_examples": ["shared/fixtures/contracts/invalid/workflow-event-gate-without-decision.json"]
+    },
+    {
+      "id": "model-execution",
+      "schema": "shared/contracts/model-execution.schema.json",
+      "valid_examples": ["shared/fixtures/contracts/valid/model-execution.json"],
+      "invalid_examples": [
+        "shared/fixtures/contracts/invalid/model-execution-missing-result.json",
+        "shared/fixtures/contracts/invalid/model-execution-failed-with-result.json",
+        "shared/fixtures/contracts/invalid/model-execution-nonfinite-result.json"
+      ]
     }
   ]
 }

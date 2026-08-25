@@ -40,6 +40,9 @@ NAMED_INVALID_EXPECTATIONS = {
     "shared/fixtures/contracts/invalid/review-report-invalid-status.json": (("status",), "enum"),
     "shared/fixtures/contracts/invalid/review-bundle-missing-gate.json": (("report_ids",), "required"),
     "shared/fixtures/contracts/invalid/workflow-event-gate-without-decision.json": (("decision_id",), "type"),
+    "shared/fixtures/contracts/invalid/model-execution-missing-result.json": ((), "required"),
+    "shared/fixtures/contracts/invalid/model-execution-failed-with-result.json": ((), "not"),
+    "shared/fixtures/contracts/invalid/model-execution-nonfinite-result.json": (("result", "nonfinite"), "oneOf"),
 }
 
 

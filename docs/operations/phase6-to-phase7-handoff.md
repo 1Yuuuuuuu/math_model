@@ -1,6 +1,6 @@
 # Phase 6 → Phase 7 交接说明
 
-Phase 6 已将 72 小时流程固化为可重放状态机。当前稳定基线为 **15 contracts**、**12 Codex Skills**、四个人工门和一个 optional literature 分支；下一阶段是 **Phase 7: DeepSeek Harness adapter**。
+Phase 6 已将 72 小时流程固化为可重放状态机。当前稳定基线为 **16 contracts**、**12 Codex Skills**、四个人工门和一个 optional literature 分支；下一阶段是 **Phase 7: DeepSeek Harness adapter**。
 
 ## DSH 必须复用的事实层
 

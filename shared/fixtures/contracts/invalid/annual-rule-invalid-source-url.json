@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "rule_set_id": "cumcm-example-2026",
   "year": 2026,
-  "source_url": "not a URL",
+  "source_url": "ftp://example.com/rules",
   "verified_at": "2026-08-21T09:00:00+08:00",
   "items": [
     {

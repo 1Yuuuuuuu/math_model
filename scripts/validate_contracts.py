@@ -4,11 +4,12 @@ if __name__ == "__main__":
     sys.dont_write_bytecode = True
 
 import json
+import math
 import re
 from pathlib import Path
 from typing import Any
 
-from jsonschema import Draft202012Validator, SchemaError, ValidationError
+from jsonschema import Draft202012Validator, SchemaError, ValidationError, validators
 from referencing import Registry, Resource
 from referencing.exceptions import Unresolvable
 
@@ -22,6 +23,22 @@ from scripts.contract_formats import FORMAT_CHECKER, is_cumcm_workspace_path
 CONTRACT_ID = re.compile(r"[a-z][a-z0-9_-]*\Z")
 READ_ERRORS = (OSError, UnicodeDecodeError, json.JSONDecodeError)
 VALIDATION_ERRORS = (SchemaError, ValidationError, Unresolvable)
+
+
+def _is_finite_json_number(checker: object, instance: object) -> bool:
+    return (
+        isinstance(instance, (int, float))
+        and not isinstance(instance, bool)
+        and (not isinstance(instance, float) or math.isfinite(instance))
+    )
+
+
+OfflineDraft202012Validator = validators.extend(
+    Draft202012Validator,
+    type_checker=Draft202012Validator.TYPE_CHECKER.redefine(
+        "number", _is_finite_json_number
+    ),
+)
 
 
 def _reject_nonstandard_json_constant(value: str) -> None:
@@ -80,7 +97,7 @@ def resolve_catalog_path(root: Path, relative_path: object) -> Path:
 
 
 def make_validator(schema: Any) -> Draft202012Validator:
-    return Draft202012Validator(
+    return OfflineDraft202012Validator(
         schema,
         format_checker=FORMAT_CHECKER,
         registry=OFFLINE_REGISTRY,

@@ -23,7 +23,7 @@ def test_validator_uses_an_explicit_offline_registry(project_root, tmp_path, mon
 
     errors, contract_count = validate_catalog(sandbox)
 
-    assert contract_count == 15
+    assert contract_count == 16
     assert errors and errors[0].startswith("error:")
     assert network_calls == []
     assert make_validator({"type": "object"}).format_checker is not None
@@ -51,6 +51,6 @@ def test_cli_returns_stable_failure_json_for_an_unresolved_remote_ref(project_ro
     assert result.returncode == 1
     payload = json.loads(result.stdout)
     assert payload["status"] == "failed"
-    assert payload["contracts"] == 15
+    assert payload["contracts"] == 16
     assert payload["errors"] and payload["errors"][0].startswith("error:")
     assert "Traceback" not in result.stderr
