@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import argparse
+import json
 from pathlib import Path
 
 import pypdf
@@ -41,3 +43,30 @@ def inspect_pdf(pdf_path: Path) -> dict[str, object]:
         "metadata": dict(reader.metadata or {}),
         "errors": errors,
     }
+
+
+def _json_safe(value: object) -> object:
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    return str(value)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Inspect a PDF file")
+    parser.add_argument("--pdf", type=Path, required=True, help="path to the PDF file")
+    args = parser.parse_args()
+    try:
+        report = inspect_pdf(args.pdf)
+    except (ValueError, OSError) as exc:
+        print(json.dumps({"status": "failed", "error": str(exc)}, sort_keys=True, ensure_ascii=True))
+        return 1
+    print(json.dumps(_json_safe(report), sort_keys=True, ensure_ascii=True, allow_nan=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

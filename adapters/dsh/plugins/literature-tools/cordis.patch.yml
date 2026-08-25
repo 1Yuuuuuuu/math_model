@@ -1,0 +1,31 @@
+# literature-tools bundle patch: registers the literature-tools plugin into
+# the host composition of a dsh profile. The plugin is a thin adapter: its 3
+# tools either parse sources deterministically offline (read_source), forward
+# candidates to the Python dedup rule engine (route_candidate), or fail closed
+# behind the search gate (search). Zero rule logic lives in TypeScript — the
+# deduplication rules live in the cumcm-workbench Python CLI
+# (`python -m cumcm_toolkit.literature.rules`).
+#
+# Install: `dsh plugin --profile <name> add <this package>` (npm, git, or a
+# local `link:<path>`). The `dsh plugin` command installs the package into the
+# profile and reconciles it into the profile's `dsh.profile.bundles` layer list.
+- insert:
+    - id: literature-tools
+      name: literature-tools
+      config:
+        # REQUIRED — cumcm-workbench repository root containing
+        # toolkit/src/cumcm_toolkit. Used as the subprocess cwd and as the
+        # base of the injected PYTHONPATH so
+        # `python -m cumcm_toolkit.literature.rules` resolves. Missing or
+        # empty sourceRoot = plugin startup failure (Config schema requires
+        # it and apply() refuses to run).
+        sourceRoot: ''
+        # Search backend identifier (e.g. paper-search / runtime-search).
+        # Empty = no backend → literature_search is blocked with
+        # "no literature backend configured".
+        backend: ''
+        # Network allowlist. This version performs no real backend forwarding;
+        # the fail-closed gate requires the configured backend identifier to
+        # be explicitly listed here (domain tokens). When a real backend is
+        # wired later, list its actual domains.
+        allowedDomains: []

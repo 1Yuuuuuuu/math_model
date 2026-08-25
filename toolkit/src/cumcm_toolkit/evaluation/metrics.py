@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import argparse
+import json
 from typing import Any
 
 import numpy as np
@@ -115,3 +117,40 @@ def check_data_leakage(
     if leak:
         warnings.append(f"target leakage in features: {leak}")
     return {"improper_split": split, "target_leakage": leak, "warnings": warnings}
+
+
+def _reject_nonstandard_json_constant(value: str) -> None:
+    raise json.JSONDecodeError("non-standard JSON constant", value, 0)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Compute regression or classification metrics")
+    parser.add_argument("--kind", required=True, help="regression or classification")
+    parser.add_argument("--y-true", required=True, help="JSON array of true values")
+    parser.add_argument("--y-pred", required=True, help="JSON array of predicted values")
+    parser.add_argument("--positive-label", default=None, help="JSON scalar positive label for classification")
+    args = parser.parse_args()
+    try:
+        y_true = json.loads(args.y_true, parse_constant=_reject_nonstandard_json_constant)
+        y_pred = json.loads(args.y_pred, parse_constant=_reject_nonstandard_json_constant)
+        if args.kind == "regression":
+            metrics = regression_metrics(y_true, y_pred)
+        elif args.kind == "classification":
+            positive_label = (
+                None
+                if args.positive_label is None
+                else json.loads(args.positive_label, parse_constant=_reject_nonstandard_json_constant)
+            )
+            metrics = classification_metrics(y_true, y_pred, positive_label=positive_label)
+        else:
+            raise ValueError(f"unknown kind: {args.kind}")
+        result: dict[str, object] = {"metrics": metrics}
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        print(json.dumps({"status": "failed", "error": str(exc)}, sort_keys=True, ensure_ascii=True))
+        return 1
+    print(json.dumps(result, sort_keys=True, ensure_ascii=True, allow_nan=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

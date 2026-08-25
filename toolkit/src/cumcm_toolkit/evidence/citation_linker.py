@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
+import json
 from pathlib import Path
 from typing import Any
 
@@ -72,3 +74,40 @@ def approved_sources(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         for record in records
         if record.get("verification_status") == "approved" and record.get("decision_id")
     ]
+
+
+def _reject_nonstandard_json_constant(value: str) -> None:
+    raise json.JSONDecodeError("non-standard JSON constant", value, 0)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Create a citation link from an approved source record")
+    parser.add_argument("--source", required=True, help="JSON literature-source record (must be approved)")
+    parser.add_argument("--claim-id", required=True)
+    parser.add_argument("--usage", required=True, help="background|method|baseline|data|limitation")
+    parser.add_argument("--locator", required=True, help="JSON object with kind and value")
+    parser.add_argument("--support-boundary", required=True)
+    args = parser.parse_args()
+    try:
+        source = json.loads(args.source, parse_constant=_reject_nonstandard_json_constant)
+        locator = json.loads(args.locator, parse_constant=_reject_nonstandard_json_constant)
+        if not isinstance(source, dict):
+            raise ValueError("--source must be a JSON object")
+        if not isinstance(locator, dict):
+            raise ValueError("--locator must be a JSON object")
+        record = link_approved_source(
+            source_record=source,
+            claim_id=args.claim_id,
+            usage=args.usage,
+            locator=locator,
+            support_boundary=args.support_boundary,
+        )
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        print(json.dumps({"status": "failed", "error": str(exc)}, sort_keys=True, ensure_ascii=True))
+        return 1
+    print(json.dumps(record, sort_keys=True, ensure_ascii=True, allow_nan=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

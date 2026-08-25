@@ -1,0 +1,49 @@
+# cumcm-agent preset composition: a patch layer that composes the two CUMCM
+# workbench tool plugins into a DeepSeek Harness profile.
+#
+# This file is a patch layer (top-level list of `- insert:` entries), the same
+# structure as the plugin bundles' cordis.patch.yml (see
+# adapters/dsh/plugins/cumcm-tools/cordis.patch.yml and
+# adapters/dsh/plugins/literature-tools/cordis.patch.yml). Deploy it as a
+# profile overlay (e.g. the profile's own patch file or `dsh --patch`), with
+# every REQUIRED key below filled in with the target machine's paths.
+#
+# REQUIRED keys are declared as empty placeholders on purpose: the preset
+# never hardcodes a machine path. Leaving a REQUIRED key empty is a startup
+# failure (fail-closed), never a silent degrade:
+#   - cumcm-tools: with cumcmRoot and pythonBin both empty AND `uv` not on
+#     PATH, the bridge cannot resolve a python interpreter and throws a clear
+#     error (fail-closed). If `uv` IS on PATH the bridge falls back to
+#     `uv run`; the tool call still fails closed unless the CLI itself
+#     succeeds — a result is never fabricated.
+#   - literature-tools: a missing or empty sourceRoot makes the plugin's
+#     Config schema reject it and apply() refuse to run.
+- insert:
+    - id: cumcm-tools
+      name: cumcm-tools
+      config:
+        # REQUIRED: absolute path to the cumcm-workbench repository root (the
+        # directory containing .venv and toolkit/src). Empty = the bridge
+        # cannot resolve a python interpreter unless `uv` is on PATH; a tool
+        # call still fails closed unless the CLI itself succeeds.
+        cumcmRoot: ''
+        # REQUIRED: absolute path to a python executable, or a `uv run` prefix.
+        # When empty the bridge falls back to the repo .venv python, then to
+        # `uv run`; if none resolves it throws a clear cumcmRoot/pythonBin
+        # error (fail-closed).
+        pythonBin: ''
+        # Per-call subprocess timeout in milliseconds.
+        toolTimeoutMs: 120000
+    - id: literature-tools
+      name: literature-tools
+      config:
+        # Search backend identifier (e.g. paper-search). Empty = no backend;
+        # literature_search is blocked with an explicit error (fail-closed).
+        backend: ''
+        # Network allowlist; must explicitly cover the configured backend.
+        # This version performs no real backend forwarding.
+        allowedDomains: []
+        # REQUIRED: absolute path to the cumcm-workbench repository root (the
+        # directory containing toolkit/src). Missing or empty = plugin startup
+        # failure (Config schema requires it and apply() refuses to run).
+        sourceRoot: ''

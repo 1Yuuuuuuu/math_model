@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import argparse
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -97,3 +99,42 @@ def resolve_numeric_claims(abstract_text: str, links: list[dict[str, Any]]) -> d
         "claims": claims,
         "unresolved": unresolved,
     }
+
+
+def _reject_nonstandard_json_constant(value: str) -> None:
+    raise json.JSONDecodeError("non-standard JSON constant", value, 0)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Create an evidence link record for a claim")
+    parser.add_argument(
+        "--claim",
+        required=True,
+        help="JSON object with claim_id, claim_text, artifact_id, experiment_id, locator, boundary",
+    )
+    args = parser.parse_args()
+    try:
+        claim = json.loads(args.claim, parse_constant=_reject_nonstandard_json_constant)
+        if not isinstance(claim, dict):
+            raise ValueError("--claim must be a JSON object")
+        required = ("claim_id", "claim_text", "artifact_id", "experiment_id", "locator", "boundary")
+        missing = [key for key in required if key not in claim]
+        if missing:
+            raise ValueError(f"claim missing required fields: {missing}")
+        record = link_claim(
+            claim_id=claim["claim_id"],
+            claim_text=claim["claim_text"],
+            artifact_id=claim["artifact_id"],
+            experiment_id=claim["experiment_id"],
+            locator=claim["locator"],
+            boundary=claim["boundary"],
+        )
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        print(json.dumps({"status": "failed", "error": str(exc)}, sort_keys=True, ensure_ascii=True))
+        return 1
+    print(json.dumps(record, sort_keys=True, ensure_ascii=True, allow_nan=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

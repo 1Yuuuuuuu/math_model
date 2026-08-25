@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import argparse
+import json
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -105,3 +108,29 @@ def transform_dataframe(
         applied += 1
 
     return out, {"steps_applied": applied, "warnings": sorted(set(warnings))}
+
+
+def _reject_nonstandard_json_constant(value: str) -> None:
+    raise json.JSONDecodeError("non-standard JSON constant", value, 0)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Apply transform steps to a CSV data file")
+    parser.add_argument("--input", type=Path, required=True, help="input CSV path")
+    parser.add_argument("--steps", required=True, help="JSON list of transform step objects")
+    parser.add_argument("--output", type=Path, required=True, help="output CSV path")
+    args = parser.parse_args()
+    try:
+        df = pd.read_csv(args.input)
+        steps = json.loads(args.steps, parse_constant=_reject_nonstandard_json_constant)
+        out, report = transform_dataframe(df, steps)
+        out.to_csv(args.output, index=False)
+    except (TypeError, ValueError, OSError, json.JSONDecodeError) as exc:
+        print(json.dumps({"status": "failed", "error": str(exc)}, sort_keys=True, ensure_ascii=True))
+        return 1
+    print(json.dumps(report, sort_keys=True, ensure_ascii=True, allow_nan=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
