@@ -15,7 +15,7 @@
       "additionalProperties": false,
       "required": ["kind", "value"],
       "properties": {
-        "kind": {"enum": ["json_pointer", "csv_cell", "file_region", "figure", "table"]},
+        "kind": {"enum": ["json_pointer", "csv_cell", "file_region", "figure", "table", "metric"]},
         "value": {"type": "string", "pattern": "^(?!.*[\\r\\n]).+(?![\\s\\S])"}
       }
     },
