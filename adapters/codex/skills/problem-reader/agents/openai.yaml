@@ -1,0 +1,4 @@
+interface:
+  display_name: "CUMCM Problem Reader"
+  short_description: "Decompose CUMCM prompts into modeling requirements"
+  default_prompt: "Use $problem-reader to decompose this CUMCM problem into traceable modeling requirements."

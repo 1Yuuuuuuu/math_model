@@ -1,0 +1,60 @@
+rubric_id: model-quality
+version: "1.0"
+review_gate: model
+requires_capabilities: []
+scoring:
+  threshold: 85
+  dimension_floor: 70
+  dimensions:
+    - dimension_id: problem-and-data
+      weight: 15
+      summary: Problem interpretation, data understanding, and preprocessing quality.
+    - dimension_id: assumptions-and-mathematics
+      weight: 20
+      summary: Assumptions, notation, derivation, and mathematical correctness.
+    - dimension_id: solution-and-reproducibility
+      weight: 15
+      summary: Solution implementation, traceability, and reproducibility.
+    - dimension_id: baseline-and-comparison
+      weight: 10
+      summary: Baseline quality and explicit comparison among candidate models.
+    - dimension_id: validation-and-sensitivity
+      weight: 20
+      summary: Validation strength, robustness, uncertainty, and sensitivity analysis.
+    - dimension_id: innovation-and-value
+      weight: 20
+      summary: Justified innovation, practical value, and insight beyond routine application.
+rules:
+  - rule_id: model_baseline_present
+    severity: S1
+    checker: non_empty
+    params:
+      path: model_selection.baseline
+    summary: The model selection has no evaluated baseline.
+    evidence_paths: [evidence_refs]
+    recommendation: Add and evaluate a simple baseline.
+  - rule_id: model_candidates_compared
+    severity: S2
+    checker: non_empty
+    params:
+      path: model_selection.candidate_comparison
+    summary: Candidate models were not compared explicitly.
+    evidence_paths: [evidence_refs]
+    recommendation: Compare eligible candidates against assumptions, validation, and failure signs.
+  - rule_id: model_validation_planned
+    severity: S1
+    checker: non_empty
+    params:
+      path: model_selection.validation_plan
+    summary: The selected model has no validation plan.
+    evidence_paths: [evidence_refs]
+    recommendation: Define metrics, split or experimental design, and acceptance criteria.
+  - rule_id: model_sensitivity_complete
+    severity: S1
+    checker: equals
+    params:
+      path: sensitivity_report.status
+      expected: complete
+    summary: Sensitivity analysis is missing or blocked.
+    evidence_paths: [evidence_refs]
+    recommendation: Run justified perturbations and record valid points and failure boundaries.

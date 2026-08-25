@@ -1,0 +1,6 @@
+interface:
+  display_name: "CUMCM Workflow Orchestrator"
+  short_description: "Coordinate the full evidence-backed CUMCM workflow safely"
+  default_prompt: "Use $cumcm-orchestrator to replay this CUMCM workspace and give me exactly one safe next action."
+policy:
+  allow_implicit_invocation: true

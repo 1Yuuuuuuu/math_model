@@ -1,0 +1,27 @@
+workflow_id: cumcm-72h
+version: "1.0"
+timeboxes:
+  - {stage: intake, start_hour: 0, end_hour: 6}
+  - {stage: model_design, start_hour: 6, end_hour: 14}
+  - {stage: solve, start_hour: 14, end_hour: 36}
+  - {stage: outline, start_hour: 36, end_hour: 42}
+  - {stage: write, start_hour: 42, end_hour: 58}
+  - {stage: review, start_hour: 58, end_hour: 68}
+  - {stage: submission, start_hour: 68, end_hour: 70}
+  - {stage: complete, start_hour: 70, end_hour: 72}
+routes:
+  intake: [problem-reader, data-auditor]
+  model_design: [model-selector]
+  solve: [solver, sensitivity-analyst]
+  outline: []
+  write: []
+  review: [submission-auditor, repro-reviewer, model-reviewer, paper-reviewer, red-team-reviewer]
+  submission: []
+  complete: []
+literature_branch:
+  decision_stages: [solve, outline]
+  skill: literature-researcher
+  gate: gate_3_outline
+review:
+  skills: [submission-auditor, repro-reviewer, model-reviewer, paper-reviewer, red-team-reviewer]
+  bundle_builder: build_review_bundle

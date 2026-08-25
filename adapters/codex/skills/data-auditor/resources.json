@@ -1,0 +1,15 @@
+{
+  "skill": "data-auditor",
+  "resources": [
+    "adapters/codex/handoff.py",
+    "scripts/contract_formats.py",
+    "scripts/validate_contracts.py",
+    "shared/contracts/artifact.schema.json",
+    "shared/knowledge/foundations/data-types.md",
+    "shared/knowledge/foundations/data-leakage.md",
+    "toolkit/src/cumcm_toolkit/data/profile.py",
+    "toolkit/src/cumcm_toolkit/data/transform.py",
+    "toolkit/src/cumcm_toolkit/evaluation/metrics.py",
+    "toolkit/src/cumcm_toolkit/artifacts/index.py"
+  ]
+}

@@ -1,0 +1,96 @@
+rubric_id: reproducibility
+version: "1.0"
+review_gate: reproducibility
+requires_capabilities: []
+rules:
+  - rule_id: repro_handoffs_present
+    severity: S1
+    checker: all_present
+    params:
+      paths:
+        - problem_analysis
+        - data_audit
+        - model_selection
+        - solver_run
+        - sensitivity_report
+    summary: Required modeling handoffs are incomplete.
+    evidence_paths: [evidence_refs]
+    recommendation: Provide all five Phase 3 handoffs before reproducibility review.
+  - rule_id: repro_problem_complete
+    severity: S0
+    checker: equals
+    params:
+      path: problem_analysis.status
+      expected: complete
+    summary: The problem analysis handoff is not complete.
+    evidence_paths: [evidence_refs]
+    recommendation: Resolve the problem-reading blockers before review.
+  - rule_id: repro_data_complete
+    severity: S0
+    checker: equals
+    params:
+      path: data_audit.status
+      expected: complete
+    summary: The data audit handoff is not complete.
+    evidence_paths: [evidence_refs]
+    recommendation: Resolve the data audit blockers before review.
+  - rule_id: repro_model_complete
+    severity: S0
+    checker: equals
+    params:
+      path: model_selection.status
+      expected: complete
+    summary: The model selection handoff is not complete.
+    evidence_paths: [evidence_refs]
+    recommendation: Complete the model comparison and validation plan before review.
+  - rule_id: repro_experiment_identified
+    severity: S1
+    checker: non_empty
+    params:
+      path: solver_run.experiment_id
+    summary: The solver run has no reproducible experiment identity.
+    evidence_paths: [evidence_refs]
+    recommendation: Record a stable experiment ID with the solver output.
+  - rule_id: repro_solver_complete
+    severity: S0
+    checker: equals
+    params:
+      path: solver_run.status
+      expected: complete
+    summary: The solver handoff is not complete.
+    evidence_paths: [evidence_refs]
+    recommendation: Resolve the solver blocker and rerun the experiment before review.
+  - rule_id: repro_sensitivity_complete
+    severity: S0
+    checker: equals
+    params:
+      path: sensitivity_report.status
+      expected: complete
+    summary: The sensitivity handoff is not complete.
+    evidence_paths: [evidence_refs]
+    recommendation: Resolve sensitivity-analysis blockers before review.
+  - rule_id: repro_experiment_succeeded
+    severity: S0
+    checker: equals
+    params:
+      path: solver_run.experiment_status
+      expected: succeeded
+    summary: The reviewed solver experiment did not succeed.
+    evidence_paths: [evidence_refs]
+    recommendation: Rerun the solver successfully and replace its handoff.
+  - rule_id: repro_lock_hash_present
+    severity: S0
+    checker: non_empty
+    params:
+      path: solver_run.lock_sha256
+    summary: The solver experiment has no dependency-lock identity.
+    evidence_paths: [evidence_refs]
+    recommendation: Record the exact lock-file SHA-256 used for the run.
+  - rule_id: repro_indexes_present
+    severity: S0
+    checker: all_present
+    params:
+      paths: [artifact_index, experiment_index, evidence_index]
+    summary: Reproducibility indexes are incomplete.
+    evidence_paths: [evidence_refs]
+    recommendation: Provide artifact, experiment, and evidence indexes for all handoffs.

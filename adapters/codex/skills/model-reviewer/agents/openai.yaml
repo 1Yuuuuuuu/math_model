@@ -1,0 +1,6 @@
+interface:
+  display_name: "CUMCM Model Reviewer"
+  short_description: "Independently review modeling evidence without modifying it"
+  default_prompt: "Use $model-reviewer to independently review these modeling handoffs and report approval blockers."
+policy:
+  allow_implicit_invocation: true

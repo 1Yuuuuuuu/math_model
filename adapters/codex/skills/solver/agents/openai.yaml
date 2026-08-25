@@ -1,0 +1,6 @@
+interface:
+  display_name: "CUMCM Solver"
+  short_description: "Run verified model capabilities with reproducible evidence"
+  default_prompt: "Use $solver to execute this selected supported model and preserve reproducible evidence."
+policy:
+  allow_implicit_invocation: true

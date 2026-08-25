@@ -1,0 +1,13 @@
+{
+  "skill": "sensitivity-analyst",
+  "resources": [
+    "adapters/codex/handoff.py",
+    "scripts/contract_formats.py",
+    "scripts/validate_contracts.py",
+    "shared/contracts/artifact.schema.json",
+    "shared/knowledge/foundations/robustness-sensitivity.md",
+    "shared/knowledge/foundations/error-residual.md",
+    "toolkit/src/cumcm_toolkit/evaluation/sensitivity.py",
+    "toolkit/src/cumcm_toolkit/artifacts/index.py"
+  ]
+}

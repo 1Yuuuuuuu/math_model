@@ -1,0 +1,6 @@
+interface:
+  display_name: "CUMCM Repro Reviewer"
+  short_description: "Audit modeling handoffs for reproducibility without edits"
+  default_prompt: "Use $repro-reviewer to independently audit these modeling handoffs and provenance records."
+policy:
+  allow_implicit_invocation: true

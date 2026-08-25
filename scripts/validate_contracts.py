@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, SchemaError, ValidationError
-from referencing import Registry
+from referencing import Registry, Resource
 from referencing.exceptions import Unresolvable
 
 
@@ -20,7 +20,6 @@ from scripts.contract_formats import FORMAT_CHECKER, is_cumcm_workspace_path
 
 
 CONTRACT_ID = re.compile(r"[a-z][a-z0-9_-]*\Z")
-OFFLINE_REGISTRY = Registry()
 READ_ERRORS = (OSError, UnicodeDecodeError, json.JSONDecodeError)
 VALIDATION_ERRORS = (SchemaError, ValidationError, Unresolvable)
 
@@ -34,6 +33,23 @@ def load_json(path: Path) -> Any:
         path.read_text(encoding="utf-8"),
         parse_constant=_reject_nonstandard_json_constant,
     )
+
+
+def build_offline_registry(root: Path) -> Registry:
+    registry = Registry()
+    for path in sorted((root / "shared/contracts").glob("*.schema.json")):
+        try:
+            schema = load_json(path)
+        except READ_ERRORS:
+            continue
+        schema_id = schema.get("$id") if isinstance(schema, dict) else None
+        if not isinstance(schema_id, str) or not schema_id:
+            continue
+        registry = registry.with_resource(schema_id, Resource.from_contents(schema))
+    return registry
+
+
+OFFLINE_REGISTRY = build_offline_registry(ROOT)
 
 
 def resolve_catalog_path(root: Path, relative_path: object) -> Path:

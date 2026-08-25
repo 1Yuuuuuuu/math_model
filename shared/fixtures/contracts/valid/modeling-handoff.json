@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "status": "complete",
+  "artifact_type": "model-review",
+  "inputs": ["reports/model-input.json"],
+  "outputs": ["reviews/model-review.json"],
+  "evidence": ["art_model_review_report"],
+  "missing_inputs": [],
+  "failed_step": null,
+  "resume_when": []
+}

@@ -1,0 +1,6 @@
+interface:
+  display_name: "CUMCM Model Selector"
+  short_description: "Compare model candidates and define verification plans"
+  default_prompt: "Use $model-selector to compare suitable models and create a verification-ready selection handoff."
+policy:
+  allow_implicit_invocation: true

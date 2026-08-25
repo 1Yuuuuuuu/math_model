@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cumcm.local/contracts/review-report.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "review_id", "rubric_id", "rubric_version", "review_gate", "evaluated_rule_ids", "rubric_digest", "input_digest", "reviewed_files", "status", "scorecard", "findings", "errors", "reviewed_at"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "review_id": {"type": "string", "pattern": "^review_[a-f0-9]{16}(?![\\s\\S])"},
+    "rubric_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{2,55}(?![\\s\\S])"},
+    "rubric_version": {"const": "1.0"},
+    "review_gate": {"enum": ["hard", "reproducibility", "model", "paper", "red_team"]},
+    "evaluated_rule_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{2,55}(?![\\s\\S])"}},
+    "rubric_digest": {"type": "string", "pattern": "^[a-f0-9]{64}(?![\\s\\S])"},
+    "input_digest": {"type": "string", "pattern": "^[a-f0-9]{64}(?![\\s\\S])"},
+    "reviewed_files": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "size", "sha256"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1, "pattern": "^(?![A-Za-z]:)(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).+(?![\\s\\S])"},
+          "size": {"type": "integer", "minimum": 0},
+          "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}(?![\\s\\S])"}
+        }
+      }
+    },
+    "status": {"enum": ["passed", "failed", "blocked"]},
+    "scorecard": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["threshold", "dimension_floor", "weighted_total", "dimensions", "passed"],
+      "properties": {
+        "threshold": {"type": "number", "minimum": 0, "maximum": 100},
+        "dimension_floor": {"type": "number", "minimum": 0, "maximum": 100},
+        "weighted_total": {"type": "number", "minimum": 0, "maximum": 100},
+        "dimensions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["dimension_id", "weight", "score", "weighted_points", "rationale", "evidence_refs"],
+            "properties": {
+              "dimension_id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{2,55}(?![\\s\\S])"},
+              "weight": {"type": "number", "exclusiveMinimum": 0, "maximum": 100},
+              "score": {"type": "number", "minimum": 0, "maximum": 100},
+              "weighted_points": {"type": "number", "minimum": 0, "maximum": 100},
+              "rationale": {"type": "string", "minLength": 1},
+              "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^clm_[a-z0-9][a-z0-9_-]{2,63}(?![\\s\\S])"}}
+            }
+          }
+        },
+        "passed": {"type": "boolean"}
+      }
+    },
+    "findings": {"type": "array", "items": {"$ref": "https://cumcm.local/contracts/review-finding.schema.json"}},
+    "errors": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "reviewed_at": {"type": "string", "format": "date-time"}
+  }
+}

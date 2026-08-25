@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "bundle_id": "review_bundle_0123456789abcdef",
+  "report_ids": {
+    "submission": "review_0000000000000001",
+    "reproducibility": "review_0000000000000002",
+    "model": "review_0000000000000003",
+    "paper": "review_0000000000000004"
+  },
+  "report_digests": {
+    "submission": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "reproducibility": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "model": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "paper": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "red_team": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "reviewed_artifact_ids": ["art_final_paper"],
+  "readiness": "ready_for_phase_6",
+  "open_blocking_findings": [],
+  "errors": [],
+  "created_at": "2026-08-25T12:00:00+08:00"
+}

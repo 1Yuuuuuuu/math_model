@@ -1,0 +1,12 @@
+{
+  "skill": "problem-reader",
+  "resources": [
+    "adapters/codex/handoff.py",
+    "scripts/contract_formats.py",
+    "scripts/validate_contracts.py",
+    "shared/contracts/artifact.schema.json",
+    "shared/knowledge/foundations/data-types.md",
+    "shared/knowledge/foundations/correlation-causation.md",
+    "toolkit/src/cumcm_toolkit/artifacts/index.py"
+  ]
+}

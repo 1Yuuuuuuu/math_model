@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_0123456789abcdef",
+  "workspace_id": "ws_cumcm_2026",
+  "sequence": 1,
+  "previous_event_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "event_type": "gate_decided",
+  "stage": "intake",
+  "skill": null,
+  "gate": "gate_1_problem",
+  "decision_id": null,
+  "outcome": "approved",
+  "artifact_ids": ["art_problem_analysis"],
+  "review_bundle_id": null,
+  "literature_required": null,
+  "failure_code": null,
+  "resume_when": [],
+  "occurred_at": "2026-09-10T09:00:00+08:00"
+}

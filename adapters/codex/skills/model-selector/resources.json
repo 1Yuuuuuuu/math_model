@@ -1,0 +1,16 @@
+{
+  "skill": "model-selector",
+  "resources": [
+    "adapters/codex/handoff.py",
+    "scripts/contract_formats.py",
+    "scripts/validate_contracts.py",
+    "shared/contracts/artifact.schema.json",
+    "shared/knowledge/model-catalog.yaml",
+    "shared/knowledge/model-card.schema.json",
+    "shared/knowledge/model-card-template.md",
+    "shared/knowledge/model-cards",
+    "shared/knowledge/foundations/cross-validation.md",
+    "shared/knowledge/foundations/overfitting.md",
+    "toolkit/src/cumcm_toolkit/artifacts/index.py"
+  ]
+}

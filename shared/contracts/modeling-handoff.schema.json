@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cumcm.local/contracts/modeling-handoff.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "artifact_type", "inputs", "outputs", "evidence", "missing_inputs", "failed_step", "resume_when"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "status": {"enum": ["complete", "blocked"]},
+    "artifact_type": {
+      "enum": ["problem-analysis", "data-audit", "model-selection", "solver-run", "sensitivity-report", "literature-candidates", "model-review", "repro-review", "paper-review", "red-team-review", "submission-audit", "workflow-checkpoint"]
+    },
+    "inputs": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "outputs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^(?![A-Za-z]:)(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$)).+(?![\\s\\S])"}
+    },
+    "evidence": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^(?:clm|art|exp)_[a-z0-9][a-z0-9_-]{2,63}(?![\\s\\S])"}
+    },
+    "missing_inputs": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "failed_step": {"type": ["string", "null"], "minLength": 1},
+    "resume_when": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "complete"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "outputs": {"minItems": 1},
+          "evidence": {"minItems": 1},
+          "missing_inputs": {"maxItems": 0},
+          "failed_step": {"const": null},
+          "resume_when": {"maxItems": 0}
+        }
+      },
+      "else": {
+        "properties": {
+          "outputs": {"maxItems": 0},
+          "evidence": {"maxItems": 0},
+          "resume_when": {"minItems": 1}
+        },
+        "anyOf": [
+          {"properties": {"missing_inputs": {"minItems": 1}}},
+          {"properties": {"failed_step": {"type": "string", "minLength": 1}}}
+        ]
+      }
+    }
+  ]
+}

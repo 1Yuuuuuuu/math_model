@@ -1,0 +1,19 @@
+{
+  "skill": "cumcm-orchestrator",
+  "resources": [
+    "adapters/codex/handoff.py",
+    "shared/contracts/modeling-handoff.schema.json",
+    "shared/contracts/workflow-event.schema.json",
+    "shared/contracts/workflow-state.schema.json",
+    "shared/contracts/decision.schema.json",
+    "shared/contracts/review-bundle.schema.json",
+    "shared/workflows/stage-transitions.yaml",
+    "shared/workflows/cumcm-72h.yaml",
+    "toolkit/src/cumcm_toolkit/workflow/config.py",
+    "toolkit/src/cumcm_toolkit/workflow/events.py",
+    "toolkit/src/cumcm_toolkit/workflow/state.py",
+    "toolkit/src/cumcm_toolkit/workflow/gates.py",
+    "toolkit/src/cumcm_toolkit/workflow/actions.py",
+    "toolkit/src/cumcm_toolkit/review/bundle.py"
+  ]
+}

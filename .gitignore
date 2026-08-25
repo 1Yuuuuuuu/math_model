@@ -10,3 +10,4 @@ workspaces/
 *.pyc
 *.pyo
 *.log
+模型/

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cumcm.local/contracts/workflow-event.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "event_id", "workspace_id", "sequence", "previous_event_digest", "event_type", "stage", "skill", "gate", "decision_id", "outcome", "artifact_ids", "review_bundle_id", "literature_required", "failure_code", "resume_when", "occurred_at"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "event_id": {"type": "string", "pattern": "^evt_[a-f0-9]{16}(?![\\s\\S])"},
+    "workspace_id": {"type": "string", "pattern": "^ws_[a-z0-9][a-z0-9_-]{2,63}(?![\\s\\S])"},
+    "sequence": {"type": "integer", "minimum": 0},
+    "previous_event_digest": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}(?![\\s\\S])"},
+    "event_type": {"enum": ["workspace_started", "child_completed", "stage_completed", "stage_failed", "resumed", "gate_decided", "literature_branch_decided", "review_bundle_attached", "submission_completed"]},
+    "stage": {"enum": ["intake", "model_design", "solve", "outline", "write", "review", "submission", "complete"]},
+    "skill": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9-]{2,63}(?![\\s\\S])"},
+    "gate": {"type": ["string", "null"], "enum": ["gate_1_problem", "gate_2_model", "gate_3_outline", "gate_4_submission", null]},
+    "decision_id": {"type": ["string", "null"], "pattern": "^dec_[a-z0-9][a-z0-9_-]{2,63}(?![\\s\\S])"},
+    "outcome": {"type": ["string", "null"], "enum": ["approved", "rejected", null]},
+    "artifact_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^art_[a-z0-9][a-z0-9_-]{2,63}(?![\\s\\S])"}},
+    "review_bundle_id": {"type": ["string", "null"], "pattern": "^review_bundle_[a-f0-9]{16}(?![\\s\\S])"},
+    "literature_required": {"type": ["boolean", "null"]},
+    "failure_code": {"type": ["string", "null"], "minLength": 1},
+    "resume_when": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "occurred_at": {"type": "string", "format": "date-time"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"event_type": {"const": "workspace_started"}}, "required": ["event_type"]},
+      "then": {"properties": {"sequence": {"const": 0}, "previous_event_digest": {"const": null}, "stage": {"const": "intake"}, "skill": {"const": null}, "gate": {"const": null}, "decision_id": {"const": null}, "outcome": {"const": null}, "artifact_ids": {"maxItems": 0}, "review_bundle_id": {"const": null}, "literature_required": {"const": null}, "failure_code": {"const": null}, "resume_when": {"maxItems": 0}}}
+    },
+    {
+      "if": {"properties": {"event_type": {"const": "child_completed"}}, "required": ["event_type"]},
+      "then": {"properties": {"skill": {"type": "string"}, "gate": {"const": null}, "decision_id": {"const": null}, "outcome": {"const": null}, "artifact_ids": {"minItems": 1}, "review_bundle_id": {"const": null}, "literature_required": {"const": null}, "failure_code": {"const": null}, "resume_when": {"maxItems": 0}}}
+    },
+    {
+      "if": {"properties": {"event_type": {"const": "stage_completed"}}, "required": ["event_type"]},
+      "then": {"properties": {"skill": {"const": null}, "gate": {"const": null}, "decision_id": {"const": null}, "outcome": {"const": null}, "artifact_ids": {"minItems": 1}, "review_bundle_id": {"const": null}, "literature_required": {"const": null}, "failure_code": {"const": null}, "resume_when": {"maxItems": 0}}}
+    },
+    {
+      "if": {"properties": {"event_type": {"const": "stage_failed"}}, "required": ["event_type"]},
+      "then": {"properties": {"skill": {"const": null}, "gate": {"const": null}, "decision_id": {"const": null}, "outcome": {"const": null}, "artifact_ids": {"maxItems": 0}, "review_bundle_id": {"const": null}, "literature_required": {"const": null}, "failure_code": {"type": "string", "minLength": 1}, "resume_when": {"minItems": 1}}}
+    },
+    {
+      "if": {"properties": {"event_type": {"const": "resumed"}}, "required": ["event_type"]},
+      "then": {"properties": {"skill": {"const": null}, "gate": {"const": null}, "decision_id": {"const": null}, "outcome": {"const": null}, "artifact_ids": {"maxItems": 0}, "review_bundle_id": {"const": null}, "literature_required": {"const": null}, "failure_code": {"const": null}, "resume_when": {"maxItems": 0}}}
+    },
+    {
+      "if": {"properties": {"event_type": {"const": "gate_decided"}}, "required": ["event_type"]},
+      "then": {"properties": {"skill": {"const": null}, "gate": {"type": "string"}, "decision_id": {"type": "string"}, "outcome": {"enum": ["approved", "rejected"]}, "artifact_ids": {"minItems": 1}, "review_bundle_id": {"const": null}, "literature_required": {"const": null}, "failure_code": {"const": null}, "resume_when": {"maxItems": 0}}}
+    },
+    {
+      "if": {"properties": {"event_type": {"const": "literature_branch_decided"}}, "required": ["event_type"]},
+      "then": {"properties": {"stage": {"enum": ["solve", "outline"]}, "skill": {"const": null}, "gate": {"const": null}, "decision_id": {"const": null}, "outcome": {"const": null}, "artifact_ids": {"maxItems": 0}, "review_bundle_id": {"const": null}, "literature_required": {"type": "boolean"}, "failure_code": {"const": null}, "resume_when": {"maxItems": 0}}}
+    },
+    {
+      "if": {"properties": {"event_type": {"const": "review_bundle_attached"}}, "required": ["event_type"]},
+      "then": {"properties": {"stage": {"const": "review"}, "skill": {"const": null}, "gate": {"const": null}, "decision_id": {"const": null}, "outcome": {"const": null}, "artifact_ids": {"minItems": 1}, "review_bundle_id": {"type": "string"}, "literature_required": {"const": null}, "failure_code": {"const": null}, "resume_when": {"maxItems": 0}}}
+    },
+    {
+      "if": {"properties": {"event_type": {"const": "submission_completed"}}, "required": ["event_type"]},
+      "then": {"properties": {"stage": {"const": "submission"}, "skill": {"const": null}, "gate": {"const": null}, "decision_id": {"const": null}, "outcome": {"const": null}, "artifact_ids": {"minItems": 1}, "review_bundle_id": {"const": null}, "literature_required": {"const": null}, "failure_code": {"const": null}, "resume_when": {"maxItems": 0}}}
+    }
+  ]
+}

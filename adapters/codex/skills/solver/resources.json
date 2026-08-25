@@ -1,0 +1,25 @@
+{
+  "skill": "solver",
+  "resources": [
+    "adapters/codex/handoff.py",
+    "adapters/codex/routing.py",
+    "scripts/contract_formats.py",
+    "scripts/validate_contracts.py",
+    "shared/contracts/artifact.schema.json",
+    "shared/contracts/evidence-link.schema.json",
+    "shared/contracts/experiment.schema.json",
+    "shared/knowledge/model-catalog.yaml",
+    "shared/knowledge/model-cards/evaluation/entropy-weight.md",
+    "shared/knowledge/model-cards/evaluation/topsis.md",
+    "shared/knowledge/model-cards/prediction/linear-regression.md",
+    "shared/knowledge/model-cards/optimization/linear-programming.md",
+    "toolkit/src/cumcm_toolkit/models/registry.py",
+    "toolkit/src/cumcm_toolkit/models/runner.py",
+    "toolkit/src/cumcm_toolkit/evaluation/metrics.py",
+    "toolkit/src/cumcm_toolkit/results/export.py",
+    "toolkit/src/cumcm_toolkit/artifacts/index.py",
+    "toolkit/src/cumcm_toolkit/environment/doctor.py",
+    "toolkit/src/cumcm_toolkit/experiments/manifest.py",
+    "toolkit/src/cumcm_toolkit/evidence/linker.py"
+  ]
+}

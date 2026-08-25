@@ -1,0 +1,66 @@
+rubric_id: paper-quality
+version: "1.0"
+review_gate: paper
+requires_capabilities: [evidence_linker, citation_check, latex_lint]
+scoring:
+  threshold: 85
+  dimension_floor: 70
+  dimensions:
+    - dimension_id: abstract
+      weight: 25
+      summary: Abstract completeness, specificity, results, and conclusions.
+    - dimension_id: structure-and-logic
+      weight: 15
+      summary: Overall structure, reasoning flow, and consistency across sections.
+    - dimension_id: result-analysis
+      weight: 20
+      summary: Depth, accuracy, and interpretability of result analysis.
+    - dimension_id: figures-and-tables
+      weight: 15
+      summary: Figure and table readability, necessity, numbering, and explanatory value.
+    - dimension_id: formulas-and-symbols
+      weight: 10
+      summary: Formula correctness and consistent use and definition of symbols.
+    - dimension_id: citation-and-originality
+      weight: 10
+      summary: Citation integrity, source traceability, attribution, and originality.
+    - dimension_id: layout-and-submission
+      weight: 5
+      summary: Typesetting quality and compliance with submission requirements.
+rules:
+  - rule_id: paper_evidence_links_valid
+    severity: S0
+    checker: equals
+    params:
+      path: paper_reports.evidence.status
+      expected: ok
+    summary: Paper claims are not fully linked to approved evidence.
+    evidence_paths: [evidence_refs]
+    recommendation: Resolve every unsupported numeric or textual claim before paper approval.
+  - rule_id: paper_citations_valid
+    severity: S0
+    checker: equals
+    params:
+      path: paper_reports.citations.status
+      expected: ok
+    summary: Citation validation did not pass.
+    evidence_paths: [evidence_refs]
+    recommendation: Bind citations to approved sources and resolve bibliography mismatches.
+  - rule_id: paper_lint_valid
+    severity: S0
+    checker: equals
+    params:
+      path: paper_reports.lint.status
+      expected: ok
+    summary: The paper source did not pass structural linting.
+    evidence_paths: [evidence_refs]
+    recommendation: Resolve placeholders, missing figures, duplicate labels, and unresolved references.
+  - rule_id: paper_evidence_resolved
+    severity: S0
+    checker: equals
+    params:
+      path: paper_reports.evidence.unresolved
+      expected: []
+    summary: The paper still contains unresolved evidence claims.
+    evidence_paths: [evidence_refs]
+    recommendation: Link or remove every unresolved claim before approval.

@@ -1,0 +1,16 @@
+{
+  "skill": "literature-researcher",
+  "resources": [
+    "adapters/codex/handoff.py",
+    "adapters/codex/routing.py",
+    "scripts/contract_formats.py",
+    "scripts/validate_contracts.py",
+    "shared/contracts/artifact.schema.json",
+    "shared/knowledge/literature/search-strategy.md",
+    "shared/knowledge/literature/deduplication.md",
+    "shared/knowledge/literature/source-evaluation.md",
+    "shared/contracts/literature-source.schema.json",
+    "shared/contracts/citation-link.schema.json",
+    "toolkit/src/cumcm_toolkit/artifacts/index.py"
+  ]
+}

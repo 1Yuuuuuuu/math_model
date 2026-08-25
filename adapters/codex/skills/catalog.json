@@ -1,0 +1,17 @@
+{
+  "catalog_version": "1.0",
+  "skills": [
+    "problem-reader",
+    "data-auditor",
+    "model-selector",
+    "solver",
+    "sensitivity-analyst",
+    "literature-researcher",
+    "model-reviewer",
+    "repro-reviewer",
+    "paper-reviewer",
+    "red-team-reviewer",
+    "submission-auditor",
+    "cumcm-orchestrator"
+  ]
+}

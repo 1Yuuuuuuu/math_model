@@ -1,0 +1,67 @@
+rubric_id: submission
+version: "1.0"
+review_gate: hard
+requires_capabilities: [citation_check, latex_lint, latex_build, pdf_inspect]
+rules:
+  - rule_id: submission_build_passed
+    severity: S0
+    checker: equals
+    params:
+      path: submission_reports.build.status
+      expected: ok
+    summary: The final LaTeX build did not pass.
+    evidence_paths: [evidence_refs]
+    recommendation: Fix all blocking compilation and undefined-reference errors.
+  - rule_id: submission_pdf_passed
+    severity: S0
+    checker: equals
+    params:
+      path: submission_reports.pdf.status
+      expected: ok
+    summary: The final PDF inspection did not pass.
+    evidence_paths: [evidence_refs]
+    recommendation: Resolve damaged output, blank pages, or required font problems.
+  - rule_id: submission_artifacts_identified
+    severity: S1
+    checker: all_present
+    params:
+      paths: [submission_reports.source_hash, submission_reports.pdf_hash]
+    summary: Final source or PDF identity is missing.
+    evidence_paths: [evidence_refs]
+    recommendation: Record immutable hashes for the reviewed source and final PDF.
+  - rule_id: submission_lint_passed
+    severity: S0
+    checker: equals
+    params:
+      path: submission_reports.lint.status
+      expected: ok
+    summary: The submitted source did not pass linting.
+    evidence_paths: [evidence_refs]
+    recommendation: Resolve all blocking lint findings before submission.
+  - rule_id: submission_citations_passed
+    severity: S0
+    checker: equals
+    params:
+      path: submission_reports.citations.status
+      expected: ok
+    summary: Citation validation failed for the submission candidate.
+    evidence_paths: [evidence_refs]
+    recommendation: Resolve citation and bibliography mismatches before submission.
+  - rule_id: submission_no_blank_pages
+    severity: S0
+    checker: equals
+    params:
+      path: submission_reports.pdf.blank_pages
+      expected: []
+    summary: The final PDF contains blank pages.
+    evidence_paths: [evidence_refs]
+    recommendation: Fix pagination or rendering and inspect the rebuilt PDF.
+  - rule_id: submission_annual_rule_verified
+    severity: S0
+    checker: equals
+    params:
+      path: submission_reports.annual_rule_verified
+      expected: true
+    summary: The current competition-year submission rules were not verified.
+    evidence_paths: [evidence_refs]
+    recommendation: Verify and record the official annual rule source before submission.

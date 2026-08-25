@@ -2,13 +2,13 @@
 
 > **前置约束。** `shared/` 是开发期的唯一事实来源。所有读取或写入契约的工具，必须按对应 Schema 和 `scripts/contract_formats.py` 的 `FORMAT_CHECKER` 校验；普通消费者不能忽略自定义格式校验。尤其是时间与年度规则来源 URL，不能仅靠 JSON Schema 的默认格式处理。
 
-本页说明十一个可交换数据对象的用途与协作边界。可用 [契约目录](../../shared/contracts/catalog.json) 找到 Schema、有效样例和无效样例；字段的精确类型、枚举和正则表达式以 Schema 为准。
+本页说明十五个可交换数据对象的用途与协作边界。可用 [契约目录](../../shared/contracts/catalog.json) 找到 Schema、有效样例和无效样例；字段的精确类型、枚举和正则表达式以 Schema 为准。
 
 ## 先遵守通用表示规则
 
 | 主题 | 必须遵守的规则 | 例子 |
 | --- | --- | --- |
-| 版本 | 每个对象都有 `schema_version`，Phase 0 固定为 `1.0` | `"schema_version": "1.0"` |
+| 版本 | 每个对象都有 `schema_version`；除正在迁移的 `decision` 2.0 外，当前对象为 `1.0` | `"schema_version": "1.0"` |
 | 标识符 | 使用小写 ASCII 前缀和 `[a-z0-9_-]`；具体前缀由对象决定 | `art_raw_data`、`exp_model_run` |
 | 文件路径 | 相对工作区、使用正斜杠 `/`、不可越界；不得使用盘符、反斜杠、绝对路径、`.`/`..`/空路径段、控制字符、Windows 禁用字符 `< > : " \| ? *`、段尾点或空格，以及 `CON`、`PRN`、`AUX`、`NUL`、`COM1`–`COM9`、`LPT1`–`LPT9`、`COM¹`–`COM³`、`LPT¹`–`LPT³` 等保留设备别名（含扩展名） | `data/input.csv` 与 `docs/model card.md` 合法；`../secret.csv`、`results/NUL.txt`、`COM².log` 不合法 |
 | 时间 | 所有时间都必须是带时区的 RFC 3339 字符串 | `2026-09-10T10:15:00+08:00` |
@@ -26,13 +26,17 @@
 | `artifact` | 登记可复现的数据、代码、图表、论文等产物。 | 采集、求解、写作工具 → 实验、证据、交付流程 | `art_` | `schema_version`、`artifact_id`、`kind`、`path`、`sha256`、`created_at`、`source_artifact_ids` | 拒绝该产物，后续实验或证据不得引用它。 | [artifact.json](../../shared/fixtures/contracts/valid/artifact.json) |
 | `experiment` | 记录一次可复现运行的输入、环境和输出。 | 求解工具 → 证据链、模型审查 | `exp_` | `schema_version`、`experiment_id`、`input_artifact_ids`、`code_artifact_id`、`parameters`、`random_seed`、`environment`、`started_at`、`finished_at`、`status`、`output_artifact_ids`、`metrics`；`environment` 还需 `python_version`、`lock_sha256` | 拒绝运行记录，不可据此宣称模型结果可复现。 | [experiment.json](../../shared/fixtures/contracts/valid/experiment.json) |
 | `evidence-link` | 将一个主张连到产物、实验和可定位证据。 | 证据整理工具 → 审查、论文写作 | `clm_` | `schema_version`、`claim_id`、`claim_text`、`artifact_id`、`experiment_id`、`locator`、`boundary`；`locator` 还需 `kind`、`value` | 拒绝主张，审查或论文不能引用未定界的证据。 | [evidence-link.json](../../shared/fixtures/contracts/valid/evidence-link.json) |
-| `decision` | 保存四道人工作关卡中的已选择方案与理由。 | 人工评审 → 工作流、后续工具 | `dec_` | `schema_version`、`decision_id`、`gate`、`selected_option`、`rationale`、`artifact_ids`、`decided_by`、`decided_at` | 拒绝该决定；`decided_by` 不为 `human` 时不能视为过关。 | [decision.json](../../shared/fixtures/contracts/valid/decision.json) |
+| `decision` | 保存四道人工作关卡中的审批结果、已选择方案与理由。 | 人工评审 → 工作流、后续工具 | `dec_` | 2.0 必填 `schema_version`、`decision_id`、`gate`、`outcome`、`selected_option`、`rationale`、`artifact_ids`、`decided_by`、`decided_at`；1.0 旧对象没有 `outcome`，仅用于迁移 | 拒绝非人工决定；工作流拒绝未迁移的 1.0 决定。 | [decision.json](../../shared/fixtures/contracts/valid/decision.json) |
 | `workflow-state` | 表达工作区阶段和四道关卡的当前状态。 | 工作流编排器 → 全部执行工具 | `ws_` | `schema_version`、`workspace_id`、`stage`、`gates`、`latest_artifact_ids`、`updated_at`；`gates` 还需四个 `gate_*` 字段 | 拒绝状态迁移；不能跳过前序已批准关卡进入后续阶段。 | [workflow-state.json](../../shared/fixtures/contracts/valid/workflow-state.json) |
 | `review-finding` | 记录硬约束、复现、模型、论文或红队审查发现。 | 审批技能 → 修订与风险处置流程 | `finding_` | `schema_version`、`finding_id`、`review_gate`、`severity`、`summary`、`evidence_refs`、`recommendation`、`status` | 拒绝发现；没有证据引用或未定义严重性时不可据此阻断或放行。 | [review-finding.json](../../shared/fixtures/contracts/valid/review-finding.json) |
 | `annual-rule` | 保存某届规则的可核验来源与可执行条目。 | 规则核验流程 → 审批、交付检查 | `cumcm-`（规则集）与 `rule_`（条目） | `schema_version`、`rule_set_id`、`year`、`source_url`、`verified_at`、`items`；每个 `items[]` 还需 `rule_id`、`description`、`enforcement`、`blocking` | 拒绝该规则集，不能以其阻断交付或宣称符合规则。 | [annual-rule.json](../../shared/fixtures/contracts/valid/annual-rule.json) |
 | `asset-manifest` | 声明要交给 Codex 与 DSH 的共享资产。 | 打包流程 → Codex、DeepSeek Harness | 清单无独立对象 ID；资产为 `asset_` | `schema_version`、`manifest_version`、`assets`；每个 `assets[]` 还需 `asset_id`、`source_path`、`sha256`、`package_targets` | 拒绝清单；任一目标端不得使用未通过校验的资产。 | [asset-manifest.json](../../shared/fixtures/contracts/valid/asset-manifest.json) |
 | `literature-source` | 记录可追溯的文献来源、检索与核验状态。 | 文献检索流程 → 证据整理、论文写作 | `src_` | `schema_version`、`source_id`、`title`、`authors`、`year`、`venue_or_repository`、`identifiers`、`canonical_url`、`retrieved_at`、`retrieval_backend`、`verification_status`、`artifact_ids`、`content_sha256`；已批准来源还需 `decision_id` | 拒绝来源；不能据此建立经过批准的文献证据。 | [literature-source.json](../../shared/fixtures/contracts/valid/literature-source.json) |
 | `citation-link` | 将论文主张连到可定位的文献内容与支持边界。 | 证据整理工具 → 论文写作、审查 | `cite_` | `schema_version`、`citation_id`、`claim_id`、`source_id`、`usage`、`locator`、`support_boundary`、`verified_at`；`locator` 还需 `kind`、`value` | 拒绝引文；未定位或越过支持边界的主张不得引用该来源。 | [citation-link.json](../../shared/fixtures/contracts/valid/citation-link.json) |
+| `modeling-handoff` | 固定建模与评审 Skill 的 complete/blocked 交接外壳。 | Codex Skill → 后续 Skill、评审流程 | 无独立对象 ID | `schema_version`、`status`、`artifact_type`、输入输出、证据与恢复字段 | 拒绝不完整 complete 或携带伪造输出的 blocked 交接。 | [modeling-handoff.json](../../shared/fixtures/contracts/valid/modeling-handoff.json) |
+| `review-report` | 保存单道只读评审、评分卡、发现和输入/量表哈希。 | Reviewer Skill → 汇总器、修订流程 | `review_` | `schema_version`、评审身份、状态、scorecard、findings、errors 和哈希 | 拒绝报告；不得据此放行或进入 Phase 6。 | [review-report.json](../../shared/fixtures/contracts/valid/review-report.json) |
+| `review-bundle` | 汇总五份仍为当前状态的评审报告并表达 Phase 6 readiness。 | 评审汇总器 → Phase 6 总控 | `review_bundle_` | 五个报告槽、报告摘要、readiness、阻断发现和时间 | 缺门为 blocked，过期或失败为 not_ready。 | [review-bundle.json](../../shared/fixtures/contracts/valid/review-bundle.json) |
+| `workflow-event` | 记录可重放的总控事件、前序摘要、人工决定和恢复信息。 | 总控与人工门 → Codex/DSH 状态重放器 | `evt_` | 工作区、sequence、previous digest、事件类型、阶段和事件专属字段 | 断号、重排、错误决定或字段组合不合法时拒绝事件链。 | [workflow-event.json](../../shared/fixtures/contracts/valid/workflow-event.json) |
 
 ## 文献契约的跨记录边界
 
@@ -50,7 +54,7 @@
 uv run python scripts/validate_contracts.py
 ```
 
-输出成功时，十一个已登记对象及其有效、无效样例都会被复核。无效样例只违反其文件名所表达的单一规则，因此适合在修改 Schema 后做回归检查。
+输出成功时，十五个已登记对象及其有效、无效样例都会被复核。无效样例只违反其文件名所表达的单一规则，因此适合在修改 Schema 后做回归检查。
 
 ## 年度规则样例的边界
 

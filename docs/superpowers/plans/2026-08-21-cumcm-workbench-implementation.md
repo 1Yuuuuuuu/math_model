@@ -50,10 +50,10 @@ Program-level tracking:
 - [x] Phase 0A：论文与文献契约及路由文档通过，批准进入阶段 1 规划。
 - [x] 阶段 1：新环境诊断、标准工作区和最小 PDF 通过，完成向阶段 2 的历史交接。
 - [x] 阶段 2：评价、预测、优化代表场景通过，完成向阶段 3 的历史交接。
-- [ ] 阶段 3：Codex 建模半链路和资源一致性通过，批准进入阶段 4 规划。
-- [ ] 阶段 4：证据约束论文和 PDF 检查通过，批准进入阶段 5 规划。
-- [ ] 阶段 5：五层审批隔离与修订失效机制通过，批准进入阶段 6 规划。
-- [ ] 阶段 6：四个人工门、恢复和完整 Codex 流程通过，批准进入阶段 7 规划。
+- [x] 阶段 3：六个 Codex 建模 Skill、真实产物交接与资源一致性通过。
+- [x] 阶段 4：证据约束论文、引用、LaTeX 与 PDF 检查通过并合入主线。
+- [x] 阶段 5：五层审批、85/70 评分、修订失效、15 项契约和 12 个 Skill 通过。
+- [x] 阶段 6：四个人工门、失败恢复、磁盘检查点和完整 Codex 流程通过，批准进入阶段 7 规划。
 - [ ] 阶段 7：DSH 真实组合与双端一致性通过，批准进入阶段 8 规划。
 - [ ] 阶段 8：三类完整回归和人工复核通过，批准受控扩展模型范围。
 
@@ -280,7 +280,7 @@ uv run pytest tests/snapshots/codex-skills tests/e2e/test_codex_modeling_flow.py
 - 端到端建模半链路生成问题清单、候选模型、实验记录、结果和敏感性产物。
 - 打包后 Skill 自包含，且资源哈希与 `shared/` 一致。
 
-**Verified inputs (2026-08-25):** Codex 适配层交付 `problem-reader`、`data-auditor`、`model-selector`、`solver`、`sensitivity-analyst`、`literature-researcher` 六个独立 Skill；统一 complete/blocked 交接外壳与候选文献后端路由；打包器将声明资源（含 33 张模型卡）复制到自包含目录并记录 SHA-256。Phase 3 定向测试 15/15，通过六个 Skill 快速校验和 `package_codex_skills.py --check`；全仓回归 473 passed、1 skipped。
+**Verified inputs (2026-08-25):** Phase 3 交付 `problem-reader`、`data-auditor`、`model-selector`、`solver`、`sensitivity-analyst`、`literature-researcher` 六个独立建模 Skill；统一 complete/blocked 外壳现在核验实际输出文件、artifact/experiment/evidence-link 记录和哈希，不接受只满足格式的证据 ID。发行 catalog 共 7 个 Skill，第七个 `model-reviewer` 属 Phase 5。打包器采用 `references/<source path>` 布局、记录 SHA-256，并可用 `--check --output <dir>` 检测已生成目录漂移；最新验收数字以 Phase 3/5 交付报告和可重复验证命令为准，不再固化早期 15 项测试数字。
 
 ## Phase 4: Evidence-bound paper pipeline
 
@@ -336,7 +336,12 @@ uv run pytest tests/e2e/test_paper_pipeline.py -v
 - `toolkit/src/cumcm_toolkit/review/engine.py`
 - `toolkit/src/cumcm_toolkit/review/severity.py`
 - `adapters/codex/skills/model-reviewer/`
+- `adapters/codex/skills/repro-reviewer/`
 - `adapters/codex/skills/paper-reviewer/`
+- `adapters/codex/skills/red-team-reviewer/`
+- `adapters/codex/skills/submission-auditor/`
+- `toolkit/src/cumcm_toolkit/review/bundle.py`
+- `shared/contracts/review-bundle.schema.json`
 - `tests/e2e/test_review_isolation.py`
 - `tests/e2e/test_revision_requires_rereview.py`
 
@@ -345,8 +350,8 @@ uv run pytest tests/e2e/test_paper_pipeline.py -v
 **Verification:**
 
 ```powershell
-uv run pytest toolkit/tests/review -v
-uv run pytest tests/e2e/test_review_isolation.py tests/e2e/test_revision_requires_rereview.py -v
+.venv\Scripts\python.exe -m pytest toolkit/tests/review -v -p no:cacheprovider
+.venv\Scripts\python.exe -m pytest tests/e2e/test_five_gate_review_flow.py -v -p no:cacheprovider
 ```
 
 **Exit criteria:**
@@ -357,6 +362,8 @@ uv run pytest tests/e2e/test_review_isolation.py tests/e2e/test_revision_require
 - 论文修改后旧审批自动失效并要求重新运行。
 
 ## Phase 6: Orchestrated competition flow
+
+**Status:** ✅ 完成（15 项合同、12 个 Codex Skill、四人工门、可选文献分支与恢复闭环均已实现）。
 
 **Objective:** 将子 Skill、工具、四个人工门和状态恢复组合为完整 72 小时竞赛流程。
 
@@ -489,4 +496,4 @@ uv run python scripts/run_regression.py --suite representative
 
 ## Plan completion criteria
 
-本主计划完成不代表系统已经实现。只有 Phase 0A 以及阶段 0–8 的详细计划分别执行、验证并通过对应发布门，系统才达到总体设计中的完整验收标准。阶段 0、Phase 0A 与阶段 1 已完成，当前目录登记 11 项契约；下一步是编写并审批阶段 3 详细计划。Phase 3 的实现仍须以该详细计划和单独授权为前提。
+本主计划完成不代表系统已经实现。只有 Phase 0A 以及阶段 0–8 的详细计划分别执行、验证并通过对应发布门，系统才达到总体设计中的完整验收标准。阶段 0、Phase 0A、阶段 1–6 已完成，当前目录登记 15 项契约并可打包 12 个 Codex Skill；下一步是阶段 7 的 DSH 适配，稳定输入为 `review-bundle`、`workflow-event`、`decision` 2.0 与磁盘工作流检查点。

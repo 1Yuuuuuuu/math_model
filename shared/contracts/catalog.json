@@ -39,8 +39,14 @@
     {
       "id": "decision",
       "schema": "shared/contracts/decision.schema.json",
-      "valid_examples": ["shared/fixtures/contracts/valid/decision.json"],
-      "invalid_examples": ["shared/fixtures/contracts/invalid/decision-nonhuman.json"]
+      "valid_examples": [
+        "shared/fixtures/contracts/valid/decision.json",
+        "shared/fixtures/contracts/valid/decision-v1.json"
+      ],
+      "invalid_examples": [
+        "shared/fixtures/contracts/invalid/decision-nonhuman.json",
+        "shared/fixtures/contracts/invalid/decision-v2-missing-outcome.json"
+      ]
     },
     {
       "id": "workflow-state",
@@ -98,6 +104,30 @@
       "schema": "shared/contracts/citation-link.schema.json",
       "valid_examples": ["shared/fixtures/contracts/valid/citation-link.json"],
       "invalid_examples": ["shared/fixtures/contracts/invalid/citation-link-missing-locator.json"]
+    },
+    {
+      "id": "modeling-handoff",
+      "schema": "shared/contracts/modeling-handoff.schema.json",
+      "valid_examples": ["shared/fixtures/contracts/valid/modeling-handoff.json"],
+      "invalid_examples": ["shared/fixtures/contracts/invalid/modeling-handoff-complete-empty-output.json"]
+    },
+    {
+      "id": "review-report",
+      "schema": "shared/contracts/review-report.schema.json",
+      "valid_examples": ["shared/fixtures/contracts/valid/review-report.json"],
+      "invalid_examples": ["shared/fixtures/contracts/invalid/review-report-invalid-status.json"]
+    },
+    {
+      "id": "review-bundle",
+      "schema": "shared/contracts/review-bundle.schema.json",
+      "valid_examples": ["shared/fixtures/contracts/valid/review-bundle.json"],
+      "invalid_examples": ["shared/fixtures/contracts/invalid/review-bundle-missing-gate.json"]
+    },
+    {
+      "id": "workflow-event",
+      "schema": "shared/contracts/workflow-event.schema.json",
+      "valid_examples": ["shared/fixtures/contracts/valid/workflow-event.json"],
+      "invalid_examples": ["shared/fixtures/contracts/invalid/workflow-event-gate-without-decision.json"]
     }
   ]
 }

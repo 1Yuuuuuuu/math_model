@@ -1,0 +1,6 @@
+interface:
+  display_name: "CUMCM Red Team Reviewer"
+  short_description: "Challenge every key paper claim as an independent judge"
+  default_prompt: "Use $red-team-reviewer to challenge every key claim in this paper package."
+policy:
+  allow_implicit_invocation: true

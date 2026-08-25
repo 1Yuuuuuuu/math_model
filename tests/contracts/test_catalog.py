@@ -1,6 +1,7 @@
 import pytest
 from jsonschema import Draft202012Validator, ValidationError
 
+from scripts.validate_contracts import make_validator
 from tests.contracts.conftest import FORMAT_CHECKER, load_json
 
 
@@ -16,6 +17,10 @@ EXPECTED_CONTRACT_IDS = {
     "asset-manifest",
     "literature-source",
     "citation-link",
+    "modeling-handoff",
+    "review-report",
+    "review-bundle",
+    "workflow-event",
 }
 
 
@@ -24,14 +29,14 @@ def test_catalog_paths_and_schemas_are_valid(project_root) -> None:
     assert catalog["catalog_version"] == "1.0"
     ids = [entry["id"] for entry in catalog["contracts"]]
     assert set(ids) == EXPECTED_CONTRACT_IDS
-    assert len(ids) == 11
+    assert len(ids) == 15
     assert len(ids) == len(set(ids))
     for entry in catalog["contracts"]:
         schema_path = project_root / entry["schema"]
         assert schema_path.is_file()
         schema = load_json(schema_path)
         Draft202012Validator.check_schema(schema)
-        validator = Draft202012Validator(schema, format_checker=FORMAT_CHECKER)
+        validator = make_validator(schema)
         assert entry["valid_examples"]
         assert entry["invalid_examples"]
         assert all((project_root / path).is_file() for path in entry["valid_examples"])

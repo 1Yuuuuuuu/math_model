@@ -1,0 +1,22 @@
+workflow_id: cumcm-72h
+version: "1.0"
+stage_order: [intake, model_design, solve, outline, write, review, submission, complete]
+event_types:
+  - workspace_started
+  - child_completed
+  - stage_completed
+  - stage_failed
+  - resumed
+  - gate_decided
+  - literature_branch_decided
+  - review_bundle_attached
+  - submission_completed
+gates:
+  gate_1_problem: {stage: intake, next_stage: model_design}
+  gate_2_model: {stage: model_design, next_stage: solve}
+  gate_3_outline: {stage: outline, next_stage: write}
+  gate_4_submission: {stage: review, next_stage: submission}
+automatic_transitions:
+  solve: outline
+  write: review
+  submission: complete

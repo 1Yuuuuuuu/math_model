@@ -1,0 +1,10 @@
+{
+  "schema_version": "2.0",
+  "decision_id": "dec_missing_outcome",
+  "gate": "gate_2_model",
+  "selected_option": "Linear regression",
+  "rationale": "A version 2 decision must state its outcome.",
+  "artifact_ids": ["art_model_comparison"],
+  "decided_by": "human",
+  "decided_at": "2026-09-10T10:00:00+08:00"
+}

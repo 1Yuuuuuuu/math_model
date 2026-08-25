@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "event_id": "evt_0123456789abcdef",
+  "workspace_id": "ws_cumcm_2026",
+  "sequence": 0,
+  "previous_event_digest": null,
+  "event_type": "workspace_started",
+  "stage": "intake",
+  "skill": null,
+  "gate": null,
+  "decision_id": null,
+  "outcome": null,
+  "artifact_ids": [],
+  "review_bundle_id": null,
+  "literature_required": null,
+  "failure_code": null,
+  "resume_when": [],
+  "occurred_at": "2026-09-10T08:00:00+08:00"
+}

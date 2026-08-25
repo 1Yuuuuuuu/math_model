@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "review_id": "review_0123456789abcdef",
+  "rubric_id": "model-quality",
+  "rubric_version": "1.0",
+  "review_gate": "model",
+  "evaluated_rule_ids": ["model_baseline_present"],
+  "rubric_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "input_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "reviewed_files": [{"path": "paper/main.tex", "size": 12, "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}],
+  "status": "failed",
+  "scorecard": null,
+  "findings": [{
+    "schema_version": "1.0",
+    "finding_id": "finding_missing_sensitivity",
+    "review_gate": "model",
+    "severity": "S1",
+    "summary": "The model has no sensitivity analysis.",
+    "evidence_refs": ["clm_rmse_result"],
+    "recommendation": "Add and document a sensitivity analysis before review closes.",
+    "status": "open"
+  }],
+  "errors": [],
+  "reviewed_at": "2026-08-25T12:00:00+08:00"
+}

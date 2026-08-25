@@ -16,7 +16,8 @@ NAMED_INVALID_EXPECTATIONS = {
     "shared/fixtures/contracts/invalid/experiment-timezone-less.json": (("started_at",), "format"),
     "shared/fixtures/contracts/invalid/experiment-linebreak-time.json": (("started_at",), "format"),
     "shared/fixtures/contracts/invalid/evidence-link-missing-boundary.json": ((), "required"),
-    "shared/fixtures/contracts/invalid/decision-nonhuman.json": (("decided_by",), "const"),
+    "shared/fixtures/contracts/invalid/decision-nonhuman.json": ((), "oneOf"),
+    "shared/fixtures/contracts/invalid/decision-v2-missing-outcome.json": ((), "oneOf"),
     "shared/fixtures/contracts/invalid/workflow-state-skipped-gate.json": (("gates", "gate_1_problem"), "const"),
     "shared/fixtures/contracts/invalid/review-finding-bad-severity.json": (("severity",), "enum"),
     "shared/fixtures/contracts/invalid/annual-rule-missing-source.json": ((), "required"),
@@ -35,6 +36,10 @@ NAMED_INVALID_EXPECTATIONS = {
     "shared/fixtures/contracts/invalid/literature-source-runtime-search-invalid-url.json": (("canonical_url",), "oneOf"),
     "shared/fixtures/contracts/invalid/literature-source-timezone-less.json": (("retrieved_at",), "format"),
     "shared/fixtures/contracts/invalid/citation-link-missing-locator.json": ((), "required"),
+    "shared/fixtures/contracts/invalid/modeling-handoff-complete-empty-output.json": (("outputs",), "minItems"),
+    "shared/fixtures/contracts/invalid/review-report-invalid-status.json": (("status",), "enum"),
+    "shared/fixtures/contracts/invalid/review-bundle-missing-gate.json": (("report_ids",), "required"),
+    "shared/fixtures/contracts/invalid/workflow-event-gate-without-decision.json": (("decision_id",), "type"),
 }
 
 

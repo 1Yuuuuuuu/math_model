@@ -1,0 +1,37 @@
+skills:
+  problem-reader:
+    trigger: ["拆解这道国赛题并列出子问题", "从附件说明提取数据需求"]
+    non_trigger: ["直接生成论文正文", "替我批准参考文献"]
+  data-auditor:
+    trigger: ["检查这份 CSV 的缺失值和异常", "制定可复现的数据清洗方案"]
+    non_trigger: ["比较候选模型", "撰写论文摘要"]
+  model-selector:
+    trigger: ["根据问题和数据比较可用模型", "给出模型基线与验证计划"]
+    non_trigger: ["运行已经选定的线性回归", "检查原始数据质量"]
+  solver:
+    trigger: ["执行已经选定且支持的模型", "运行线性回归并固化实验结果"]
+    non_trigger: ["只解释 TOPSIS 原理", "尚未选模型就直接给数值"]
+  sensitivity-analyst:
+    trigger: ["对现有实验做参数敏感性分析", "检查模型结果的稳健性"]
+    non_trigger: ["没有基准实验但请判断稳定", "选择一个候选模型"]
+  literature-researcher:
+    trigger: ["检索支持该模型选择的候选论文", "查找相关研究并保留待核验元数据"]
+    non_trigger: ["批准这些文献进入正式引用", "只运行给定模型"]
+  model-reviewer:
+    trigger: ["独立评审模型选择、实验和敏感性证据", "检查模型方案是否达到审批标准"]
+    non_trigger: ["替我修改模型参数", "评审最终论文排版和 PDF"]
+  repro-reviewer:
+    trigger: ["独立核验这五份建模交接能否复现", "检查实验、产物索引和锁文件是否完整"]
+    non_trigger: ["评价模型创新性并打分", "替我重新运行失败实验"]
+  paper-reviewer:
+    trigger: ["按论文质量门独立评审正文并评分", "检查论文证据、引用、结构和表达是否过关"]
+    non_trigger: ["直接改写论文摘要", "只检查最终 PDF 能否提交"]
+  red-team-reviewer:
+    trigger: ["以评委视角质询每个核心结论", "对论文主张做反例和替代解释审查"]
+    non_trigger: ["替作者补写局限性", "检查 LaTeX 是否编译成功"]
+  submission-auditor:
+    trigger: ["审计最终论文是否满足提交硬门", "检查构建、引用、PDF 空白页和年度规则"]
+    non_trigger: ["评价模型数学正确性", "帮我修改 LaTeX 源文件"]
+  cumcm-orchestrator:
+    trigger: ["启动国赛 72 小时全流程", "从现有检查点恢复并告诉我唯一下一步"]
+    non_trigger: ["只检查这份数据的缺失值", "单独评审模型数学正确性"]

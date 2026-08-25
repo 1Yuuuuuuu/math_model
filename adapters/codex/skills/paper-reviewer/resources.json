@@ -1,0 +1,24 @@
+{
+  "skill": "paper-reviewer",
+  "resources": [
+    "adapters/codex/handoff.py",
+    "scripts/contract_formats.py",
+    "scripts/validate_contracts.py",
+    "shared/contracts",
+    "shared/rubrics/paper-quality.yaml",
+    "shared/contracts/modeling-handoff.schema.json",
+    "shared/contracts/review-report.schema.json",
+    "shared/contracts/review-finding.schema.json",
+    "toolkit/src/cumcm_toolkit/review/engine.py",
+    "toolkit/src/cumcm_toolkit/review/severity.py",
+    "toolkit/src/cumcm_toolkit/review/scorecard.py",
+    "toolkit/src/cumcm_toolkit/review/inputs.py",
+    "toolkit/src/cumcm_toolkit/experiments/manifest.py",
+    "toolkit/src/cumcm_toolkit/evidence/linker.py",
+    "toolkit/src/cumcm_toolkit/latex/citation_check.py",
+    "toolkit/src/cumcm_toolkit/latex/bibliography.py",
+    "toolkit/src/cumcm_toolkit/latex/lint.py",
+    "scripts/contract_formats.py",
+    "scripts/validate_contracts.py"
+  ]
+}

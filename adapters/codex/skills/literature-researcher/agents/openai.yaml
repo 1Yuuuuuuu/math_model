@@ -1,0 +1,6 @@
+interface:
+  display_name: "CUMCM Literature Researcher"
+  short_description: "Find and verify candidate sources for modeling claims"
+  default_prompt: "Use $literature-researcher to build a traceable candidate source set for this modeling claim."
+policy:
+  allow_implicit_invocation: true

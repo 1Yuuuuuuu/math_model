@@ -1,0 +1,31 @@
+rubric_id: red-team
+version: "1.0"
+review_gate: red_team
+requires_capabilities: [evidence_linker, citation_linker, citation_check]
+rules:
+  - rule_id: red_team_claim_boundaries_present
+    severity: S1
+    checker: non_empty
+    params:
+      path: paper_reports.claim_boundaries
+    summary: Claim support boundaries are unavailable for adversarial review.
+    evidence_paths: [evidence_refs]
+    recommendation: State what each experiment and source does and does not support.
+  - rule_id: red_team_limitations_present
+    severity: S2
+    checker: non_empty
+    params:
+      path: paper_reports.limitations
+    summary: The paper does not expose model limitations for questioning.
+    evidence_paths: [evidence_refs]
+    recommendation: Add concrete failure conditions, assumptions, and limitation boundaries.
+  - rule_id: red_team_claims_challenged
+    severity: S1
+    checker: covers_claims
+    params:
+      claims_path: paper_reports.key_claim_ids
+      challenges_path: paper_reports.challenges
+      claim_id_field: claim_id
+    summary: At least one key claim has not been challenged independently.
+    evidence_paths: [evidence_refs]
+    recommendation: Add an adversarial challenge record for every key claim.

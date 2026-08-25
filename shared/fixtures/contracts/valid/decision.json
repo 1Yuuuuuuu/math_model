@@ -1,7 +1,8 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "decision_id": "dec_model_choice",
   "gate": "gate_2_model",
+  "outcome": "approved",
   "selected_option": "Gradient boosting regression",
   "rationale": "It had the lowest validation RMSE among the evaluated models.",
   "artifact_ids": ["art_model_comparison"],

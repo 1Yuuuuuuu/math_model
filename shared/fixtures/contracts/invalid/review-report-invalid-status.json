@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0",
+  "review_id": "review_0123456789abcdef",
+  "rubric_id": "model-quality",
+  "rubric_version": "1.0",
+  "review_gate": "model",
+  "evaluated_rule_ids": ["model_baseline_present"],
+  "rubric_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "input_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "reviewed_files": [],
+  "status": "approved",
+  "scorecard": null,
+  "findings": [],
+  "errors": [],
+  "reviewed_at": "2026-08-25T12:00:00+08:00"
+}

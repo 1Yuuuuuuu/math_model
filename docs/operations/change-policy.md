@@ -25,6 +25,8 @@
 
 例如，若 `artifact.path` 将来改为对象而不是字符串，不能只改 Schema；必须先发布新 `schema_version`、提供字符串到对象的迁移脚本、用旧/新 `artifact` 样例做双端契约回归，并在 release note 给出升级时间。
 
+当前 `decision` 1.0 → 2.0 是本政策的首个实际迁移：[迁移与发布说明](releases/decision-v2-migration.md) 记录字段映射、脚本、弃用期与回退方式。共享 Schema 在迁移期识别两个版本，但工作流只接受 2.0，避免推断缺失的人工审批结果。
+
 ## 区分两个版本字段
 
 | 字段 | 作用 | 何时改变 | 示例 |

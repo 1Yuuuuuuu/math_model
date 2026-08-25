@@ -1,0 +1,6 @@
+interface:
+  display_name: "CUMCM Sensitivity Analyst"
+  short_description: "Evaluate robustness from reproducible experiment evidence"
+  default_prompt: "Use $sensitivity-analyst to test this experiment across justified parameter perturbations."
+policy:
+  allow_implicit_invocation: true

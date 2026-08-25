@@ -76,14 +76,44 @@ def test_master_plan_makes_phase_1_depend_on_phase_0a(project_root: Path) -> Non
     assert "`literature-source`、`citation-link`" in phase_0a[3]
 
 
-def test_master_plan_marks_phase_2_complete_and_phase_3_next(project_root: Path) -> None:
+def test_master_plan_marks_phase_6_complete_and_phase_7_next(
+    project_root: Path,
+) -> None:
     plan = read(project_root, "docs/superpowers/plans/2026-08-21-cumcm-workbench-implementation.md")
 
     assert "- [x] Phase 0A：" in plan
     assert "- [x] 阶段 1：" in plan
     assert "- [x] 阶段 2：" in plan
-    assert "下一步是编写并审批阶段 3 详细计划" in plan
+    assert "- [x] 阶段 3：" in plan
+    assert "- [x] 阶段 4：" in plan
+    assert "- [x] 阶段 5：" in plan
+    assert "- [x] 阶段 6：" in plan
+    assert "下一步是阶段 7 的 DSH 适配" in plan
+    assert "下一步是阶段 6 的构思与详细设计" not in plan
     assert "当前执行入口是 Phase 0A" not in plan
+
+
+def test_phase5_operations_document_complete_review_handoff(project_root: Path) -> None:
+    guide = read(project_root, "docs/operations/review-gates.md")
+    handoff = read(project_root, "docs/operations/phase5-to-phase6-handoff.md")
+    combined = guide + handoff
+    for phrase in (
+        "submission-auditor",
+        "repro-reviewer",
+        "model-reviewer",
+        "paper-reviewer",
+        "red-team-reviewer",
+        "85",
+        "70",
+        "ready_for_phase_6",
+        "15",
+        "12",
+        "生成与评审隔离",
+    ):
+        assert phrase in combined
+    assert "shared/contracts/review-bundle.schema.json" in handoff
+    assert "build_review_bundle" in handoff
+    assert "真实 Agent 前向观测" in handoff
 
 
 def test_historical_phase_0_plan_preserves_nine_contract_scope_and_phase_0a_handoff(
