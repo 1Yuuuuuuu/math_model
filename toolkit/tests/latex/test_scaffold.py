@@ -45,6 +45,24 @@ def test_scaffold_rejects_invalid_paper_id(tmp_path: Path) -> None:
             scaffold_paper(tmp_path, bad_id, template_root=template)
 
 
+def test_scaffold_rejects_non_str_paper_id(tmp_path: Path) -> None:
+    template = tmp_path / "template"
+    write_template(template)
+    with pytest.raises(ValueError):
+        scaffold_paper(tmp_path, 12345, template_root=template)  # type: ignore[arg-type]
+
+
+def test_scaffold_rejects_target_that_is_a_file(tmp_path: Path) -> None:
+    template = tmp_path / "template"
+    write_template(template)
+    blocker = tmp_path / "paper2026"
+    blocker.write_text("occupied", encoding="utf-8")
+    with pytest.raises(FileExistsError, match="as a file"):
+        scaffold_paper(tmp_path, "paper2026", template_root=template)
+    with pytest.raises(FileExistsError, match="as a file"):
+        scaffold_paper(tmp_path, "paper2026", template_root=template, overwrite=True)
+
+
 def test_scaffold_missing_template_fails(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         scaffold_paper(tmp_path, "paper2026", template_root=tmp_path / "nope")

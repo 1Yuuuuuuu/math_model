@@ -10,7 +10,7 @@
 同一符号在不同公式中含义不同；符号出现多次才在符号说明表补充定义；公式不编号导致正文无法引用；用文字堆砌代替公式；单位与量纲不一致；公式中的数值与实验记录对不上。
 
 ## 在本工作台中的用法
-模板 `cumcm.sty` 已引入 `amsmath,amssymb` 支持数学环境，符号说明表对应模板 `sec:symbols` 节；数值写入公式前用 `utils/numbers.ensure_finite` 校验有限性，`results/export.export_latex_table` 可生成符号表；`latex/lint` 检查标签与未转义字符等明显问题，公式数值必须来自证据链。
+模板 `cumcm.sty` 已引入 `amsmath,amssymb` 支持数学环境，符号说明表对应模板 `sec:symbols` 节；数值写入公式前用 `utils/numbers.ensure_finite` 校验有限性，`results/export.export_latex_table` 可生成符号表；`latex/lint` 检查标签/引用/占位标记与未转义 `%` 等明显问题（未转义 `%` 为 warning 级启发式检查），公式数值必须来自证据链。
 
 ## 一句话总结
 每个符号一次定义、全文一致、可查表核对，公式数值与证据链一致。

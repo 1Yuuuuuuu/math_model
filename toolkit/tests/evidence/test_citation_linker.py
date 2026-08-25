@@ -81,3 +81,21 @@ def test_approved_sources_filters() -> None:
     rejected = dict(approved, source_id="src_r", verification_status="rejected", decision_id=None)
     result = approved_sources([approved, candidate, rejected])
     assert [s["source_id"] for s in result] == ["src_synthetic_method"]
+
+
+def test_approved_sources_filters_approved_without_decision() -> None:
+    approved = _approved_source()
+    no_decision = dict(approved, source_id="src_nd")
+    del no_decision["decision_id"]
+    result = approved_sources([approved, no_decision])
+    assert [s["source_id"] for s in result] == ["src_synthetic_method"]
+
+
+def test_link_approved_source_missing_source_id_fails() -> None:
+    source = _approved_source()
+    del source["source_id"]
+    with pytest.raises(ValueError, match="missing source_id"):
+        link_approved_source(
+            source_record=source, claim_id="clm_x", usage="method",
+            locator={"kind": "paragraph", "value": "p"}, support_boundary="b",
+        )

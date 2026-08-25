@@ -79,7 +79,7 @@ def test_evidence_bound_paper_pipeline(project_root: Path, tmp_path: Path) -> No
         project_root=project_root,
     )
     claim = link_claim_to_metrics(
-        claim_id="clm_rmse", claim_text="模型 RMSE 为 0.125",
+        claim_id="clm_rmse", claim_text=f"模型 RMSE 为 {experiment['metrics']['rmse']}",
         experiment_record=experiment, metric_keys=["rmse"], boundary="单次运行",
     )
 
@@ -97,10 +97,11 @@ def test_evidence_bound_paper_pipeline(project_root: Path, tmp_path: Path) -> No
     bib = generate_bibliography([source])
     # bib keys are hash-derived (src_<sha256-8> of source_id), not the source_id itself
     key = _bib_key(bib)
+    rmse = experiment["metrics"]["rmse"]
     tex = (
         "\\documentclass[11pt]{ctexart}\n"
         "\\begin{document}\n"
-        "\\begin{abstract}\n模型 RMSE 为 0.125。\n\\end{abstract}\n"
+        f"\\begin{{abstract}}\n模型 RMSE 为 {rmse}。\n\\end{{abstract}}\n"
         "\\section{方法}\\label{sec:method}\n"
         "方法参考~\\cite{" + key + "}。\n"
         "\\section{结果}\\label{sec:results}\n"
@@ -111,17 +112,10 @@ def test_evidence_bound_paper_pipeline(project_root: Path, tmp_path: Path) -> No
     )
     (paper_dir / "main.tex").write_text(tex, encoding="utf-8")
     (paper_dir / "bibliography.bib").write_text(bib, encoding="utf-8")
-    # build_paper is pinned to xelatex-only (no bibtex pass); supply the .bbl
-    # build artifact so \\cite resolves within the two xelatex passes.
-    bbl = (
-        "\\begin{thebibliography}{9}\n"
-        f"\\bibitem{{{key}}}\n{source['title']}，{'、'.join(source['authors'])}，"
-        f"{source['year']}。\n"
-        "\\end{thebibliography}\n"
-    )
-    (paper_dir / "main.bbl").write_text(bbl, encoding="utf-8")
+    # No hand-written .bbl: build_paper runs its own bibtex pass (Fix 1) when
+    # bibliography.bib exists, so \cite{key} is resolved by the real pipeline.
 
-    # 4) build (xelatex, two passes)
+    # 4) build (xelatex → bibtex → xelatex → xelatex)
     build = build_paper(paper_dir)
     assert build["status"] == "ok", (
         f"build failed: errors={build['errors']} warnings={build['warnings']} "
@@ -142,8 +136,9 @@ def test_evidence_bound_paper_pipeline(project_root: Path, tmp_path: Path) -> No
     assert isinstance(pdf["blank_pages"], list)
     assert "fonts" in pdf
 
-    # abstract numbers resolve to evidence
-    resolved = resolve_numeric_claims("模型 RMSE 为 0.125", [claim])
+    # abstract numbers resolve to evidence; the abstract number == the metric value
+    assert str(rmse) in tex, "abstract number must come from the experiment metrics"
+    resolved = resolve_numeric_claims(f"模型 RMSE 为 {rmse}", [claim])
     assert resolved["status"] == "ok", resolved["unresolved"]
     assert resolved["unresolved"] == []
 

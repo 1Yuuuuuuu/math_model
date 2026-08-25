@@ -4,12 +4,12 @@
 
 | 检查项 | 必需 | 说明 | 2026-08-22 实测 |
 | --- | --- | --- | --- |
-| `python` | 是 | 3.11.x（契约 `environment.python_version` 固定为 `"3.11"`） | 3.11.9（`D:\Python311\python.exe`） |
+| `python` | 是 | 3.11.x（契约 `environment.python_version` 固定为 `"3.11"`） | 3.11.x（见 bootstrap 探测） |
 | `uv` | 是 | 依赖锁与 `.venv` 恢复工具 | 不在 PATH；由 `scripts/bootstrap.ps1` 引导至 `.superpowers\bootstrap-uv` |
 | `xelatex` | 是 | XeLaTeX 引擎（中文 PDF 主生产线） | MiKTeX 用户级安装，`%LOCALAPPDATA%\Programs\MiKTeX\miktex\bin\x64\xelatex.exe` |
-| `latexmk` | 是 | 多遍编译编排（引用解析） | 同 MiKTeX bin 目录 |
+| `latexmk` | 是 | 检查项：PATH 存在性（本机因缺 Perl 不可运行，doctor 会报 `ok=false`；最小链路用 xelatex 双遍直编） | 同 MiKTeX bin 目录 |
 
-> 注：`latexmk` 依赖 Perl 脚本引擎。本机（2026-08-22）未安装 Perl，`latexmk` 虽在 PATH 上但不可用（MiKTeX 报 "could not find the script engine 'perl'"）。Phase 1 最小编译链路使用 `xelatex` 双遍直编（第 1 遍生成 aux/标签，第 2 遍解析引用）；如需 `latexmk`，请另行安装 Perl（如 Strawberry Perl）或使用自带 Perl 的 TeX Live。
+> 注：`latexmk` 依赖 Perl 脚本引擎。本机（2026-08-22）未安装 Perl，`latexmk` 虽在 PATH 上但不可用（MiKTeX 报 "could not find the script engine 'perl'"），doctor 的 `latexmk` 探针报 `ok=false`。最小链路不依赖 latexmk：`latex/build` 用 xelatex 双遍直编（第 1 遍生成 aux/标签，第 2 遍解析引用），引文解析由 xelatex → bibtex → xelatex → xelatex 序列完成（bibtex 是 MiKTeX 独立可执行文件，不需要 Perl）。如需 `latexmk`，请另行安装 Perl（如 Strawberry Perl）或使用自带 Perl 的 TeX Live。
 
 ## 恢复环境
 

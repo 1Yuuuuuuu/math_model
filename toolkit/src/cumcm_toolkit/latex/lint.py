@@ -3,10 +3,31 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-_MARKERS = re.compile(r"TODO|待补充|FIXME|TBD|待定")
+# Word-boundary markers; a marker directly followed by "." or another word
+# character (e.g. "TODO.png" as a filename) is not an unfinished placeholder.
+_MARKERS = re.compile(r"\b(?:TODO|TBD|FIXME|待补充|待定)\b(?![.\w])")
 _LABEL = re.compile(r"\\label\{([^}]+)\}")
-_REF = re.compile(r"\\(?:ref|eqref)\{([^}]+)\}")
+_REF = re.compile(r"\\(?:ref|eqref|cref|Cref|autoref|pageref)\*?\{([^}]+)\}")
 _INCLUDE = re.compile(r"\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}")
+_CITE = re.compile(r"\\cite\{([^}]+)\}")
+_BIB_ENTRY = re.compile(r"^@\w+\{([^,]+),", re.MULTILINE)
+
+
+def _has_unescaped_percent(line: str) -> bool:
+    """Heuristic: a line contains a raw % (not escaped by an odd run of
+    backslashes). Whole-line comments (first non-space char is %) are skipped.
+    Warning-level only: LaTeX would silently swallow the rest of the line."""
+    if line.lstrip().startswith("%"):
+        return False
+    for position in [match.start() for match in re.finditer(r"%", line)]:
+        backslashes = 0
+        index = position - 1
+        while index >= 0 and line[index] == "\\":
+            backslashes += 1
+            index -= 1
+        if backslashes % 2 == 0:
+            return True
+    return False
 
 
 def lint_paper(work_dir: Path) -> dict[str, object]:
@@ -19,6 +40,11 @@ def lint_paper(work_dir: Path) -> dict[str, object]:
 
     def add(severity: str, kind: str, line: int, message: str) -> None:
         issues.append({"severity": severity, "kind": kind, "line": line, "message": message})
+
+    bib_path = work_dir / "bibliography.bib"
+    bib_keys: set[str] = set()
+    if bib_path.is_file():
+        bib_keys = set(_BIB_ENTRY.findall(bib_path.read_text(encoding="utf-8", errors="replace")))
 
     defined: dict[str, int] = {}
     used: dict[str, int] = {}  # label -> first line where it is referenced
@@ -36,6 +62,13 @@ def lint_paper(work_dir: Path) -> dict[str, object]:
             candidate = work_dir / image
             if not candidate.is_file():
                 add("error", "missing_image", index, f"image not found: {image}")
+        for cited in _CITE.findall(line):
+            for key in cited.split(","):
+                key = key.strip()
+                if key and key not in bib_keys:
+                    add("warning", "cite_without_bib", index, f"cite without bib entry: {key}")
+        if _has_unescaped_percent(line):
+            add("warning", "unescaped_percent", index, "unescaped % truncates the rest of the line")
 
     for label in sorted(set(used) - set(defined)):
         add("error", "unresolved_ref", used[label], f"reference to undefined label: {label}")

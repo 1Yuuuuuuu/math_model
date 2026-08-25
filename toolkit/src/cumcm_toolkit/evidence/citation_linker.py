@@ -50,7 +50,10 @@ def link_approved_source(
         raise ValueError("citation source must be approved")
     if not source_record.get("decision_id"):
         raise ValueError("approved source must carry a human decision_id")
-    source_id = source_record["source_id"]
+    source_id = source_record.get("source_id")
+    if source_id is None:
+        # Fail closed with a clear error instead of a bare KeyError.
+        raise ValueError("source record missing source_id")
     digest = hashlib.sha256(f"{source_id}\n{claim_id}\n{usage}".encode("utf-8")).hexdigest()
     return link_citation(
         citation_id=f"cite_{digest[:24]}",

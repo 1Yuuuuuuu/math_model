@@ -17,6 +17,14 @@ def scaffold_workspace(
     template_root: Path | None = None,
     overwrite: bool = False,
 ) -> dict[str, object]:
+    """Create a CUMCM workspace under target_root/workspace_id.
+
+    ``overwrite=True`` merges the template over an existing workspace (each
+    template file replaces the same-named destination file; files not present
+    in the template are left untouched). It never wipes the target directory.
+    """
+    if not isinstance(workspace_id, str):
+        raise ValueError(f"invalid workspace id: {workspace_id}")
     if (
         not workspace_id
         or "/" in workspace_id
@@ -30,6 +38,8 @@ def scaffold_workspace(
     template = (template_root or DEFAULT_TEMPLATE).resolve()
     if not template.is_dir():
         raise FileNotFoundError(f"template not found: {template}")
+    if target.is_file():
+        raise FileExistsError(f"workspace target exists as a file: {target}")
     if target.exists() and not overwrite and any(target.iterdir()):
         raise FileExistsError(f"workspace already exists and is not empty: {target}")
 

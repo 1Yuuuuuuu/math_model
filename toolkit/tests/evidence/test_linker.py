@@ -50,10 +50,26 @@ def test_link_claim_to_metrics_binds_number(tmp_path: pytest.FixtureRequest) -> 
         experiment_record=experiment, metric_keys=["rmse"], boundary="单次运行",
     )
     assert record["locator"] == {"kind": "metric", "value": "rmse"}
+    assert record["artifact_id"] == "art_result_table"
+
+
+def test_link_claim_to_metrics_missing_output_artifacts_fails() -> None:
+    experiment = {"metrics": {"rmse": 0.125}, "experiment_id": "exp_model_run"}
+    with pytest.raises(ValueError, match="no output artifact ids"):
+        link_claim_to_metrics(
+            claim_id="clm_x", claim_text="RMSE 为 0.125", experiment_record=experiment,
+            metric_keys=["rmse"], boundary="b",
+        )
+    experiment["output_artifact_ids"] = []
+    with pytest.raises(ValueError, match="no output artifact ids"):
+        link_claim_to_metrics(
+            claim_id="clm_x", claim_text="RMSE 为 0.125", experiment_record=experiment,
+            metric_keys=["rmse"], boundary="b",
+        )
 
 
 def test_link_claim_to_metrics_rejects_missing_number() -> None:
-    experiment = {"metrics": {"rmse": 0.125}}
+    experiment = {"metrics": {"rmse": 0.125}, "output_artifact_ids": ["art_x"], "experiment_id": "exp_x"}
     with pytest.raises(ValueError):
         link_claim_to_metrics(
             claim_id="clm_x", claim_text="RMSE 为 0.9", experiment_record=experiment,
@@ -62,15 +78,39 @@ def test_link_claim_to_metrics_rejects_missing_number() -> None:
 
 
 def test_resolve_numeric_claims_all_resolved() -> None:
+    # evidence-link records carry claim_text only (schema additionalProperties:false
+    # forbids a metrics field), so matching is token-exact against claim_text.
     links = [
-        {"claim_id": "clm_rmse", "claim_text": "RMSE 为 0.125", "metrics": {"rmse": 0.125}},
+        {"claim_id": "clm_rmse", "claim_text": "RMSE 为 0.125"},
     ]
     result = resolve_numeric_claims("RMSE 为 0.125", links)
     assert result["status"] == "ok"
     assert result["unresolved"] == []
+    assert [c["number"] for c in result["claims"]] == ["0.125"]
 
 
 def test_resolve_numeric_claims_unresolved_fails() -> None:
     result = resolve_numeric_claims("精度 99.5%", [])
     assert result["status"] == "failed"
     assert any("99.5" in str(u) for u in result["unresolved"])
+
+
+def test_resolve_numeric_claims_dedupes_numbers() -> None:
+    links = [{"claim_id": "clm_x", "claim_text": "精度 99.5%"}]
+    result = resolve_numeric_claims("精度 99.5% 与 99.5", links)
+    assert result["status"] == "ok"
+    assert len(result["claims"]) == 1, "duplicate numbers must collapse to one claim entry"
+
+
+def test_resolve_numeric_claims_token_exact_matching() -> None:
+    # "5" must NOT match the token "5.125" (substring matching would be a false positive).
+    links = [{"claim_id": "clm_x", "claim_text": "值为 5.125"}]
+    result = resolve_numeric_claims("值为 5", links)
+    assert result["status"] == "failed"
+    assert any(u["number"] == "5" for u in result["unresolved"])
+    assert result["claims"] == []
+    # and "0.125" must not match "5" or "5.125" substrings
+    links = [{"claim_id": "clm_y", "claim_text": "值为 5"}]
+    result = resolve_numeric_claims("RMSE 为 0.125", links)
+    assert result["status"] == "failed"
+    assert result["claims"] == []

@@ -10,7 +10,7 @@
 图分辨率低、坐标轴无单位；表格塞满原始数据而非加工后的指标；用图重复表格内容；正文未提及图表编号；图内数值与正文不一致；直接截取工具默认样式不加说明。
 
 ## 在本工作台中的用法
-指标用 `evaluation/metrics.regression_metrics` 或 `classification_metrics` 计算，敏感性用 `evaluation/sensitivity.sensitivity_report` 生成，绘图保存用 `results/export.save_figure`，表格用 `results/export.export_latex_table` 导出为 LaTeX 表格；`latex/lint` 检查未引用的图表与缺失的图片文件，图中数值必须与证据链一致。
+指标用 `evaluation/metrics.regression_metrics` 或 `classification_metrics` 计算，敏感性用 `evaluation/sensitivity.sensitivity_report` 生成，绘图保存用 `results/export.save_figure`，表格用 `results/export.export_latex_table` 导出为 LaTeX 表格；`latex/lint` 提供静态检查（标签/引用/占位标记/缺失图片文件），图表引用完整性由人工与 `citation_check` 配合把关，图中数值必须与证据链一致。
 
 ## 一句话总结
 图表用于快速传达数据与对比，必须清晰、被正文引用，且数值与证据链一致。

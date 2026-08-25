@@ -17,6 +17,14 @@ def scaffold_paper(
     template_root: Path | None = None,
     overwrite: bool = False,
 ) -> dict[str, object]:
+    """Create a CUMCM paper project under target_root/paper_id.
+
+    ``overwrite=True`` merges the template over an existing project (each
+    template file replaces the same-named destination file; files not present
+    in the template are left untouched). It never wipes the target directory.
+    """
+    if not isinstance(paper_id, str):
+        raise ValueError(f"invalid paper id: {paper_id}")
     if (
         not paper_id
         or "/" in paper_id
@@ -30,6 +38,8 @@ def scaffold_paper(
     template = (template_root or DEFAULT_TEMPLATE).resolve()
     if not template.is_dir():
         raise FileNotFoundError(f"template not found: {template}")
+    if target.is_file():
+        raise FileExistsError(f"paper project target exists as a file: {target}")
     if target.exists() and not overwrite and any(target.iterdir()):
         raise FileExistsError(f"paper project already exists and is not empty: {target}")
 

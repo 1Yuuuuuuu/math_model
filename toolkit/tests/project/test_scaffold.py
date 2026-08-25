@@ -80,3 +80,21 @@ def test_scaffold_rejects_escaping_or_nested_workspace_id(tmp_path: Path, bad_id
     write_template(template)
     with pytest.raises(ValueError):
         scaffold_workspace(tmp_path, bad_id, template_root=template)
+
+
+def test_scaffold_rejects_non_str_workspace_id(tmp_path: Path) -> None:
+    template = tmp_path / "template"
+    write_template(template)
+    with pytest.raises(ValueError):
+        scaffold_workspace(tmp_path, 12345, template_root=template)  # type: ignore[arg-type]
+
+
+def test_scaffold_rejects_target_that_is_a_file(tmp_path: Path) -> None:
+    template = tmp_path / "template"
+    write_template(template)
+    blocker = tmp_path / "ws_demo"
+    blocker.write_text("occupied", encoding="utf-8")
+    with pytest.raises(FileExistsError, match="as a file"):
+        scaffold_workspace(tmp_path, "ws_demo", template_root=template)
+    with pytest.raises(FileExistsError, match="as a file"):
+        scaffold_workspace(tmp_path, "ws_demo", template_root=template, overwrite=True)

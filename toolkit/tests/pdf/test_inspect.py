@@ -75,9 +75,26 @@ def test_inspect_reports_pages_and_blank(tmp_path: Path) -> None:
     assert report["status"] == "ok"
     assert report["errors"] == []
     # text pages 1 and 3 share one font resource: list is deduplicated
-    assert report["fonts"] == [{"name": "/F1", "embedded": None}]
+    assert report["fonts"] == [{"name": "/F1"}]
     assert isinstance(report["metadata"], dict)
     assert report["metadata"].get("/Title") == "Inspect Fixture"
+
+
+def test_inspect_text_extraction_failure_reports_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import pypdf
+
+    pdf = tmp_path / "doc.pdf"
+    _make_pdf(pdf, ["hello", "world"])
+
+    def _boom(self: object, *args: object, **kwargs: object) -> str:
+        raise RuntimeError("extraction exploded")
+
+    monkeypatch.setattr(pypdf.PageObject, "extract_text", _boom)
+    report = inspect_pdf(pdf)
+    assert report["status"] == "failed"
+    assert len(report["errors"]) == 2, "each failed page must produce an error entry"
+    assert all("text extraction failed" in error for error in report["errors"])
+    assert report["blank_pages"] == [], "failed extraction must not masquerade as a blank page"
 
 
 def test_inspect_blank_pages_from_pypdf_writer(tmp_path: Path) -> None:
