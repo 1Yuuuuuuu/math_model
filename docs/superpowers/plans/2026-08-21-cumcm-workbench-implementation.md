@@ -441,7 +441,7 @@ pnpm run hygiene
 - 产品可见插件通过 Loader 真实组合测试。
 - Codex 与 DSH 的共享资产哈希、契约版本和关键产物语义一致。
 
-**Verified inputs (2026-08-26):** 阶段 6 交付的 `review-bundle`、`workflow-event`、`decision` 2.0 契约与磁盘工作流检查点已作为 DSH 侧稳定输入验证通过（orchestrator/review Skill 引用同一契约与 `cumcm_toolkit.workflow.*`/`review.*` 库）。双端资产哈希基线已固化：model-cards 33 个文件在 Codex 打包器与 DSH manifest 间哈希逐路径一致，契约 15 项（+catalog.json）覆盖与哈希一致，`package_dsh_assets --check` 101 项资产无漂移；`decision.schema.json` 为 v1/v2 双版本 oneOf 结构（v2 为 legacy 迁移分支），奇偶测试按 {"1.0","2.0"} 断言。真实组合 e2e 通过（5 项：plugin add + dump-config、Loader 注册 15 工具、真实工具调用与磁盘副作用、真实 xelatex 编译、失败关闭）。
+**Verified inputs (2026-08-26):** 阶段 6 交付的 `review-bundle`、`workflow-event`、`decision` 2.0 契约与磁盘工作流检查点已作为 DSH 侧稳定输入验证通过（orchestrator/review Skill 引用同一契约与 `cumcm_toolkit.workflow.*`/`review.*` 库）。双端资产哈希基线已固化：model-cards 33 个文件在 Codex 打包器与 DSH manifest 间哈希逐路径一致，契约 15 项（+catalog.json）覆盖与哈希一致，`package_dsh_assets --check` 102 项资产无漂移；`decision.schema.json` 为 v1/v2 双版本 oneOf 结构（v2 为 legacy 迁移分支），奇偶测试按 {"1.0","2.0"} 断言。真实组合 e2e 通过（5 项：plugin add + dump-config、Loader 注册 15 工具、真实工具调用与磁盘副作用、真实 xelatex 编译、失败关闭）。
 
 ## Phase 8: Regression and controlled expansion
 

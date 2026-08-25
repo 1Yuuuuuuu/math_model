@@ -44,6 +44,7 @@ def _make_fake_repo(tmp_path: Path) -> Path:
     (repo / "shared/workflows").mkdir(parents=True)
     (repo / "shared/rubrics").mkdir(parents=True)
     (repo / "adapters/codex/skills/fake-agent/agents").mkdir(parents=True)
+    (repo / "adapters/dsh/presets/cumcm-agent").mkdir(parents=True)
     shutil.copy2(
         ROOT / "shared/contracts/error.schema.json",
         repo / "shared/contracts/error.schema.json",
@@ -71,6 +72,10 @@ def _make_fake_repo(tmp_path: Path) -> Path:
     shutil.copy2(
         ROOT / "adapters/codex/skills/solver/agents/openai.yaml",
         repo / "adapters/codex/skills/fake-agent/agents/openai.yaml",
+    )
+    shutil.copy2(
+        ROOT / "adapters/dsh/presets/cumcm-agent/cordis.yml",
+        repo / "adapters/dsh/presets/cumcm-agent/cordis.yml",
     )
     return repo
 
@@ -118,6 +123,7 @@ def test_manifest_shape_and_generated_at(tmp_path: Path) -> None:
         "knowledge",
         "model-cards",
         "workflow",
+        "presets",
     }
     assert isinstance(manifest["assets"], dict)
     assert manifest["assets"]
@@ -175,6 +181,7 @@ def test_categories_match_repository_trees(tmp_path: Path) -> None:
         + ["shared/knowledge/model-catalog.yaml"]
         + codex_agents
     )
+    assert categories["presets"] == tree("adapters/dsh/presets")
 
 
 def test_contracts_category_covers_fifteen_schemas_and_catalog(tmp_path: Path) -> None:

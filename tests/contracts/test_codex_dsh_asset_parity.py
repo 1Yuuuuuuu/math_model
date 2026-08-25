@@ -39,8 +39,6 @@ import yaml
 from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
 
-import scripts.package_codex_skills as codex_pkg
-import scripts.package_dsh_assets as dsh_pkg
 from cumcm_toolkit.experiments.manifest import create_experiment_record
 from cumcm_toolkit.review.engine import load_rubric, review
 from scripts.package_codex_skills import package_skills
@@ -52,6 +50,7 @@ from tests.contracts.test_catalog import EXPECTED_CONTRACT_IDS
 MODEL_CARDS_PREFIX = "shared/knowledge/model-cards/"
 CONTRACTS_PREFIX = "shared/contracts/"
 KNOWLEDGE_PREFIX = "shared/knowledge/"
+TEMPLATES_PREFIX = "shared/templates/"
 
 # modeling-handoff schema 的 8 个基础必填字段（schema_version 由 DSH handoff 机制隐式承担）
 HANDOFF_BASE_FIELDS = frozenset(
@@ -114,7 +113,7 @@ def _read_frontmatter(skill_md: Path) -> dict:
 
 
 def _schema_version_consts(schema: dict) -> set[str]:
-    """递归收集契约 schema 中所有可达的 schema_version const（兼容 oneOf/allOf/$defs 结构）。"""
+    """递归收集契约 schema 中所有可达的 schema_version const（兼容 oneOf/anyOf/allOf/$defs/if-then-else 结构）。"""
 
     def walk(node: object) -> None:
         if not isinstance(node, dict):
@@ -129,6 +128,13 @@ def _schema_version_consts(schema: dict) -> set[str]:
             walk(child)
         for child in node.get("properties", {}).values():
             walk(child)
+        for key in ("if", "then", "else", "not"):
+            child = node.get(key)
+            if isinstance(child, dict):
+                walk(child)
+            elif isinstance(child, list):
+                for item in child:
+                    walk(item)
 
     found: set[str] = set()
     walk(schema)
@@ -210,6 +216,14 @@ def test_knowledge_codex_subset_of_dsh_with_equal_hashes(
         assert digest == dsh_knowledge[path] == _sha256(project_root / path), path
 
 
+def test_templates_classified_in_dsh_without_codex_counterpart(dsh_manifest: dict) -> None:
+    """templates 仅存在于 dsh 侧（codex resources.json 不引用 shared/templates），
+    双端对比无 codex 对应物可比较——此处只断言 dsh 分类覆盖模板文件，不作双端对比。"""
+    templates = dsh_manifest["asset_categories"]["templates"]
+    assert templates, "dsh manifest must classify shared/templates assets"
+    assert all(path.startswith(TEMPLATES_PREFIX) for path in templates)
+
+
 def test_manifest_parsed_by_field_not_key_order(dsh_manifest: dict) -> None:
     """Task 5 concern I3：dsh manifest 键序是 sort_keys 结果——按字段解析，勿比文本/键序。"""
     assert dsh_manifest["manifest_version"] == "1.0"
@@ -220,6 +234,7 @@ def test_manifest_parsed_by_field_not_key_order(dsh_manifest: dict) -> None:
         "knowledge",
         "model-cards",
         "workflow",
+        "presets",
     }
 
 
@@ -316,7 +331,11 @@ def test_modeling_handoff_minimal_record_validates(project_root: Path) -> None:
 
 
 def test_experiment_schema_required_matches_library_output(project_root: Path) -> None:
-    """experiment：schema required 字段 == create_experiment_record 产出键集（双端版本一致）。"""
+    """experiment：schema required 字段 == create_experiment_record 产出键集（双端版本一致）。
+
+    运行前提：Python 3.11（manifest 契约强制）且仓库根存在 uv.lock（锁哈希入记录）。
+    非 3.11 或无 uv.lock 环境该用例以 ValueError 失败，属 toolkit 契约所致，非测试缺陷。
+    """
     schema = _load_json(project_root / "shared/contracts/experiment.schema.json")
     record = create_experiment_record(
         input_artifact_ids=["art_input_a"],

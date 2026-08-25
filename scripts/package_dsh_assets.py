@@ -23,6 +23,8 @@ ASSET_SPECS: dict[str, tuple[tuple[str, str], ...]] = {
         ("file", "shared/knowledge/model-catalog.yaml"),
         ("glob", "adapters/codex/skills/*/agents/openai.yaml"),
     ),
+    # DSH 侧交付物：preset 组合层（Phase 7 产物，纳入漂移监测）。
+    "presets": (("dir", "adapters/dsh/presets"),),
 }
 
 

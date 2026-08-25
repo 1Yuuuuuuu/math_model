@@ -52,7 +52,7 @@ python 解析顺序（cumcm-tools `resolvePython`）：`pythonBin` → `cumcmRoo
 - **model-cards**：33 个文件在 Codex 打包器（`package_codex_skills.py`）与 DSH manifest（`package_dsh_assets.py`）间集合相等、逐路径 SHA-256 一致。
 - **契约**：15 项 schema + catalog.json（共 16 文件）双端覆盖与哈希一致；catalog_version 与 contract ids 同源断言（`test_catalog.py` 的 `EXPECTED_CONTRACT_IDS`）。`decision.schema.json` 为 v1/v2 双版本 oneOf（v2 为 legacy 迁移分支），奇偶测试按 {"1.0","2.0"} 断言。
 - **关键产物形状**：modeling-handoff（12 artifact_type 最小记录过 schema）、experiment（schema required 12 字段 == 库产出键集）、review-report（schema required 14 字段 == `engine.review` 产出键集）语义一致。
-- **资产清单**：`package_dsh_assets.py --check` 101 项资产无漂移（contracts 16 / templates 10 / knowledge 56 / model-cards 33 / workflow 20，去重后 101）。
+- **资产清单**：`package_dsh_assets.py --check` 102 项资产无漂移（contracts 16 / templates 10 / knowledge 56 / model-cards 33 / workflow 20 / presets 1，去重后 102）。
 - **handoff 形状**：12 份 SKILL.md 的 Handoff Contract yaml 字段 ⊆ schema 且 artifact_type 在 enum 内；8 基础字段齐备，扩展字段按 Skill 类型。
 
 ## 四、cumcm-tools 15 工具清单与契约对应

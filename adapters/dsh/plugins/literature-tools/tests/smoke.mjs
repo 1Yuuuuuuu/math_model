@@ -346,6 +346,11 @@ check(
 // Right-sized payload (small but valid) passes the pre-check and reaches the
 // Python bridge only when a real env exists — here it must fail with the
 // bridge-level python resolution error, NOT the size pre-check.
+// Force an unresolvable python (LITERATURE_TOOLS_PYTHON → nonexistent path) so
+// the bridge deterministically fails regardless of whether the ambient
+// machine happens to have a real cumcmRoot at the sample sourceRoot.
+const prevPython = process.env.LITERATURE_TOOLS_PYTHON
+process.env.LITERATURE_TOOLS_PYTHON = path.join(tmpdir(), 'cumcm-tools-smoke-no-such-python.exe')
 let smallErr = null
 try {
   await noBackend
@@ -353,6 +358,9 @@ try {
     .execute({ candidate: JSON.stringify([{ id: 'a', doi: '10.1/x' }]) }, { signal })
 } catch (error) {
   smallErr = error
+} finally {
+  if (prevPython === undefined) delete process.env.LITERATURE_TOOLS_PYTHON
+  else process.env.LITERATURE_TOOLS_PYTHON = prevPython
 }
 check(
   'route_candidate small payload passes pre-check (fails later at bridge, not on size)',
