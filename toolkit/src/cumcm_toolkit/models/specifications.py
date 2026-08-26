@@ -123,6 +123,7 @@ from .executors.data_processing import (
     execute_anomaly_detection,
     execute_interpolation,
     execute_normalization,
+    execute_pca,
 )
 
 
@@ -168,6 +169,17 @@ register_spec(
         True,
         ("matrix",),
         execute_anomaly_detection,
+    )
+)
+register_spec(
+    ModelSpec(
+        "pca",
+        "data-processing",
+        "shared/knowledge/model-cards/evaluation/pca.md",
+        True,
+        False,
+        ("matrix", "components", "standardize"),
+        execute_pca,
     )
 )
 register_spec(

@@ -7,7 +7,9 @@ from numbers import Integral
 
 import numpy as np
 from scipy.interpolate import CubicSpline, PchipInterpolator, interp1d
+from sklearn.decomposition import PCA
 from sklearn.ensemble import IsolationForest
+from sklearn.preprocessing import StandardScaler
 
 from .base import bounded_integer, finite_float, required_field, string_enum
 
@@ -236,6 +238,92 @@ def execute_interpolation(payload: Mapping[str, object]) -> Mapping[str, object]
         "result": {"values": values.tolist(), "extrapolated": extrapolated.tolist()},
         "diagnostics": {"domain": [float(x_processed[0]), float(x_processed[-1])], "nodes": int(x_processed.size)},
         "warnings": [],
+        "seed": None,
+    }
+
+
+def execute_pca(payload: Mapping[str, object]) -> Mapping[str, object]:
+    """Fit a deterministic PCA on an explicitly standardized or raw numeric matrix.
+
+    ``components`` contains one unit principal axis per row.  ``loadings`` has one
+    source feature per row and one component per column, with each loading equal to
+    its axis coefficient times the square root of that component's explained variance.
+    """
+    _reject_unknown_fields(payload, {"matrix", "components", "standardize", "missing_policy"})
+    matrix = _numeric_array_allow_nan(payload, "matrix", ndim=2)
+    policy = _missing_policy(payload)
+    processed, source_rows, missing_rows, dropped_rows, filled_rows = _apply_missing_policy(
+        matrix, policy=policy, field="matrix"
+    )
+    components = bounded_integer(
+        payload, "components", minimum=1, maximum=min(processed.shape)
+    )
+    standardize = required_field(payload, "standardize")
+    if type(standardize) is not bool:
+        raise ValueError("standardize: must be a boolean")
+    if processed.shape[0] < 2:
+        raise ValueError("pca: explained variance requires at least 2 samples")
+
+    warnings: list[str] = []
+    standardization: dict[str, object]
+    if standardize:
+        scaler = StandardScaler()
+        fitted = np.asarray(scaler.fit_transform(processed), dtype=float)
+        standardization = {
+            "applied": True,
+            "mean": np.asarray(scaler.mean_, dtype=float).tolist(),
+            "scale": np.asarray(scaler.scale_, dtype=float).tolist(),
+        }
+        constant_columns = np.flatnonzero(np.asarray(scaler.var_, dtype=float) == 0)
+        for column in constant_columns.astype(int):
+            warnings.append(f"constant column {column} was standardized to 0")
+    else:
+        fitted = processed.copy()
+        standardization = {"applied": False}
+
+    if not np.all(np.isfinite(fitted)):
+        raise ValueError("pca: preprocessing produced non-finite values")
+    total_variance = float(np.sum(np.var(fitted, axis=0, ddof=0)))
+    if not np.isfinite(total_variance) or total_variance <= 0:
+        raise ValueError("pca: total variance must be finite and positive")
+
+    estimator = PCA(n_components=components, svd_solver="full")
+    transformed = np.asarray(estimator.fit_transform(fitted), dtype=float)
+    axes = np.asarray(estimator.components_, dtype=float)
+    explained_variance = np.asarray(estimator.explained_variance_, dtype=float)
+    explained_ratio = np.asarray(estimator.explained_variance_ratio_, dtype=float)
+    mean = np.asarray(estimator.mean_, dtype=float)
+    loadings = axes.T * np.sqrt(explained_variance)
+    cumulative_ratio = np.minimum(np.cumsum(explained_ratio), 1.0)
+    arrays = (transformed, axes, explained_variance, explained_ratio, cumulative_ratio, mean, loadings)
+    if any(not np.all(np.isfinite(values)) for values in arrays):
+        raise ValueError("pca: fit produced non-finite statistics")
+
+    return {
+        "parameters": {
+            "components": components,
+            "standardize": standardize,
+            "missing_policy": policy,
+        },
+        "input_summary": _input_summary(
+            original_rows=matrix.shape[0], columns=matrix.shape[1], source_rows=source_rows,
+            missing_rows=missing_rows, dropped_rows=dropped_rows, filled_rows=filled_rows,
+        ),
+        "result": {
+            "transformed": transformed.tolist(),
+            "components": axes.tolist(),
+            "loadings": loadings.tolist(),
+            "explained_variance": explained_variance.tolist(),
+            "explained_variance_ratio": explained_ratio.tolist(),
+            "cumulative_explained_variance_ratio": cumulative_ratio.tolist(),
+            "mean": mean.tolist(),
+            "standardization": standardization,
+        },
+        "diagnostics": {
+            "components_definition": "rows are unit principal axes in fitted feature space",
+            "loadings_definition": "rows are source features and columns are components; axis coefficient times sqrt(explained_variance)",
+        },
+        "warnings": warnings,
         "seed": None,
     }
 

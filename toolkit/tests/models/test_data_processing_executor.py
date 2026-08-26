@@ -259,3 +259,109 @@ def test_data_processing_models_are_registered_and_preserve_finite_json_input() 
         assert get_spec(model_id).function is not None
         assert capabilities[model_id]["executor"] == "data-processing"
         assert capabilities[model_id]["deterministic"] is True
+
+
+def test_pca_returns_scores_variance_and_explicit_component_loadings() -> None:
+    """Dropping centering/PCA or confusing scores with component axes breaks reconstruction."""
+    matrix = [[1, 2], [2, 4], [3, 6]]
+    result = execute("pca", {"matrix": matrix, "components": 1, "standardize": True})
+
+    output = result["result"]
+    assert np.asarray(output["transformed"]).shape == (3, 1)
+    assert np.asarray(output["components"]).shape == (1, 2)
+    assert np.asarray(output["loadings"]).shape == (2, 1)
+    assert output["explained_variance_ratio"][0] == pytest.approx(1.0)
+    assert output["cumulative_explained_variance_ratio"] == pytest.approx([1.0])
+    reconstructed = np.asarray(output["transformed"]) @ np.asarray(output["components"]) + np.asarray(output["mean"])
+    np.testing.assert_allclose(reconstructed, [[-1.224744871, -1.224744871], [0, 0], [1.224744871, 1.224744871]])
+    np.testing.assert_allclose(np.abs(output["loadings"]), np.sqrt(output["explained_variance"]) * np.abs(output["components"]).T)
+
+
+@pytest.mark.parametrize("components", [True, False, 0, 3])
+def test_pca_rejects_boolean_or_out_of_range_component_counts(components: object) -> None:
+    """Accepting bools or invalid ranks would dispatch an undefined dimensionality reduction."""
+    with pytest.raises(ValueError, match="components"):
+        execute("pca", {"matrix": [[1, 2], [3, 4]], "components": components, "standardize": False})
+
+
+def test_pca_preserves_unstandardized_scale_when_requested() -> None:
+    """Always standardizing would turn this high-variance first feature into equal variance."""
+    result = execute("pca", {"matrix": [[0, 0], [10, 1], [20, 2]], "components": 1, "standardize": False})
+
+    assert result["result"]["standardization"] == {"applied": False}
+    assert abs(result["result"]["components"][0][0]) > abs(result["result"]["components"][0][1])
+
+
+def test_pca_standardization_records_zero_scale_column_as_zero() -> None:
+    """Dividing a constant feature by zero must not leak NaN into the PCA result."""
+    result = execute(
+        "pca", {"matrix": [[1, 7], [2, 7], [3, 7]], "components": 1, "standardize": True}
+    )
+
+    assert result["result"]["standardization"]["scale"] == [pytest.approx(0.816496580927726), 1.0]
+    assert "constant column 1" in " ".join(result["warnings"])
+    assert all(np.all(np.isfinite(value)) for value in result["result"].values() if isinstance(value, list))
+
+
+def test_pca_rejects_all_constant_data_and_insufficient_sample_variance() -> None:
+    """Returning undefined explained variance for a zero-variance or one-row fit is invalid."""
+    for matrix in ([[7, 7], [7, 7]], [[1, 2]]):
+        with pytest.raises(ValueError, match="variance"):
+            execute("pca", {"matrix": matrix, "components": 1, "standardize": True})
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"matrix": [[1, np.nan], [2, 3]], "components": 1, "standardize": True},
+        {"matrix": [[1, np.inf], [2, 3]], "components": 1, "standardize": True},
+        {"matrix": [[1, 2], [3, 4]], "components": 1, "standardize": 1},
+        {"matrix": [[1, 2], [3, 4]], "components": 1, "standardize": False, "unexpected": True},
+    ],
+)
+def test_pca_rejects_nonfinite_or_unknown_payload_values(payload: dict[str, object]) -> None:
+    """Missing, infinite, wrongly typed, and misspelled fields must fail closed."""
+    with pytest.raises(ValueError):
+        execute("pca", payload)
+
+
+@pytest.mark.parametrize(
+    ("missing_policy", "expected_rows", "summary_field"),
+    [
+        ("drop-rows", 2, "dropped_rows"),
+        ("column-mean", 3, "filled_rows"),
+    ],
+)
+def test_pca_reuses_data_processing_missing_row_policies(
+    missing_policy: str, expected_rows: int, summary_field: str
+) -> None:
+    """A different NaN policy would lose the original row lineage established by Task 7."""
+    result = execute(
+        "pca",
+        {"matrix": [[1, 2], [np.nan, 3], [3, 4]], "components": 1, "standardize": True, "missing_policy": missing_policy},
+    )
+
+    assert len(result["result"]["transformed"]) == expected_rows
+    assert result["input_summary"][summary_field] == [1]
+
+
+def test_pca_is_registered_and_has_finite_json_output() -> None:
+    """An unregistered PCA or a non-JSON statistic cannot be safely dispatched by clients."""
+    payload = {"matrix": [[1, 2], [2, 3], [3, 4]], "components": 1, "standardize": False}
+    before = copy.deepcopy(payload)
+    result = execute("pca", payload)
+    capability = {item["model_id"]: item for item in list_capabilities()}["pca"]
+
+    assert payload == before
+    assert json.loads(json.dumps(result, allow_nan=False)) == result
+    assert capability == {
+        "model_id": "pca",
+        "executor": "data-processing",
+        "knowledge_card": "shared/knowledge/model-cards/evaluation/pca.md",
+        "deterministic": True,
+        "seed_supported": False,
+        "payload_fields": ("matrix", "components", "standardize"),
+    }
+    ratios = result["result"]["cumulative_explained_variance_ratio"]
+    assert ratios == sorted(ratios)
+    assert ratios[-1] <= 1.0
