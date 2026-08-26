@@ -51,7 +51,9 @@ required_sections:
 ## 工具入口
 sklearn.decomposition.PCA（n_components 可为比例或整数）；因子旋转可用 factor_analyzer；statsmodels 无原生 PCA，需手动实现。
 
-本工具的 `pca` 执行器要求二维数值 `matrix`、整数 `components` 和布尔值 `standardize`。`standardize=true` 时先以 StandardScaler 的总体标准差标准化；常量列变为 0 并产生警告。结果中 `transformed` 是样本得分（行对应输入的保留行），`components` 是单位主轴（每行一个主成分），`loadings` 的行对应原始特征、列对应主成分，定义为主轴系数乘以该主成分解释方差的平方根。可显式用 `missing_policy` 选择 `drop-rows` 或 `column-mean`，否则缺失值被拒绝。
+本工具的 `pca` 执行器要求二维数值 `matrix`、整数 `components` 和布尔值 `standardize`。`standardize=true` 时先以 StandardScaler 的总体标准差标准化；常量列变为 0 并产生警告。`result.mean` 是 PCA实际输入空间均值：标准化时为标准化空间，未标准化时为缺失处理后的原始空间。`standardization.mean`/`standardization.scale` 是缺失处理后原特征空间的 StandardScaler 参数，`scale` 基于总体标准差（ddof=0）；`explained_variance` 是 sklearn 的样本方差（ddof=1）。
+
+结果中 `transformed` 是样本得分（行对应输入的保留行），`components` 是单位主轴（每行一个主成分）；`loadings` 也每行对应一个主成分，位于 PCA实际输入空间，定义为主轴系数乘以该主成分解释方差的平方根。它不是相关系数，也不是原单位回归系数；在标准化空间中，单变量载荷可能大于 1。可显式用 `missing_policy` 选择 `drop-rows` 或 `column-mean`，否则缺失值被拒绝。
 
 ## 最小示例
 `from sklearn.decomposition import PCA; pca = PCA(n_components=2).fit(Xs); print(pca.explained_variance_ratio_)`。

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -269,12 +270,15 @@ def test_pca_returns_scores_variance_and_explicit_component_loadings() -> None:
     output = result["result"]
     assert np.asarray(output["transformed"]).shape == (3, 1)
     assert np.asarray(output["components"]).shape == (1, 2)
-    assert np.asarray(output["loadings"]).shape == (2, 1)
+    assert np.asarray(output["loadings"]).shape == (1, 2)
     assert output["explained_variance_ratio"][0] == pytest.approx(1.0)
     assert output["cumulative_explained_variance_ratio"] == pytest.approx([1.0])
     reconstructed = np.asarray(output["transformed"]) @ np.asarray(output["components"]) + np.asarray(output["mean"])
     np.testing.assert_allclose(reconstructed, [[-1.224744871, -1.224744871], [0, 0], [1.224744871, 1.224744871]])
-    np.testing.assert_allclose(np.abs(output["loadings"]), np.sqrt(output["explained_variance"]) * np.abs(output["components"]).T)
+    np.testing.assert_allclose(
+        np.abs(output["loadings"]),
+        np.sqrt(output["explained_variance"])[:, np.newaxis] * np.abs(output["components"]),
+    )
 
 
 @pytest.mark.parametrize("components", [True, False, 0, 3])
@@ -365,3 +369,24 @@ def test_pca_is_registered_and_has_finite_json_output() -> None:
     ratios = result["result"]["cumulative_explained_variance_ratio"]
     assert ratios == sorted(ratios)
     assert ratios[-1] <= 1.0
+
+
+def test_pca_knowledge_card_distinguishes_input_space_statistics_and_component_major_loadings() -> None:
+    """Ambiguous PCA-space statistics or feature-major loadings would mislead result consumers."""
+    card = (Path(__file__).resolve().parents[3] / "shared/knowledge/model-cards/evaluation/pca.md").read_text(
+        encoding="utf-8"
+    )
+
+    for required_semantics in (
+        "`result.mean`",
+        "PCA实际输入空间均值",
+        "`standardization.mean`/`standardization.scale`",
+        "缺失处理后原特征空间",
+        "ddof=0",
+        "ddof=1",
+        "每行对应一个主成分",
+        "相关系数",
+        "原单位回归系数",
+        ">1",
+    ):
+        assert required_semantics in card

@@ -245,9 +245,9 @@ def execute_interpolation(payload: Mapping[str, object]) -> Mapping[str, object]
 def execute_pca(payload: Mapping[str, object]) -> Mapping[str, object]:
     """Fit a deterministic PCA on an explicitly standardized or raw numeric matrix.
 
-    ``components`` contains one unit principal axis per row.  ``loadings`` has one
-    source feature per row and one component per column, with each loading equal to
-    its axis coefficient times the square root of that component's explained variance.
+    ``components`` and ``loadings`` each contain one principal component per row.
+    Each loading equals its axis coefficient times the square root of that component's
+    explained variance.
     """
     _reject_unknown_fields(payload, {"matrix", "components", "standardize", "missing_policy"})
     matrix = _numeric_array_allow_nan(payload, "matrix", ndim=2)
@@ -293,7 +293,7 @@ def execute_pca(payload: Mapping[str, object]) -> Mapping[str, object]:
     explained_variance = np.asarray(estimator.explained_variance_, dtype=float)
     explained_ratio = np.asarray(estimator.explained_variance_ratio_, dtype=float)
     mean = np.asarray(estimator.mean_, dtype=float)
-    loadings = axes.T * np.sqrt(explained_variance)
+    loadings = axes * np.sqrt(explained_variance)[:, np.newaxis]
     cumulative_ratio = np.minimum(np.cumsum(explained_ratio), 1.0)
     arrays = (transformed, axes, explained_variance, explained_ratio, cumulative_ratio, mean, loadings)
     if any(not np.all(np.isfinite(values)) for values in arrays):
@@ -321,7 +321,7 @@ def execute_pca(payload: Mapping[str, object]) -> Mapping[str, object]:
         },
         "diagnostics": {
             "components_definition": "rows are unit principal axes in fitted feature space",
-            "loadings_definition": "rows are source features and columns are components; axis coefficient times sqrt(explained_variance)",
+            "loadings_definition": "rows are components in fitted feature space; axis coefficient times sqrt(explained_variance)",
         },
         "warnings": warnings,
         "seed": None,
