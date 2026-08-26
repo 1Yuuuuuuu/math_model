@@ -606,6 +606,44 @@ def test_hypothesis_tests_reject_numeric_subclasses_without_invoking_hooks() -> 
 
 
 @pytest.mark.parametrize(
+    ("model_id", "payload", "field"),
+    [
+        (
+            "parametric-test",
+            {"test": "one-sample-t", "sample": [1, 10**1000], "population_mean": 0},
+            "sample",
+        ),
+        (
+            "nonparametric-test",
+            {"test": "kruskal-wallis", "groups": [[1, 10**1000], [2, 3]]},
+            "groups",
+        ),
+        (
+            "nonparametric-test",
+            {"test": "chi-square", "table": [[1, 10**1000], [2, 3]]},
+            "table",
+        ),
+        (
+            "correlation-analysis",
+            {"method": "pearson", "x": [1, 10**1000], "y": [1, 2]},
+            "x",
+        ),
+        (
+            "confidence-interval",
+            {"method": "mean-t", "sample": [1, 10**1000], "confidence": 0.95},
+            "sample",
+        ),
+    ],
+)
+def test_statistics_reject_unrepresentable_plain_integers_as_field_value_errors(
+    model_id: str, payload: dict[str, object], field: str
+) -> None:
+    """An exact int outside float range must not leak OverflowError from prevalidation."""
+    with pytest.raises(ValueError, match=field):
+        execute(model_id, payload)
+
+
+@pytest.mark.parametrize(
     ("payload", "scaled_payload"),
     [
         (

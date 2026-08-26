@@ -40,7 +40,13 @@ def _numeric_array_allow_nan(
 
     def validate_plain_numbers(node: object) -> None:
         if type(node) in (int, float):
-            if math.isinf(float(node)):
+            try:
+                number = float(node)
+            except (TypeError, ValueError, OverflowError) as exc:
+                raise ValueError(
+                    f"{field}: must contain numbers representable as finite floats"
+                ) from exc
+            if math.isinf(number):
                 raise ValueError(f"{field}: infinity is not a missing value and is not allowed")
             return
         if type(node) not in (list, tuple):
