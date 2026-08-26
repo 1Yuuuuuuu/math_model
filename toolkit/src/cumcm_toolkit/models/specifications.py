@@ -125,6 +125,7 @@ from .executors.data_processing import (
     execute_normalization,
     execute_pca,
 )
+from .executors.statistics import execute_confidence_interval, execute_correlation
 
 
 register_spec(
@@ -180,6 +181,28 @@ register_spec(
         False,
         ("matrix", "components", "standardize"),
         execute_pca,
+    )
+)
+register_spec(
+    ModelSpec(
+        "correlation-analysis",
+        "statistics",
+        "shared/knowledge/model-cards/statistics/correlation-analysis.md",
+        True,
+        False,
+        ("method",),
+        execute_correlation,
+    )
+)
+register_spec(
+    ModelSpec(
+        "confidence-interval",
+        "statistics",
+        "shared/knowledge/model-cards/statistics/confidence-interval.md",
+        True,
+        False,
+        ("method", "confidence"),
+        execute_confidence_interval,
     )
 )
 register_spec(
