@@ -152,14 +152,62 @@ def test_iqr_anomaly_detection_finds_outlier() -> None:
 
     assert result["result"]["anomaly_indices"] == [3]
     assert result["result"]["count"] == 1
-    assert result["result"]["mask"] == [[False], [False], [False], [True]]
+    assert result["result"]["mask"] == [False, False, False, True]
+    assert result["result"]["cell_mask"] == [[False], [False], [False], [True]]
+
+
+def test_anomaly_detection_exposes_row_mask_and_only_rule_based_cell_mask() -> None:
+    """Publishing a cell mask as the public mask breaks row-level anomaly consumers."""
+    result = execute(
+        "anomaly-detection",
+        {"matrix": [[1, 1], [1, 1], [1, 1], [10, 1]], "method": "iqr"},
+    )
+
+    row_mask = result["result"]["mask"]
+    assert len(row_mask) == 4
+    assert all(type(value) is bool for value in row_mask)
+    assert row_mask == [False, False, False, True]
+    assert result["result"]["anomaly_indices"] == [index for index, value in enumerate(row_mask) if value]
+    assert result["result"]["count"] == sum(row_mask)
+    assert result["result"]["cell_mask"] == [
+        [False, False],
+        [False, False],
+        [False, False],
+        [True, False],
+    ]
+    isolation = execute(
+        "anomaly-detection",
+        {
+            "matrix": [[0, 0], [0.1, 0.1], [10, 10]],
+            "method": "isolation-forest",
+            "contamination": 0.34,
+        },
+    )
+    assert "cell_mask" not in isolation["result"]
+
+
+@pytest.mark.parametrize(
+    ("model_id", "payload"),
+    [
+        ("normalization", {"matrix": [[1]], "methd": "zscore"}),
+        ("interpolation", {"x": [0, 1], "y": [0, 1], "new_x": [0.5], "methd": "linear"}),
+        ("anomaly-detection", {"matrix": [[1]], "methd": "iqr"}),
+    ],
+)
+def test_data_processing_models_reject_unknown_payload_fields(
+    model_id: str, payload: dict[str, object]
+) -> None:
+    """Ignoring a misspelled option would silently select an unintended default."""
+    with pytest.raises(ValueError, match="methd"):
+        execute(model_id, payload)
 
 
 def test_zscore_anomaly_detection_handles_zero_scale_without_nan() -> None:
     """Dividing a constant column by zero would return NaN instead of a clean all-false mask."""
     result = execute("anomaly-detection", {"matrix": [[7], [7], [7]], "method": "zscore"})
 
-    assert result["result"]["mask"] == [[False], [False], [False]]
+    assert result["result"]["mask"] == [False, False, False]
+    assert result["result"]["cell_mask"] == [[False], [False], [False]]
     assert "zero scale column 0" in " ".join(result["warnings"])
 
 

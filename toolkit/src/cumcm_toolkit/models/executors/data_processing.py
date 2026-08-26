@@ -49,6 +49,13 @@ def _missing_policy(payload: Mapping[str, object]) -> str:
     return string_enum(payload, "missing_policy", _MISSING_POLICIES)
 
 
+def _reject_unknown_fields(payload: Mapping[str, object], allowed: set[str]) -> None:
+    """Fail closed when a public executor receives an unrecognized payload key."""
+    unknown = sorted(set(payload) - allowed)
+    if unknown:
+        raise ValueError(f"{unknown[0]}: is not a supported payload field")
+
+
 def _apply_missing_policy(
     values: np.ndarray, *, policy: str, field: str
 ) -> tuple[np.ndarray, list[int], list[int], list[int], list[int]]:
@@ -118,6 +125,7 @@ def _selected_columns(payload: Mapping[str, object], column_count: int) -> list[
 
 def execute_normalization(payload: Mapping[str, object]) -> Mapping[str, object]:
     """Normalize selected columns with finite statistics and explicit missing-data handling."""
+    _reject_unknown_fields(payload, {"matrix", "method", "columns", "missing_policy"})
     matrix = _numeric_array_allow_nan(payload, "matrix", ndim=2)
     method = string_enum(payload, "method", _NORMALIZATION_METHODS) if "method" in payload else "minmax"
     policy = _missing_policy(payload)
@@ -173,6 +181,9 @@ def execute_normalization(payload: Mapping[str, object]) -> Mapping[str, object]
 
 def execute_interpolation(payload: Mapping[str, object]) -> Mapping[str, object]:
     """Interpolate one-dimensional paired data without silently sorting or extrapolating."""
+    _reject_unknown_fields(
+        payload, {"x", "y", "new_x", "method", "extrapolation", "missing_policy"}
+    )
     x = _numeric_array_allow_nan(payload, "x", ndim=1)
     y = _numeric_array_allow_nan(payload, "y", ndim=1)
     new_x = _numeric_array_allow_nan(payload, "new_x", ndim=1)
@@ -237,9 +248,7 @@ def _reject_irrelevant_anomaly_parameters(payload: Mapping[str, object], method:
     }[method]
     if "random_state" in payload:
         raise ValueError("random_state: use seed instead; random_state is not accepted")
-    unsupported = sorted(set(payload) - allowed)
-    if unsupported:
-        raise ValueError(f"{unsupported[0]}: is not supported for method {method}")
+    _reject_unknown_fields(payload, allowed)
 
 
 def execute_anomaly_detection(payload: Mapping[str, object]) -> Mapping[str, object]:
@@ -295,13 +304,20 @@ def execute_anomaly_detection(payload: Mapping[str, object]) -> Mapping[str, obj
 
     row_mask = np.any(mask, axis=1)
     anomaly_indices = [source_rows[index] for index in np.flatnonzero(row_mask).astype(int)]
+    result: dict[str, object] = {
+        "mask": row_mask.tolist(),
+        "anomaly_indices": anomaly_indices,
+        "count": len(anomaly_indices),
+    }
+    if method != "isolation-forest":
+        result["cell_mask"] = mask.tolist()
     return {
         "parameters": parameters,
         "input_summary": _input_summary(
             original_rows=matrix.shape[0], columns=matrix.shape[1], source_rows=source_rows,
             missing_rows=missing_rows, dropped_rows=dropped_rows, filled_rows=filled_rows,
         ),
-        "result": {"mask": mask.tolist(), "anomaly_indices": anomaly_indices, "count": len(anomaly_indices)},
+        "result": result,
         "diagnostics": diagnostics,
         "warnings": warnings,
         "seed": seed,
