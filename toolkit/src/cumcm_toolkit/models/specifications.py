@@ -119,6 +119,11 @@ from .executors.optimization import (
     execute_linear_programming,
     execute_nonlinear_programming,
 )
+from .executors.data_processing import (
+    execute_anomaly_detection,
+    execute_interpolation,
+    execute_normalization,
+)
 
 
 register_spec(
@@ -130,6 +135,39 @@ register_spec(
         False,
         ("matrix", "criteria"),
         execute_topsis,
+    )
+)
+register_spec(
+    ModelSpec(
+        "normalization",
+        "data-processing",
+        "shared/knowledge/model-cards/data/normalization.md",
+        True,
+        False,
+        ("matrix",),
+        execute_normalization,
+    )
+)
+register_spec(
+    ModelSpec(
+        "interpolation",
+        "data-processing",
+        "shared/knowledge/model-cards/data/interpolation.md",
+        True,
+        False,
+        ("x", "y", "new_x"),
+        execute_interpolation,
+    )
+)
+register_spec(
+    ModelSpec(
+        "anomaly-detection",
+        "data-processing",
+        "shared/knowledge/model-cards/data/anomaly-detection.md",
+        True,
+        True,
+        ("matrix",),
+        execute_anomaly_detection,
     )
 )
 register_spec(
