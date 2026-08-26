@@ -36,6 +36,26 @@ def _numeric_array_allow_nan(
     value = required_field(payload, field)
     if isinstance(value, (str, bytes, bytearray, Mapping)):
         raise ValueError(f"{field}: must be a rectangular real numeric array")
+    active: set[int] = set()
+
+    def validate_plain_numbers(node: object) -> None:
+        if type(node) in (int, float):
+            if math.isinf(float(node)):
+                raise ValueError(f"{field}: infinity is not a missing value and is not allowed")
+            return
+        if type(node) not in (list, tuple):
+            raise ValueError(f"{field}: must contain only plain JSON numbers")
+        marker = id(node)
+        if marker in active:
+            raise ValueError(f"{field}: must not contain a cyclic array")
+        active.add(marker)
+        try:
+            for item in node:
+                validate_plain_numbers(item)
+        finally:
+            active.remove(marker)
+
+    validate_plain_numbers(value)
     try:
         array = np.asarray(value)
     except (TypeError, ValueError, OverflowError) as exc:
@@ -369,7 +389,12 @@ def _alternative(payload: Mapping[str, object]) -> str:
 
 
 def _stable_mean(values: np.ndarray, field: str) -> float:
-    mean = math.fsum(float(value) / values.size for value in values)
+    scale = float(np.max(np.abs(values)))
+    if scale == 0.0:
+        return 0.0
+    with np.errstate(over="ignore", invalid="ignore", under="ignore"):
+        scaled_sum = math.fsum(float(value / scale) for value in values)
+    mean = (scaled_sum / values.size) * scale
     if not math.isfinite(mean):
         raise ValueError(f"{field}: mean must be finite")
     return mean
@@ -443,10 +468,19 @@ def execute_parametric_test(payload: Mapping[str, object]) -> Mapping[str, objec
         scale, scaled_deviation = _scaled_sample_deviation(sample, "sample")
         if scaled_deviation == 0.0:
             raise ValueError("sample: effect size is not defined for zero variance")
-        effect_size = (mean / scale - population_mean / scale) / scaled_deviation
+        with np.errstate(over="ignore", invalid="ignore", under="ignore"):
+            scaled_sample = sample / scale
+            scaled_population_mean = population_mean / scale
+        if not math.isfinite(scaled_population_mean):
+            raise ValueError("sample/population_mean: scaled difference must be finite")
+        effect_size = (
+            _stable_mean(scaled_sample, "sample") - scaled_population_mean
+        ) / scaled_deviation
         with warnings.catch_warnings(), np.errstate(all="ignore"):
             warnings.simplefilter("ignore")
-            calculated = stats.ttest_1samp(sample, population_mean, alternative=alternative)
+            calculated = stats.ttest_1samp(
+                scaled_sample, scaled_population_mean, alternative=alternative
+            )
         input_summary = {"sample_size": int(sample.size)}
         parameters: dict[str, object] = {
             "test": test_name,
@@ -467,19 +501,23 @@ def execute_parametric_test(payload: Mapping[str, object]) -> Mapping[str, objec
         if scale == 0.0:
             raise ValueError("sample_a/sample_b: effect size is not defined for zero variance")
         with np.errstate(over="ignore", invalid="ignore", under="ignore"):
-            variance_a = float(np.var(sample_a / scale, ddof=1))
-            variance_b = float(np.var(sample_b / scale, ddof=1))
+            scaled_a = sample_a / scale
+            scaled_b = sample_b / scale
+            variance_a = float(np.var(scaled_a, ddof=1))
+            variance_b = float(np.var(scaled_b, ddof=1))
         pooled_variance = (
             (sample_a.size - 1) * variance_a + (sample_b.size - 1) * variance_b
         ) / (sample_a.size + sample_b.size - 2)
         if not math.isfinite(pooled_variance) or pooled_variance <= 0.0:
             raise ValueError("sample_a/sample_b: effect size is not defined for zero variance")
-        effect_size = (mean_a / scale - mean_b / scale) / math.sqrt(pooled_variance)
+        effect_size = (
+            _stable_mean(scaled_a, "sample_a") - _stable_mean(scaled_b, "sample_b")
+        ) / math.sqrt(pooled_variance)
         with warnings.catch_warnings(), np.errstate(all="ignore"):
             warnings.simplefilter("ignore")
             calculated = stats.ttest_ind(
-                sample_a,
-                sample_b,
+                scaled_a,
+                scaled_b,
                 equal_var=equal_variance,
                 alternative=alternative,
             )
@@ -499,18 +537,30 @@ def execute_parametric_test(payload: Mapping[str, object]) -> Mapping[str, objec
             raise ValueError("sample_a/sample_b: must have equal lengths for paired-t")
         if sample_a.size < 2:
             raise ValueError("sample_a/sample_b: paired-t requires at least 2 samples")
-        with np.errstate(over="ignore", invalid="ignore"):
+        with np.errstate(over="ignore", invalid="ignore", under="ignore"):
             differences = sample_a - sample_b
         if not np.all(np.isfinite(differences)):
             raise ValueError("sample_a/sample_b: paired differences must be finite")
+        scale = float(np.max(np.abs(differences)))
+        if scale == 0.0:
+            raise ValueError("paired differences: effect size is not defined for zero variance")
+        with np.errstate(over="ignore", invalid="ignore", under="ignore"):
+            scaled_differences = differences / scale
+        scaled_difference_mean = _stable_mean(scaled_differences, "paired differences")
         mean_difference = _stable_mean(differences, "paired differences")
-        scale, scaled_deviation = _scaled_sample_deviation(differences, "paired differences")
+        _, scaled_deviation = _scaled_sample_deviation(
+            scaled_differences, "paired differences"
+        )
         if scaled_deviation == 0.0:
             raise ValueError("paired differences: effect size is not defined for zero variance")
-        effect_size = (mean_difference / scale) / scaled_deviation
+        effect_size = scaled_difference_mean / scaled_deviation
         with warnings.catch_warnings(), np.errstate(all="ignore"):
             warnings.simplefilter("ignore")
-            calculated = stats.ttest_rel(sample_a, sample_b, alternative=alternative)
+            calculated = stats.ttest_rel(
+                scaled_differences,
+                np.zeros_like(scaled_differences),
+                alternative=alternative,
+            )
         input_summary = {"pairs": int(sample_a.size)}
         parameters = {"test": test_name, "alternative": alternative}
 

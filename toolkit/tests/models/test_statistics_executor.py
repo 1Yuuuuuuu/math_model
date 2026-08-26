@@ -541,3 +541,132 @@ def test_hypothesis_test_models_are_registered_json_safe_and_do_not_mutate_input
         )
         assert capabilities[model_id]["deterministic"] is True
         assert capabilities[model_id]["seed_supported"] is False
+
+
+@pytest.mark.parametrize(
+    ("model_id", "payload", "field"),
+    [
+        (
+            "parametric-test",
+            {"test": "one-sample-t", "sample": [1, True, 2], "population_mean": 0},
+            "sample",
+        ),
+        (
+            "parametric-test",
+            {"test": "independent-t", "sample_a": [1, 2], "sample_b": [3, False]},
+            "sample_b",
+        ),
+        (
+            "parametric-test",
+            {"test": "paired-t", "sample_a": [1, True], "sample_b": [0, 2]},
+            "sample_a",
+        ),
+        (
+            "nonparametric-test",
+            {"test": "mann-whitney-u", "sample_a": [1, True], "sample_b": [2, 3]},
+            "sample_a",
+        ),
+        (
+            "nonparametric-test",
+            {"test": "wilcoxon", "sample_a": [1, 2], "sample_b": [0, False]},
+            "sample_b",
+        ),
+        (
+            "nonparametric-test",
+            {"test": "kruskal-wallis", "groups": [[1, True], [2, 3]]},
+            "groups",
+        ),
+        (
+            "nonparametric-test",
+            {"test": "chi-square", "table": [[1, True], [2, 3]]},
+            "table",
+        ),
+    ],
+)
+def test_hypothesis_tests_reject_boolean_leaves_before_numpy_coercion(
+    model_id: str, payload: dict[str, object], field: str
+) -> None:
+    """A mixed bool/numeric list must not be coerced to an integer array."""
+    with pytest.raises(ValueError, match=field):
+        execute(model_id, payload)
+
+
+def test_hypothesis_tests_reject_numeric_subclasses_without_invoking_hooks() -> None:
+    """Only plain JSON int/float leaves are valid; subclass conversion hooks are unsafe."""
+
+    class HookedInt(int):
+        def __float__(self) -> float:
+            raise AssertionError("numeric subclass conversion hook was invoked")
+
+    with pytest.raises(ValueError, match="sample"):
+        execute(
+            "parametric-test",
+            {"test": "one-sample-t", "sample": [1, HookedInt(2), 3], "population_mean": 0},
+        )
+
+
+@pytest.mark.parametrize(
+    ("payload", "scaled_payload"),
+    [
+        (
+            {"test": "one-sample-t", "sample": [0.0, 1.0], "population_mean": 0.25},
+            {
+                "test": "one-sample-t",
+                "sample": [0.0, 1e-200],
+                "population_mean": 2.5e-201,
+            },
+        ),
+        (
+            {
+                "test": "independent-t",
+                "sample_a": [0.0, 1.0, 3.0],
+                "sample_b": [2.0, 4.0, 7.0],
+                "equal_variance": False,
+            },
+            {
+                "test": "independent-t",
+                "sample_a": [0.0, 1e-200, 3e-200],
+                "sample_b": [2e-200, 4e-200, 7e-200],
+                "equal_variance": False,
+            },
+        ),
+        (
+            {"test": "paired-t", "sample_a": [1.0, 3.0, 6.0, 10.0], "sample_b": [0.0, 1.0, 3.0, 6.0]},
+            {
+                "test": "paired-t",
+                "sample_a": [1e-200, 3e-200, 6e-200, 1e-199],
+                "sample_b": [0.0, 1e-200, 3e-200, 6e-200],
+            },
+        ),
+    ],
+)
+def test_t_tests_are_invariant_under_common_positive_subnormal_scale(
+    payload: dict[str, object], scaled_payload: dict[str, object]
+) -> None:
+    """Underflow in SciPy's raw variance must not change scale-free inference."""
+    baseline = execute("parametric-test", payload)["result"]
+    scaled = execute("parametric-test", scaled_payload)["result"]
+
+    for field in ("statistic", "p_value", "effect_size", "degrees_freedom"):
+        assert scaled[field] == pytest.approx(baseline[field])
+
+
+def test_one_sample_t_preserves_smallest_subnormal_mean() -> None:
+    """Dividing each subnormal observation by n before summing erases its mean."""
+    smallest = math.ulp(0.0)
+    baseline = execute(
+        "parametric-test",
+        {"test": "one-sample-t", "sample": [1.0, 1.0, 1.0, 2.0], "population_mean": 0.0},
+    )["result"]
+    scaled = execute(
+        "parametric-test",
+        {
+            "test": "one-sample-t",
+            "sample": [smallest, smallest, smallest, 2.0 * smallest],
+            "population_mean": 0.0,
+        },
+    )["result"]
+
+    assert scaled["mean_difference"] == smallest
+    for field in ("statistic", "p_value", "effect_size", "degrees_freedom"):
+        assert scaled[field] == pytest.approx(baseline[field])
