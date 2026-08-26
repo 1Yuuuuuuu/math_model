@@ -757,6 +757,7 @@ def test_anova_returns_a_finite_null_effect_when_group_means_match() -> None:
         ({"groups": [[1], [2]]}, "degrees"),
         ({"groups": [[1, [2]], [3, 4]]}, "groups"),
         ({"groups": [[1, True], [3, 4]]}, "groups"),
+        ({"groups": [[1, 2 + 0j], [3, 4]]}, "groups"),
         ({"groups": [[1, np.nan], [3, 4]]}, "groups"),
         ({"groups": [[1, np.inf], [3, 4]]}, "groups"),
         ({"groups": [[1, 10**1000], [3, 4]]}, "groups"),
