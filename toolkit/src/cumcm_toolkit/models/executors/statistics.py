@@ -155,13 +155,19 @@ def execute_correlation(payload: Mapping[str, object]) -> Mapping[str, object]:
             usable = ~(missing[:, left] | missing[:, right])
             count = int(np.count_nonzero(usable))
             removed = rows - count
-            coefficient, p_value, reason = _pair_correlation(
-                matrix[usable, left], matrix[usable, right], method
-            )
-            if left == right and reason is None:
-                # A variable's finite, nonconstant self-correlation is exact by definition;
-                # keep a method-independent diagonal rather than Kendall's finite-sample p-value.
-                p_value = 0.0
+            if left == right:
+                values = matrix[usable, left]
+                if count < 2:
+                    coefficient, p_value, reason = None, None, "insufficient_samples"
+                elif np.all(values == values[0]):
+                    coefficient, p_value, reason = None, None, "constant_input"
+                else:
+                    # This is a definitional self-correlation, not a tested null hypothesis.
+                    coefficient, p_value, reason = 1.0, None, None
+            else:
+                coefficient, p_value, reason = _pair_correlation(
+                    matrix[usable, left], matrix[usable, right], method
+                )
             coefficients[left][right] = coefficients[right][left] = coefficient
             p_values[left][right] = p_values[right][left] = p_value
             sample_sizes[left][right] = sample_sizes[right][left] = count
@@ -186,7 +192,7 @@ def execute_correlation(payload: Mapping[str, object]) -> Mapping[str, object]:
         "result": {"coefficient": coefficients, "p_value": p_values, "sample_size": sample_sizes},
         "diagnostics": {
             "mode": "matrix",
-            "diagonal": "nonconstant variables with at least two observed values are 1.0 with p_value 0.0; undefined diagonals are null",
+            "diagonal": "nonconstant variables with at least two observed values have coefficient 1.0; p_value is null because a self-correlation hypothesis test is not applicable; undefined diagonals are null",
             "pairs": pair_diagnostics,
         },
         "warnings": [],
@@ -241,25 +247,28 @@ def execute_confidence_interval(payload: Mapping[str, object]) -> Mapping[str, o
         estimate = math.fsum(float(value) / sample_size for value in sample)
         if not math.isfinite(estimate):
             raise ValueError("sample: mean is not finite")
-        # Scaling first keeps distinct subnormal observations from underflowing to
-        # a false zero variance, and reports genuinely unrepresentable dispersion.
+        # Scaling identifies mathematical zero variance before any subnormal output
+        # underflow, and keeps the t margin in the scale-normalized domain.
         scale = float(np.max(np.abs(sample)))
         if scale == 0.0:
-            standard_deviation = 0.0
+            scaled_standard_deviation = 0.0
         else:
             with np.errstate(over="ignore", invalid="ignore"):
-                standard_deviation = float(np.std(sample / scale, ddof=1) * scale)
+                scaled_standard_deviation = float(np.std(sample / scale, ddof=1))
+        zero_variance = scaled_standard_deviation == 0.0
+        standard_deviation = scaled_standard_deviation * scale
         if not math.isfinite(standard_deviation):
             raise ValueError("sample: variance must be finite")
         standard_error = standard_deviation / math.sqrt(sample_size)
-        if standard_error == 0.0:
+        if zero_variance:
             lower = upper = estimate
             critical_value: float | None = None
+            margin = 0.0
         else:
-            critical_value = float(stats.t.ppf((1.0 + confidence) / 2.0, df=sample_size - 1))
+            critical_value = float(stats.t.isf((1.0 - confidence) / 2.0, df=sample_size - 1))
             if not math.isfinite(critical_value):
                 raise ValueError("confidence: produced a non-finite t critical value")
-            margin = critical_value * standard_error
+            margin = critical_value * (scaled_standard_deviation / math.sqrt(sample_size)) * scale
             lower, upper = estimate - margin, estimate + margin
             if not math.isfinite(lower) or not math.isfinite(upper):
                 raise ValueError("sample/confidence: produced a non-finite interval")
@@ -279,7 +288,8 @@ def execute_confidence_interval(payload: Mapping[str, object]) -> Mapping[str, o
                 "standard_deviation": standard_deviation,
                 "standard_error": standard_error,
                 "critical_value": critical_value,
-                "zero_variance": standard_error == 0.0,
+                "margin": margin,
+                "zero_variance": zero_variance,
             },
             "warnings": [],
             "seed": None,
@@ -298,15 +308,21 @@ def execute_confidence_interval(payload: Mapping[str, object]) -> Mapping[str, o
     estimate = successes_float / total_float
     if not math.isfinite(estimate) or not 0.0 <= estimate <= 1.0:
         raise ValueError("successes/total: must produce a finite proportion")
-    critical_value = float(stats.norm.ppf(0.5 + confidence / 2.0))
+    critical_value = float(stats.norm.isf((1.0 - confidence) / 2.0))
     if not math.isfinite(critical_value):
         raise ValueError("confidence: produced a non-finite normal critical value")
     z_squared = critical_value * critical_value
-    denominator = 1.0 + z_squared / total_float
-    center = (estimate + z_squared / (2.0 * total_float)) / denominator
-    half_width = critical_value * math.sqrt(
-        (estimate * (1.0 - estimate) + z_squared / (4.0 * total_float)) / total_float
-    ) / denominator
+    inverse_total = 1.0 / total_float
+    denominator = 1.0 + z_squared * inverse_total
+    # Express both numerator terms in 1/n units before scaling.  This avoids
+    # forming 4*n or p/n, which respectively overflow and underflow for huge n.
+    center = (successes_float + z_squared / 2.0) * inverse_total / denominator
+    half_width = (
+        critical_value
+        * math.sqrt(successes_float * (1.0 - estimate) + z_squared / 4.0)
+        * inverse_total
+        / denominator
+    )
     lower = max(0.0, min(estimate, center - half_width))
     upper = min(1.0, max(estimate, center + half_width))
     if not all(math.isfinite(value) for value in (lower, upper)):

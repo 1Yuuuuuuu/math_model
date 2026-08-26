@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 
 import numpy as np
 import pytest
@@ -39,14 +40,19 @@ def test_matrix_correlation_returns_symmetric_pairwise_outputs(method: str) -> N
     )
 
     coefficient = np.asarray(result["result"]["coefficient"])
-    p_value = np.asarray(result["result"]["p_value"])
+    p_value = result["result"]["p_value"]
     sample_size = np.asarray(result["result"]["sample_size"])
-    assert coefficient.shape == p_value.shape == sample_size.shape == (3, 3)
+    assert coefficient.shape == sample_size.shape == (3, 3)
     np.testing.assert_allclose(coefficient, coefficient.T)
-    np.testing.assert_allclose(p_value, p_value.T)
     assert np.array_equal(sample_size, sample_size.T)
     assert np.all(np.diag(coefficient) == 1.0)
-    assert np.all(np.diag(p_value) == 0.0)
+    assert all(p_value[index][index] is None for index in range(3))
+    assert all(
+        p_value[left][right] == pytest.approx(p_value[right][left])
+        for left in range(3)
+        for right in range(3)
+        if left != right
+    )
     assert np.all(np.diag(sample_size) == 4)
 
 
@@ -109,6 +115,18 @@ def test_matrix_constant_and_short_pairs_are_null_with_structured_diagnostics() 
     assert result["diagnostics"]["pairs"]["0,2"]["reason"] == "insufficient_samples"
 
 
+def test_matrix_diagonal_is_exact_but_has_no_p_value_hypothesis() -> None:
+    """A diagonal p-value would incorrectly present a self-correlation as a tested pair."""
+    result = execute(
+        "correlation-analysis",
+        {"matrix": [[1, 2], [2, 4], [3, 9]], "method": "kendall"},
+    )
+
+    assert result["result"]["coefficient"][0][0] == 1.0
+    assert result["result"]["p_value"][0][0] is None
+    assert "not applicable" in result["diagnostics"]["diagonal"]
+
+
 def test_mean_t_interval_matches_scipy_and_uses_sample_standard_deviation() -> None:
     """Using population variance or a normal critical value changes this interval."""
     sample = [1, 2, 3, 4]
@@ -140,6 +158,30 @@ def test_mean_t_preserves_a_subnormal_nonzero_sample_variance() -> None:
     assert result["result"]["lower"] < result["result"]["estimate"] < result["result"]["upper"]
 
 
+def test_mean_t_uses_stable_tail_probability_at_maximum_finite_confidence() -> None:
+    """A rounded upper quantile would reject an otherwise valid confidence level below one."""
+    confidence = math.nextafter(1.0, 0.0)
+    result = execute(
+        "confidence-interval", {"method": "mean-t", "sample": [1, 2], "confidence": confidence}
+    )
+
+    assert math.isfinite(result["result"]["lower"])
+    assert math.isfinite(result["result"]["upper"])
+    assert result["result"]["lower"] < result["result"]["estimate"] < result["result"]["upper"]
+
+
+def test_mean_t_keeps_nonzero_subnormal_variance_when_standard_error_underflows() -> None:
+    """Dividing a positive subnormal scale before applying t must not mark variance as zero."""
+    smallest = float.fromhex("0x0.0000000000001p-1022")
+    result = execute(
+        "confidence-interval",
+        {"method": "mean-t", "sample": [0.0, smallest, smallest, smallest], "confidence": 0.95},
+    )
+
+    assert result["diagnostics"]["zero_variance"] is False
+    assert result["result"]["lower"] < result["result"]["estimate"] < result["result"]["upper"]
+
+
 @pytest.mark.parametrize(
     ("successes", "total"),
     [(0, 10), (10, 10), (5, 10)],
@@ -156,6 +198,28 @@ def test_wilson_interval_stays_in_probability_bounds_and_contains_estimate(
     output = result["result"]
     assert 0 <= output["lower"] <= output["estimate"] <= output["upper"] <= 1
     assert output["sample_size"] == total
+
+
+def test_wilson_uses_stable_tail_at_maximum_finite_confidence() -> None:
+    """A rounded upper quantile would reject an otherwise valid confidence level below one."""
+    confidence = math.nextafter(1.0, 0.0)
+    near_one = execute(
+        "confidence-interval",
+        {"method": "proportion-wilson", "successes": 1, "total": 10, "confidence": confidence},
+    )
+
+    assert math.isfinite(near_one["result"]["lower"])
+    assert math.isfinite(near_one["result"]["upper"])
+
+
+def test_wilson_large_total_keeps_a_nonzero_interval() -> None:
+    """Overflow in an intermediate denominator must not collapse a nonzero Wilson interval."""
+    huge_total = execute(
+        "confidence-interval",
+        {"method": "proportion-wilson", "successes": 1, "total": 10**308, "confidence": 0.95},
+    )
+
+    assert huge_total["result"]["lower"] < huge_total["result"]["estimate"] < huge_total["result"]["upper"]
 
 
 @pytest.mark.parametrize(

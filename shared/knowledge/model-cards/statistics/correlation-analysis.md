@@ -51,6 +51,8 @@ r 接近 1/-1 表示同向/反向强线性关联，接近 0 表示无明显线�
 ## 工具入口
 scipy.stats.pearsonr、scipy.stats.spearmanr、pandas.DataFrame.corr、seaborn.heatmap 可视化。
 
+在本工具的相关矩阵输出中，非恒定且至少有两个有效观测的对角线定义为 `coefficient=1.0`；对角线没有待检验的两变量零假设，因此 `p_value=null`（不适用）。有效样本不足或恒定变量的对角线及相关对均为 `null`，原因记录在诊断信息中。
+
 ## 最小示例
 `from scipy.stats import pearsonr; r, p = pearsonr(x, y)`；`df.corr(method="spearman")`。
 

@@ -51,6 +51,8 @@ required_sections:
 ## 工具入口
 scipy.stats.t.interval、scipy.stats.norm.interval、statsmodels 的 OLS 结果自带 conf_int()；bootstrap 用 numpy 随机抽样。
 
+本工具以生存函数计算靠近 1 的置信水平的上尾临界值，避免 `(1+confidence)/2` 的舍入失真。均值样本真实零方差返回退化区间；极小但非零的浮点方差仍按缩放后的 t 半宽计算。Wilson 区间采用按样本量缩放的闭式公式，以保留超大样本量下的非零概率边界。
+
 ## 最小示例
 `from scipy import stats; ci = stats.t.interval(0.95, df=n-1, loc=xbar, scale=s/np.sqrt(n))`；回归 `res.conf_int()`。
 
