@@ -73,9 +73,17 @@ def execute(model_id: str, payload: Mapping[str, object]) -> dict[str, object]:
         except ValueError as exc:
             raise ValueError(f"{model_id}: execution stage failed: {exc}") from exc
         assert isinstance(isolated_payload, dict)
+        missing = [
+            field for field in spec.payload_fields if field not in isolated_payload
+        ]
     else:
         if not isinstance(payload, Mapping):
             raise ValueError(f"{model_id}: payload stage failed: payload must be a mapping")
+        missing = [field for field in spec.payload_fields if field not in payload]
+        if missing:
+            raise ValueError(
+                f"{model_id}: payload fields stage failed: missing {', '.join(missing)}"
+            )
         try:
             isolated_payload = copy.deepcopy(dict(payload))
         except ValueError as exc:
@@ -83,7 +91,6 @@ def execute(model_id: str, payload: Mapping[str, object]) -> dict[str, object]:
                 f"{model_id}: payload stage failed: cannot copy payload: {exc}"
             ) from exc
 
-    missing = [field for field in spec.payload_fields if field not in isolated_payload]
     if missing:
         raise ValueError(
             f"{model_id}: payload fields stage failed: missing {', '.join(missing)}"

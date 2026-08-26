@@ -53,6 +53,23 @@ def test_execute_deep_copies_payload_before_invoking_model(monkeypatch, project_
     assert payload == {"x": [1, 2]}
 
 
+def test_execute_checks_missing_fields_before_deepcopying_ordinary_models() -> None:
+    """An incomplete ordinary payload must fail before nested copy hooks can run."""
+    calls: list[str] = []
+
+    class CopyProbe:
+        def __deepcopy__(self, memo: object) -> list[int]:
+            calls.append("__deepcopy__")
+            return [1]
+
+    with pytest.raises(
+        ValueError,
+        match=r"linear-programming: payload fields stage failed: missing sense, bounds",
+    ):
+        execute("linear-programming", {"objective": CopyProbe()})
+    assert calls == []
+
+
 def test_runner_import_does_not_require_repository_root(tmp_path) -> None:
     """Eager public imports must not break the existing standalone runner import."""
     source_root = Path(__file__).resolve().parents[2] / "src"
