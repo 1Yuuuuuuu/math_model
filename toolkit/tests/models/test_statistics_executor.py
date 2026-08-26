@@ -262,3 +262,282 @@ def test_statistics_models_are_registered_json_safe_and_do_not_mutate_input() ->
         assert capabilities[model_id]["executor"] == "statistics"
         assert capabilities[model_id]["deterministic"] is True
         assert capabilities[model_id]["seed_supported"] is False
+
+
+@pytest.mark.parametrize(
+    ("test_name", "payload", "scipy_call"),
+    [
+        (
+            "one-sample-t",
+            {"sample": [2, 3, 5, 8], "population_mean": 1},
+            lambda: stats.ttest_1samp([2, 3, 5, 8], 1, alternative="two-sided"),
+        ),
+        (
+            "independent-t",
+            {"sample_a": [1, 2, 4], "sample_b": [5, 8, 9], "equal_variance": False},
+            lambda: stats.ttest_ind(
+                [1, 2, 4], [5, 8, 9], equal_var=False, alternative="two-sided"
+            ),
+        ),
+        (
+            "paired-t",
+            {"sample_a": [1, 2, 5, 7], "sample_b": [0, 2, 3, 4]},
+            lambda: stats.ttest_rel([1, 2, 5, 7], [0, 2, 3, 4], alternative="two-sided"),
+        ),
+    ],
+)
+def test_parametric_methods_match_scipy_and_report_complete_summary(
+    test_name: str, payload: dict[str, object], scipy_call: object
+) -> None:
+    """Using the wrong SciPy routine changes the statistic and degrees of freedom."""
+    result = execute("parametric-test", {"test": test_name, **payload})
+    expected = scipy_call()
+
+    assert result["result"]["statistic"] == pytest.approx(expected.statistic)
+    assert result["result"]["p_value"] == pytest.approx(expected.pvalue)
+    assert math.isfinite(result["result"]["effect_size"])
+    assert math.isfinite(result["result"]["degrees_freedom"])
+    assert "mean_difference" in result["result"]
+    assert result["parameters"]["alternative"] == "two-sided"
+
+
+@pytest.mark.parametrize("alternative", ["two-sided", "less", "greater"])
+def test_parametric_alternative_is_forwarded_to_scipy(alternative: str) -> None:
+    """Ignoring a one-sided alternative can reverse the inferential result."""
+    result = execute(
+        "parametric-test",
+        {
+            "test": "one-sample-t",
+            "sample": [3, 4, 5, 8],
+            "population_mean": 1,
+            "alternative": alternative,
+        },
+    )
+    expected = stats.ttest_1samp([3, 4, 5, 8], 1, alternative=alternative)
+    assert result["result"]["p_value"] == pytest.approx(expected.pvalue)
+
+
+def test_independent_t_explicitly_selects_equal_variance_formula() -> None:
+    """Silently forcing Welch changes the requested equal-variance degrees of freedom."""
+    result = execute(
+        "parametric-test",
+        {
+            "test": "independent-t",
+            "sample_a": [1, 2, 3],
+            "sample_b": [4, 8, 12, 16],
+            "equal_variance": True,
+        },
+    )
+    assert result["result"]["degrees_freedom"] == 5
+    assert result["parameters"]["equal_variance"] is True
+    assert result["input_summary"] == {"sample_size_a": 3, "sample_size_b": 4}
+
+
+@pytest.mark.parametrize(
+    ("payload", "field"),
+    [
+        ({"test": "one-sample-t", "sample": [1], "population_mean": 0}, "sample"),
+        ({"test": "one-sample-t", "sample": [1, 2], "population_mean": True}, "population_mean"),
+        (
+            {
+                "test": "independent-t",
+                "sample_a": [1],
+                "sample_b": [2, 3],
+                "equal_variance": False,
+            },
+            "sample_a",
+        ),
+        (
+            {"test": "independent-t", "sample_a": [1, 2], "sample_b": [3, 4], "equal_variance": 1},
+            "equal_variance",
+        ),
+        ({"test": "paired-t", "sample_a": [1, 2], "sample_b": [1]}, "equal lengths"),
+        ({"test": "paired-t", "sample_a": [1, 2], "sample_b": [1, math.inf]}, "sample_b"),
+        (
+            {"test": "one-sample-t", "sample": [1, 2], "population_mean": 0, "alternative": "up"},
+            "alternative",
+        ),
+        ({"test": "not-a-test", "sample": [1, 2], "population_mean": 0}, "test"),
+        ({"test": "one-sample-t", "sample": [1, 2], "population_mean": 0, "typo": 1}, "typo"),
+    ],
+)
+def test_parametric_test_rejects_invalid_or_irrelevant_inputs(
+    payload: dict[str, object], field: str
+) -> None:
+    """Permitting malformed samples or irrelevant fields makes the selected t-test ambiguous."""
+    with pytest.raises(ValueError, match=field):
+        execute("parametric-test", payload)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"test": "one-sample-t", "sample": [1, 1, 1], "population_mean": 0},
+        {
+            "test": "independent-t",
+            "sample_a": [1, 1],
+            "sample_b": [2, 2],
+            "equal_variance": False,
+        },
+        {"test": "paired-t", "sample_a": [2, 3], "sample_b": [1, 2]},
+    ],
+)
+def test_parametric_test_fails_closed_when_statistic_or_effect_is_undefined(
+    payload: dict[str, object],
+) -> None:
+    """Zero effect denominators and numerical overflow must not leak NaN or infinity."""
+    with pytest.raises(ValueError, match="finite|variance|effect|defined"):
+        execute("parametric-test", payload)
+
+
+def test_one_sample_t_keeps_large_finite_values_json_safe() -> None:
+    """Large representable samples must remain finite, never leak non-JSON floats."""
+    result = execute(
+        "parametric-test",
+        {"test": "one-sample-t", "sample": [1e308, -1e308], "population_mean": 0},
+    )
+    assert all(
+        math.isfinite(result["result"][field])
+        for field in ("statistic", "p_value", "effect_size", "degrees_freedom", "mean_difference")
+    )
+
+
+@pytest.mark.parametrize(
+    ("test_name", "payload", "scipy_call"),
+    [
+        (
+            "mann-whitney-u",
+            {"sample_a": [1, 2, 3], "sample_b": [4, 6, 8]},
+            lambda: stats.mannwhitneyu([1, 2, 3], [4, 6, 8], alternative="two-sided"),
+        ),
+        (
+            "wilcoxon",
+            {"sample_a": [1, 2, 5, 8], "sample_b": [0, 2, 3, 4]},
+            lambda: stats.wilcoxon([1, 2, 5, 8], [0, 2, 3, 4], alternative="two-sided"),
+        ),
+        (
+            "kruskal-wallis",
+            {"groups": [[1, 2], [3, 5], [8, 13]]},
+            lambda: stats.kruskal([1, 2], [3, 5], [8, 13]),
+        ),
+    ],
+)
+def test_rank_methods_match_scipy_and_return_finite_effect_size(
+    test_name: str, payload: dict[str, object], scipy_call: object
+) -> None:
+    """Using the wrong rank test changes the tested sampling design."""
+    result = execute("nonparametric-test", {"test": test_name, **payload})
+    expected = scipy_call()
+
+    assert result["result"]["statistic"] == pytest.approx(expected.statistic)
+    assert result["result"]["p_value"] == pytest.approx(expected.pvalue)
+    assert math.isfinite(result["result"]["effect_size"])
+
+
+@pytest.mark.parametrize("alternative", ["two-sided", "less", "greater"])
+def test_two_sample_rank_alternative_is_forwarded(alternative: str) -> None:
+    """Dropping the requested direction silently changes a one-sided rank test."""
+    result = execute(
+        "nonparametric-test",
+        {
+            "test": "mann-whitney-u",
+            "sample_a": [1, 2, 3],
+            "sample_b": [3, 4, 5],
+            "alternative": alternative,
+        },
+    )
+    expected = stats.mannwhitneyu([1, 2, 3], [3, 4, 5], alternative=alternative)
+    assert result["result"]["p_value"] == pytest.approx(expected.pvalue)
+
+
+def test_chi_square_returns_expected_counts_and_low_frequency_warning() -> None:
+    """A sparse table must preserve expected counts and an applicability warning."""
+    table = [[1, 0], [0, 1]]
+    result = execute("nonparametric-test", {"test": "chi-square", "table": table})
+    expected = stats.chi2_contingency(table)
+
+    assert result["result"]["statistic"] == pytest.approx(expected.statistic)
+    assert result["result"]["p_value"] == pytest.approx(expected.pvalue)
+    np.testing.assert_allclose(result["result"]["expected_counts"], expected.expected_freq)
+    assert any("below 5" in warning for warning in result["warnings"])
+    assert math.isfinite(result["result"]["effect_size"])
+
+
+@pytest.mark.parametrize(
+    ("payload", "field"),
+    [
+        ({"test": "mann-whitney-u", "sample_a": [], "sample_b": [1]}, "sample_a"),
+        (
+            {
+                "test": "mann-whitney-u",
+                "sample_a": [1],
+                "sample_b": [2],
+                "alternative": "up",
+            },
+            "alternative",
+        ),
+        ({"test": "wilcoxon", "sample_a": [1, 2], "sample_b": [1]}, "equal lengths"),
+        ({"test": "wilcoxon", "sample_a": [1, 2], "sample_b": [1, np.nan]}, "sample_b"),
+        ({"test": "kruskal-wallis", "groups": [[1, 2]]}, "groups"),
+        ({"test": "kruskal-wallis", "groups": [[1], []]}, "groups"),
+        ({"test": "kruskal-wallis", "groups": {(1, 2), (3, 4)}}, "groups"),
+        ({"test": "chi-square", "table": [[1, 2, 3]]}, "table"),
+        ({"test": "chi-square", "table": [[1, -1], [2, 3]]}, "table"),
+        ({"test": "chi-square", "table": [[True, False], [False, True]]}, "table"),
+        ({"test": "chi-square", "table": [[0, 0], [1, 2]]}, "table"),
+        ({"test": "chi-square", "table": [[1, 2], [3, 4]], "alternative": "less"}, "alternative"),
+        ({"test": "kruskal-wallis", "groups": [[1, 2], [3, 4]], "typo": 1}, "typo"),
+    ],
+)
+def test_nonparametric_test_rejects_invalid_or_irrelevant_inputs(
+    payload: dict[str, object], field: str
+) -> None:
+    """Accepting malformed designs or method-specific fields changes the intended rank test."""
+    with pytest.raises(ValueError, match=field):
+        execute("nonparametric-test", payload)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"test": "wilcoxon", "sample_a": [1, 2, 3], "sample_b": [1, 2, 3]},
+        {"test": "kruskal-wallis", "groups": [[1], [1]]},
+        {"test": "kruskal-wallis", "groups": [[1], [2]]},
+    ],
+)
+def test_rank_tests_fail_closed_for_degenerate_statistics_or_effects(
+    payload: dict[str, object],
+) -> None:
+    """All-zero differences and undefined effect denominators must never become NaN output."""
+    with pytest.raises(ValueError, match="defined|finite|differences|samples"):
+        execute("nonparametric-test", payload)
+
+
+def test_hypothesis_test_models_are_registered_json_safe_and_do_not_mutate_input() -> None:
+    """Missing registration, mutation, or non-JSON output breaks the public execution contract."""
+    cases = {
+        "parametric-test": {
+            "test": "independent-t",
+            "sample_a": [1, 2, 4],
+            "sample_b": [5, 7, 9],
+            "equal_variance": False,
+        },
+        "nonparametric-test": {
+            "test": "chi-square",
+            "table": [[10, 20], [20, 10]],
+        },
+    }
+    capabilities = {item["model_id"]: item for item in list_capabilities()}
+    for model_id, payload in cases.items():
+        before = copy.deepcopy(payload)
+        result = execute(model_id, payload)
+
+        assert payload == before
+        assert json.loads(json.dumps(result, allow_nan=False)) == result
+        assert capabilities[model_id]["knowledge_card"] == (
+            "shared/knowledge/model-cards/statistics/parametric-tests.md"
+            if model_id == "parametric-test"
+            else "shared/knowledge/model-cards/statistics/nonparametric-tests.md"
+        )
+        assert capabilities[model_id]["deterministic"] is True
+        assert capabilities[model_id]["seed_supported"] is False

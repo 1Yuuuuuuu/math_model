@@ -34,10 +34,10 @@ required_sections:
 分布严重偏离正态且样本量小时 t 检验不稳健；数据为等级或顺序尺度；方差差异悬殊（先做 Levene 检验，必要时用 Welch）。
 
 ## 输入与假设
-输入为数值样本；t 检验假设近似正态与方差齐性（Welch 版放宽后者）；样本独立（配对 t 除外）。
+执行器支持 `one-sample-t`、`independent-t` 和 `paired-t`。输入必须是有限、非布尔数值；每个 t 检验样本至少 2 个观测。独立样本要求组内独立，配对样本要求一一对应且等长。t 检验假设样本均值或配对差值的抽样分布可由 t 分布近似；独立样本等方差版还要求方差齐性，Welch 版放宽该条件。
 
 ## 核心公式
-单样本 t = (x̄−μ₀)/(s/√n)；两独立样本 t 用合并方差；配对 t 对差值做单样本 t；p<0.05 拒绝原假设。
+单样本 t = (x̄−μ₀)/(s/√n)；独立样本可选 Welch 或合并方差公式；配对 t 对逐对差值做单样本 t。执行器同时报告有符号 Cohen's d：单样本以样本标准差为分母，配对样本使用差值标准差，独立样本使用合并标准差。p 值必须与预先给定的显著性水平结合解释。
 
 ## 直观解释
 看样本均值与假设均值的差距相对于抽样波动（标准误）有多大，差距足够大就拒绝"无差异"假设。
@@ -49,10 +49,22 @@ required_sections:
 单/双尾（由业务方向决定）；α 取 0.05；方差不等时用 Welch 校正；多重比较需校正 p 值。
 
 ## 工具入口
-scipy.stats.ttest_ind、scipy.stats.ttest_rel、scipy.stats.ttest_1samp、scipy.stats.shapiro、scipy.stats.levene。
+统一入口为 `cumcm_toolkit.models.execute("parametric-test", payload)`，内部使用 `scipy.stats.ttest_1samp`、`ttest_ind` 或 `ttest_rel`。公共结果含 `statistic`、`p_value`、`degrees_freedom`、`mean_difference` 和 `effect_size`；不会自动生成领域结论。
 
 ## 最小示例
-`from scipy.stats import ttest_ind; t, p = ttest_ind(a, b, equal_var=False)`。
+```python
+from cumcm_toolkit.models import execute
+
+result = execute("parametric-test", {
+    "test": "independent-t",
+    "sample_a": [1, 2, 4, 5],
+    "sample_b": [3, 5, 7, 9],
+    "equal_variance": False,
+    "alternative": "two-sided",
+})
+```
+
+`alternative` 可取 `two-sided`、`less` 或 `greater`，缺省为双侧；独立样本的 `equal_variance` 缺省为 `false`。未知字段、非有限值、配对长度不等、零方差导致统计量或效应量不可定义时均失败关闭，不返回 NaN/Infinity。
 
 ## 评价指标
 p 值与效应量（Cohen's d）；检验功效；置信区间宽度。

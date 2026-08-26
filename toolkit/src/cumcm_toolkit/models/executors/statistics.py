@@ -15,6 +15,11 @@ from .base import required_field, string_enum
 _CORRELATION_METHODS = frozenset({"pearson", "spearman", "kendall"})
 _CORRELATION_MISSING_POLICIES = frozenset({"reject", "pairwise"})
 _CONFIDENCE_METHODS = frozenset({"mean-t", "proportion-wilson"})
+_PARAMETRIC_TESTS = frozenset({"one-sample-t", "independent-t", "paired-t"})
+_NONPARAMETRIC_TESTS = frozenset(
+    {"mann-whitney-u", "wilcoxon", "kruskal-wallis", "chi-square"}
+)
+_ALTERNATIVES = frozenset({"two-sided", "less", "greater"})
 
 
 def _reject_unknown_fields(payload: Mapping[str, object], allowed: set[str]) -> None:
@@ -221,6 +226,8 @@ def _exact_integer(payload: Mapping[str, object], field: str) -> int:
 
 
 def _finite_float(value: object, field: str) -> float:
+    if type(value) not in (int, float):
+        raise ValueError(f"{field}: must be representable as a finite number")
     try:
         number = float(value)
     except (TypeError, ValueError, OverflowError) as exc:
@@ -340,5 +347,348 @@ def execute_confidence_interval(payload: Mapping[str, object]) -> Mapping[str, o
         },
         "diagnostics": {"critical_value": critical_value, "formula": "wilson_score"},
         "warnings": [],
+        "seed": None,
+    }
+
+
+def _finite_vector(
+    payload: Mapping[str, object], field: str, *, minimum_size: int
+) -> np.ndarray:
+    values = _numeric_array_allow_nan(payload, field, ndim=1)
+    if np.any(np.isnan(values)):
+        raise ValueError(f"{field}: must contain only finite values")
+    if values.size < minimum_size:
+        raise ValueError(f"{field}: must contain at least {minimum_size} samples")
+    return values
+
+
+def _alternative(payload: Mapping[str, object]) -> str:
+    if "alternative" not in payload:
+        return "two-sided"
+    return string_enum(payload, "alternative", _ALTERNATIVES)
+
+
+def _stable_mean(values: np.ndarray, field: str) -> float:
+    mean = math.fsum(float(value) / values.size for value in values)
+    if not math.isfinite(mean):
+        raise ValueError(f"{field}: mean must be finite")
+    return mean
+
+
+def _scaled_sample_deviation(values: np.ndarray, field: str) -> tuple[float, float]:
+    scale = float(np.max(np.abs(values)))
+    if scale == 0.0:
+        return 0.0, 0.0
+    with np.errstate(over="ignore", invalid="ignore", under="ignore"):
+        scaled = float(np.std(values / scale, ddof=1))
+    if not math.isfinite(scaled):
+        raise ValueError(f"{field}: variance must be finite")
+    deviation = scaled * scale
+    if not math.isfinite(deviation):
+        raise ValueError(f"{field}: variance must be finite")
+    return scale, scaled
+
+
+def _finite_test_result(calculated: object, test_name: str) -> tuple[float, float, float | None]:
+    try:
+        statistic = float(calculated.statistic)  # type: ignore[attr-defined]
+        p_value = float(calculated.pvalue)  # type: ignore[attr-defined]
+        raw_df = getattr(calculated, "df", None)
+        degrees_freedom = None if raw_df is None else float(raw_df)
+    except (AttributeError, TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(f"{test_name}: statistic is not defined as a finite value") from exc
+    values = (
+        (statistic, p_value)
+        if degrees_freedom is None
+        else (statistic, p_value, degrees_freedom)
+    )
+    if not all(math.isfinite(value) for value in values):
+        raise ValueError(f"{test_name}: statistic is not defined as a finite value")
+    if not 0.0 <= p_value <= 1.0:
+        raise ValueError(f"{test_name}: p_value is not defined as a probability")
+    return statistic, p_value, degrees_freedom
+
+
+def _finite_difference(left: float, right: float, field: str) -> float:
+    difference = left - right
+    if not math.isfinite(difference):
+        raise ValueError(f"{field}: mean difference must be finite")
+    return difference
+
+
+def execute_parametric_test(payload: Mapping[str, object]) -> Mapping[str, object]:
+    """Execute one approved t-test with a finite Cohen effect size."""
+    test_name = string_enum(payload, "test", _PARAMETRIC_TESTS)
+    allowed = {
+        "one-sample-t": {"test", "sample", "population_mean", "alternative"},
+        "independent-t": {
+            "test",
+            "sample_a",
+            "sample_b",
+            "equal_variance",
+            "alternative",
+        },
+        "paired-t": {"test", "sample_a", "sample_b", "alternative"},
+    }[test_name]
+    _reject_unknown_fields(payload, allowed)
+    alternative = _alternative(payload)
+
+    if test_name == "one-sample-t":
+        sample = _finite_vector(payload, "sample", minimum_size=2)
+        population_mean = _finite_float(
+            required_field(payload, "population_mean"), "population_mean"
+        )
+        mean = _stable_mean(sample, "sample")
+        mean_difference = _finite_difference(mean, population_mean, "sample/population_mean")
+        scale, scaled_deviation = _scaled_sample_deviation(sample, "sample")
+        if scaled_deviation == 0.0:
+            raise ValueError("sample: effect size is not defined for zero variance")
+        effect_size = (mean / scale - population_mean / scale) / scaled_deviation
+        with warnings.catch_warnings(), np.errstate(all="ignore"):
+            warnings.simplefilter("ignore")
+            calculated = stats.ttest_1samp(sample, population_mean, alternative=alternative)
+        input_summary = {"sample_size": int(sample.size)}
+        parameters: dict[str, object] = {
+            "test": test_name,
+            "alternative": alternative,
+            "population_mean": population_mean,
+        }
+    elif test_name == "independent-t":
+        sample_a = _finite_vector(payload, "sample_a", minimum_size=2)
+        sample_b = _finite_vector(payload, "sample_b", minimum_size=2)
+        equal_variance_value = payload.get("equal_variance", False)
+        if type(equal_variance_value) is not bool:
+            raise ValueError("equal_variance: must be a boolean")
+        equal_variance = equal_variance_value
+        mean_a = _stable_mean(sample_a, "sample_a")
+        mean_b = _stable_mean(sample_b, "sample_b")
+        mean_difference = _finite_difference(mean_a, mean_b, "sample_a/sample_b")
+        scale = max(float(np.max(np.abs(sample_a))), float(np.max(np.abs(sample_b))))
+        if scale == 0.0:
+            raise ValueError("sample_a/sample_b: effect size is not defined for zero variance")
+        with np.errstate(over="ignore", invalid="ignore", under="ignore"):
+            variance_a = float(np.var(sample_a / scale, ddof=1))
+            variance_b = float(np.var(sample_b / scale, ddof=1))
+        pooled_variance = (
+            (sample_a.size - 1) * variance_a + (sample_b.size - 1) * variance_b
+        ) / (sample_a.size + sample_b.size - 2)
+        if not math.isfinite(pooled_variance) or pooled_variance <= 0.0:
+            raise ValueError("sample_a/sample_b: effect size is not defined for zero variance")
+        effect_size = (mean_a / scale - mean_b / scale) / math.sqrt(pooled_variance)
+        with warnings.catch_warnings(), np.errstate(all="ignore"):
+            warnings.simplefilter("ignore")
+            calculated = stats.ttest_ind(
+                sample_a,
+                sample_b,
+                equal_var=equal_variance,
+                alternative=alternative,
+            )
+        input_summary = {
+            "sample_size_a": int(sample_a.size),
+            "sample_size_b": int(sample_b.size),
+        }
+        parameters = {
+            "test": test_name,
+            "alternative": alternative,
+            "equal_variance": equal_variance,
+        }
+    else:
+        sample_a = _finite_vector(payload, "sample_a", minimum_size=1)
+        sample_b = _finite_vector(payload, "sample_b", minimum_size=1)
+        if sample_a.size != sample_b.size:
+            raise ValueError("sample_a/sample_b: must have equal lengths for paired-t")
+        if sample_a.size < 2:
+            raise ValueError("sample_a/sample_b: paired-t requires at least 2 samples")
+        with np.errstate(over="ignore", invalid="ignore"):
+            differences = sample_a - sample_b
+        if not np.all(np.isfinite(differences)):
+            raise ValueError("sample_a/sample_b: paired differences must be finite")
+        mean_difference = _stable_mean(differences, "paired differences")
+        scale, scaled_deviation = _scaled_sample_deviation(differences, "paired differences")
+        if scaled_deviation == 0.0:
+            raise ValueError("paired differences: effect size is not defined for zero variance")
+        effect_size = (mean_difference / scale) / scaled_deviation
+        with warnings.catch_warnings(), np.errstate(all="ignore"):
+            warnings.simplefilter("ignore")
+            calculated = stats.ttest_rel(sample_a, sample_b, alternative=alternative)
+        input_summary = {"pairs": int(sample_a.size)}
+        parameters = {"test": test_name, "alternative": alternative}
+
+    statistic, p_value, degrees_freedom = _finite_test_result(calculated, test_name)
+    if degrees_freedom is None or not math.isfinite(effect_size):
+        raise ValueError(f"{test_name}: effect size or degrees of freedom is not defined")
+    return {
+        "parameters": parameters,
+        "input_summary": input_summary,
+        "result": {
+            "statistic": statistic,
+            "p_value": p_value,
+            "degrees_freedom": degrees_freedom,
+            "mean_difference": mean_difference,
+            "effect_size": effect_size,
+        },
+        "diagnostics": {"effect_size_method": "cohen_d"},
+        "warnings": [],
+        "seed": None,
+    }
+
+
+def _rank_groups(payload: Mapping[str, object]) -> list[np.ndarray]:
+    raw_groups = required_field(payload, "groups")
+    if not isinstance(raw_groups, (list, tuple)):
+        raise ValueError("groups: must be an array of at least two numeric arrays")
+    try:
+        groups = list(raw_groups)  # type: ignore[arg-type]
+    except TypeError as exc:
+        raise ValueError("groups: must be an array of at least two numeric arrays") from exc
+    if len(groups) < 2:
+        raise ValueError("groups: must contain at least two groups")
+    try:
+        parsed = [
+            _finite_vector({"groups": group}, "groups", minimum_size=1)
+            for group in groups
+        ]
+    except ValueError as exc:
+        raise ValueError(
+            f"groups: every group must be a non-empty finite numeric array ({exc})"
+        ) from exc
+    if sum(group.size for group in parsed) <= len(parsed):
+        raise ValueError("groups: require more total samples than groups for a defined effect")
+    return parsed
+
+
+def execute_nonparametric_test(payload: Mapping[str, object]) -> Mapping[str, object]:
+    """Execute an approved rank or contingency-table test without undefined floats."""
+    test_name = string_enum(payload, "test", _NONPARAMETRIC_TESTS)
+    allowed = {
+        "mann-whitney-u": {"test", "sample_a", "sample_b", "alternative"},
+        "wilcoxon": {"test", "sample_a", "sample_b", "alternative"},
+        "kruskal-wallis": {"test", "groups"},
+        "chi-square": {"test", "table"},
+    }[test_name]
+    _reject_unknown_fields(payload, allowed)
+    output_warnings: list[str] = []
+
+    if test_name == "mann-whitney-u":
+        alternative = _alternative(payload)
+        sample_a = _finite_vector(payload, "sample_a", minimum_size=1)
+        sample_b = _finite_vector(payload, "sample_b", minimum_size=1)
+        with warnings.catch_warnings(), np.errstate(all="ignore"):
+            warnings.simplefilter("ignore")
+            calculated = stats.mannwhitneyu(sample_a, sample_b, alternative=alternative)
+        statistic, p_value, _ = _finite_test_result(calculated, test_name)
+        denominator = float(sample_a.size * sample_b.size)
+        effect_size = 2.0 * statistic / denominator - 1.0
+        parameters = {"test": test_name, "alternative": alternative}
+        input_summary = {
+            "sample_size_a": int(sample_a.size),
+            "sample_size_b": int(sample_b.size),
+        }
+        diagnostics = {"effect_size_method": "rank_biserial"}
+    elif test_name == "wilcoxon":
+        alternative = _alternative(payload)
+        sample_a = _finite_vector(payload, "sample_a", minimum_size=1)
+        sample_b = _finite_vector(payload, "sample_b", minimum_size=1)
+        if sample_a.size != sample_b.size:
+            raise ValueError("sample_a/sample_b: must have equal lengths for wilcoxon")
+        with np.errstate(over="ignore", invalid="ignore"):
+            differences = sample_a - sample_b
+        if not np.all(np.isfinite(differences)):
+            raise ValueError("sample_a/sample_b: paired differences must be finite")
+        nonzero = differences != 0.0
+        if not np.any(nonzero):
+            raise ValueError(
+                "paired differences: wilcoxon is not defined when all differences are zero"
+            )
+        ranks = stats.rankdata(np.abs(differences[nonzero]), method="average")
+        positive = float(np.sum(ranks[differences[nonzero] > 0.0]))
+        negative = float(np.sum(ranks[differences[nonzero] < 0.0]))
+        rank_total = positive + negative
+        effect_size = (positive - negative) / rank_total
+        with warnings.catch_warnings(), np.errstate(all="ignore"):
+            warnings.simplefilter("ignore")
+            calculated = stats.wilcoxon(sample_a, sample_b, alternative=alternative)
+        statistic, p_value, _ = _finite_test_result(calculated, test_name)
+        parameters = {"test": test_name, "alternative": alternative}
+        input_summary = {
+            "pairs": int(sample_a.size),
+            "nonzero_differences": int(np.count_nonzero(nonzero)),
+        }
+        diagnostics = {
+            "effect_size_method": "matched_pairs_rank_biserial",
+            "positive_rank_sum": positive,
+            "negative_rank_sum": negative,
+        }
+    elif test_name == "kruskal-wallis":
+        groups = _rank_groups(payload)
+        with warnings.catch_warnings(), np.errstate(all="ignore"):
+            warnings.simplefilter("ignore")
+            try:
+                calculated = stats.kruskal(*groups)
+            except ValueError as exc:
+                raise ValueError("groups: kruskal-wallis statistic is not defined") from exc
+        statistic, p_value, _ = _finite_test_result(calculated, test_name)
+        total = sum(group.size for group in groups)
+        denominator = total - len(groups)
+        effect_size = max(0.0, (statistic - len(groups) + 1.0) / denominator)
+        parameters = {"test": test_name}
+        input_summary = {
+            "groups": len(groups),
+            "group_sizes": [int(group.size) for group in groups],
+            "sample_size": int(total),
+        }
+        diagnostics = {"effect_size_method": "epsilon_squared"}
+    else:
+        table = _numeric_array_allow_nan(payload, "table", ndim=2)
+        if np.any(np.isnan(table)):
+            raise ValueError("table: must contain only finite values")
+        if table.shape[0] < 2 or table.shape[1] < 2:
+            raise ValueError("table: must have at least two rows and two columns")
+        if np.any(table < 0.0):
+            raise ValueError("table: counts must be non-negative")
+        if np.any(np.sum(table, axis=0) <= 0.0) or np.any(np.sum(table, axis=1) <= 0.0):
+            raise ValueError("table: every row and column must have a positive total")
+        with warnings.catch_warnings(), np.errstate(all="ignore"):
+            warnings.simplefilter("ignore")
+            try:
+                calculated = stats.chi2_contingency(table)
+            except (ValueError, OverflowError) as exc:
+                raise ValueError("table: chi-square statistic is not defined") from exc
+        statistic, p_value, _ = _finite_test_result(calculated, test_name)
+        expected = np.asarray(calculated.expected_freq, dtype=float)
+        if not np.all(np.isfinite(expected)):
+            raise ValueError("table: expected counts must be finite")
+        if np.any(expected < 5.0):
+            output_warnings.append("one or more expected counts are below 5")
+        total = float(np.sum(table))
+        effect_denominator = total * min(table.shape[0] - 1, table.shape[1] - 1)
+        effect_size = math.sqrt(statistic / effect_denominator)
+        parameters = {"test": test_name}
+        input_summary = {
+            "rows": int(table.shape[0]),
+            "columns": int(table.shape[1]),
+            "sample_size": total,
+        }
+        diagnostics = {
+            "effect_size_method": "cramers_v",
+            "degrees_freedom": int(calculated.dof),
+            "low_expected_count": bool(np.any(expected < 5.0)),
+        }
+
+    if not math.isfinite(effect_size):
+        raise ValueError(f"{test_name}: effect size is not defined as a finite value")
+    result: dict[str, object] = {
+        "statistic": statistic,
+        "p_value": p_value,
+        "effect_size": effect_size,
+    }
+    if test_name == "chi-square":
+        result["expected_counts"] = expected.tolist()
+    return {
+        "parameters": parameters,
+        "input_summary": input_summary,
+        "result": result,
+        "diagnostics": diagnostics,
+        "warnings": sorted(set(output_warnings)),
         "seed": None,
     }

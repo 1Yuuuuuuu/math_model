@@ -125,7 +125,12 @@ from .executors.data_processing import (
     execute_normalization,
     execute_pca,
 )
-from .executors.statistics import execute_confidence_interval, execute_correlation
+from .executors.statistics import (
+    execute_confidence_interval,
+    execute_correlation,
+    execute_nonparametric_test,
+    execute_parametric_test,
+)
 
 
 register_spec(
@@ -203,6 +208,28 @@ register_spec(
         False,
         ("method", "confidence"),
         execute_confidence_interval,
+    )
+)
+register_spec(
+    ModelSpec(
+        "parametric-test",
+        "statistics",
+        "shared/knowledge/model-cards/statistics/parametric-tests.md",
+        True,
+        False,
+        ("test",),
+        execute_parametric_test,
+    )
+)
+register_spec(
+    ModelSpec(
+        "nonparametric-test",
+        "statistics",
+        "shared/knowledge/model-cards/statistics/nonparametric-tests.md",
+        True,
+        False,
+        ("test",),
+        execute_nonparametric_test,
     )
 )
 register_spec(
