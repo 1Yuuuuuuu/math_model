@@ -126,6 +126,7 @@ from .executors.data_processing import (
     execute_pca,
 )
 from .executors.statistics import (
+    execute_anova,
     execute_confidence_interval,
     execute_correlation,
     execute_nonparametric_test,
@@ -230,6 +231,17 @@ register_spec(
         False,
         ("test",),
         execute_nonparametric_test,
+    )
+)
+register_spec(
+    ModelSpec(
+        "anova",
+        "statistics",
+        "shared/knowledge/model-cards/statistics/anova.md",
+        True,
+        False,
+        ("groups",),
+        execute_anova,
     )
 )
 register_spec(

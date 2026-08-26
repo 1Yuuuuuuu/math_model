@@ -613,6 +613,135 @@ def _rank_groups(payload: Mapping[str, object]) -> list[np.ndarray]:
     return parsed
 
 
+def _anova_groups(payload: Mapping[str, object]) -> list[np.ndarray]:
+    """Read strict JSON group arrays suitable for a one-way ANOVA."""
+    raw_groups = required_field(payload, "groups")
+    if type(raw_groups) is not list or len(raw_groups) < 2:
+        raise ValueError("groups: must be an array of at least two numeric arrays")
+
+    parsed: list[np.ndarray] = []
+    for raw_group in raw_groups:
+        if type(raw_group) is not list:
+            raise ValueError("groups: every group must be a plain JSON numeric array")
+        try:
+            parsed.append(_finite_vector({"groups": raw_group}, "groups", minimum_size=1))
+        except ValueError as exc:
+            raise ValueError(
+                f"groups: every group must be a non-empty finite numeric array ({exc})"
+            ) from exc
+
+    if sum(group.size for group in parsed) <= len(parsed):
+        raise ValueError("groups: insufficient within degrees of freedom")
+    return parsed
+
+
+def _scaled_sum_squares(values: np.ndarray, center: float) -> float:
+    """Sum squared deviations in a bounded scale without overflow."""
+    value = math.fsum((float(item) - center) ** 2 for item in values)
+    if not math.isfinite(value):
+        raise ValueError("anova: sums of squares must be finite")
+    return value
+
+
+def _restore_anova_sum_of_squares(scaled_value: float, scale: float, field: str) -> float:
+    """Return a finite original-scale sum of squares or fail closed."""
+    with np.errstate(over="ignore", invalid="ignore", under="ignore"):
+        restored = (scaled_value * scale) * scale
+    if not math.isfinite(restored) or (scaled_value > 0.0 and restored == 0.0):
+        raise ValueError(f"anova: {field} must be a finite representable value")
+    return restored
+
+
+def execute_anova(payload: Mapping[str, object]) -> Mapping[str, object]:
+    """Execute a finite one-way omnibus ANOVA without post-hoc comparisons."""
+    _reject_unknown_fields(payload, {"groups"})
+    groups = _anova_groups(payload)
+    group_count = len(groups)
+    total_samples = sum(group.size for group in groups)
+    df_between = group_count - 1
+    df_within = total_samples - group_count
+    if df_between <= 0 or df_within <= 0:
+        raise ValueError("anova: degrees of freedom must be positive")
+
+    all_values = np.concatenate(groups)
+    scale = float(np.max(np.abs(all_values)))
+    if not math.isfinite(scale) or scale == 0.0:
+        raise ValueError("anova: total variance must be positive and finite")
+    with np.errstate(over="ignore", invalid="ignore", under="ignore"):
+        scaled_groups = [group / scale for group in groups]
+    if not all(np.all(np.isfinite(group)) for group in scaled_groups):
+        raise ValueError("anova: scaled observations must be finite")
+
+    scaled_all = np.concatenate(scaled_groups)
+    grand_mean = _stable_mean(scaled_all, "groups")
+    group_means = [_stable_mean(group, "groups") for group in scaled_groups]
+    ss_between_scaled = math.fsum(
+        group.size * (mean - grand_mean) ** 2
+        for group, mean in zip(scaled_groups, group_means, strict=True)
+    )
+    ss_within_scaled = math.fsum(
+        _scaled_sum_squares(group, mean)
+        for group, mean in zip(scaled_groups, group_means, strict=True)
+    )
+    ss_total_scaled = _scaled_sum_squares(scaled_all, grand_mean)
+    if not all(math.isfinite(value) for value in (ss_between_scaled, ss_within_scaled, ss_total_scaled)):
+        raise ValueError("anova: sums of squares must be finite")
+    if ss_total_scaled <= 0.0:
+        raise ValueError("anova: total variance must be positive")
+    if ss_within_scaled <= 0.0:
+        raise ValueError("anova: within-group variance must be positive for a finite statistic")
+
+    ms_between_scaled = ss_between_scaled / df_between
+    ms_within_scaled = ss_within_scaled / df_within
+    statistic = ms_between_scaled / ms_within_scaled
+    p_value = float(stats.f.sf(statistic, df_between, df_within))
+    eta_squared = ss_between_scaled / ss_total_scaled
+    if not all(math.isfinite(value) for value in (statistic, p_value, eta_squared)):
+        raise ValueError("anova: statistic, p_value, and eta_squared must be finite")
+    if not 0.0 <= p_value <= 1.0 or not 0.0 <= eta_squared <= 1.0:
+        raise ValueError("anova: p_value or eta_squared is outside its defined range")
+
+    ss_between = _restore_anova_sum_of_squares(ss_between_scaled, scale, "ss_between")
+    ss_within = _restore_anova_sum_of_squares(ss_within_scaled, scale, "ss_within")
+    ss_total = _restore_anova_sum_of_squares(ss_total_scaled, scale, "ss_total")
+    ms_between = ss_between / df_between
+    ms_within = ss_within / df_within
+    if (
+        not math.isfinite(ms_between)
+        or ms_between < 0.0
+        or not math.isfinite(ms_within)
+        or ms_within <= 0.0
+    ):
+        raise ValueError("anova: mean squares must be finite with positive within variance")
+
+    return {
+        "parameters": {"method": "one-way-omnibus"},
+        "input_summary": {
+            "groups": group_count,
+            "group_sizes": [int(group.size) for group in groups],
+            "sample_size": int(total_samples),
+        },
+        "result": {
+            "statistic": statistic,
+            "p_value": p_value,
+            "df_between": int(df_between),
+            "df_within": int(df_within),
+            "ss_between": ss_between,
+            "ss_within": ss_within,
+            "ss_total": ss_total,
+            "ms_between": ms_between,
+            "ms_within": ms_within,
+            "eta_squared": eta_squared,
+        },
+        "diagnostics": {
+            "post_hoc": "not_performed",
+            "post_hoc_note": "A significant omnibus result does not identify differing group pairs.",
+        },
+        "warnings": [],
+        "seed": None,
+    }
+
+
 def execute_nonparametric_test(payload: Mapping[str, object]) -> Mapping[str, object]:
     """Execute an approved rank or contingency-table test without undefined floats."""
     test_name = string_enum(payload, "test", _NONPARAMETRIC_TESTS)

@@ -708,3 +708,99 @@ def test_one_sample_t_preserves_smallest_subnormal_mean() -> None:
     assert scaled["mean_difference"] == smallest
     for field in ("statistic", "p_value", "effect_size", "degrees_freedom"):
         assert scaled[field] == pytest.approx(baseline[field])
+
+
+def test_anova_returns_complete_one_way_omnibus_decomposition() -> None:
+    """Dropping a sum of squares or using a non-ANOVA F formula changes this known result."""
+    groups = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    expected = stats.f_oneway(*groups)
+
+    result = execute("anova", {"groups": groups})
+    output = result["result"]
+
+    assert output["statistic"] == pytest.approx(expected.statistic)
+    assert output["p_value"] == pytest.approx(expected.pvalue)
+    assert output["df_between"] == 2
+    assert output["df_within"] == 6
+    assert output["ss_total"] == pytest.approx(output["ss_between"] + output["ss_within"])
+    assert output["ms_between"] == pytest.approx(output["ss_between"] / output["df_between"])
+    assert output["ms_within"] == pytest.approx(output["ss_within"] / output["df_within"])
+    assert output["statistic"] == pytest.approx(output["ms_between"] / output["ms_within"])
+    assert output["eta_squared"] == pytest.approx(output["ss_between"] / output["ss_total"])
+    assert 0.0 <= output["eta_squared"] <= 1.0
+    assert result["parameters"] == {"method": "one-way-omnibus"}
+    assert result["diagnostics"] == {
+        "post_hoc": "not_performed",
+        "post_hoc_note": "A significant omnibus result does not identify differing group pairs.",
+    }
+
+
+def test_anova_returns_a_finite_null_effect_when_group_means_match() -> None:
+    """Treating a zero between-group sum as undefined rejects a valid F=0 null result."""
+    result = execute("anova", {"groups": [[1, 2], [1, 2]]})
+
+    assert result["result"]["statistic"] == 0.0
+    assert result["result"]["p_value"] == 1.0
+    assert result["result"]["ss_between"] == 0.0
+    assert result["result"]["ms_between"] == 0.0
+    assert result["result"]["eta_squared"] == 0.0
+
+
+@pytest.mark.parametrize(
+    ("payload", "field"),
+    [
+        ({"groups": [[1, 2, 3]]}, "groups"),
+        ({"groups": "not-groups"}, "groups"),
+        ({"groups": ([1, 2], [3, 4])}, "groups"),
+        ({"groups": [[1, 2], (3, 4)]}, "groups"),
+        ({"groups": [[1, 2], []]}, "groups"),
+        ({"groups": [[1], [2]]}, "degrees"),
+        ({"groups": [[1, [2]], [3, 4]]}, "groups"),
+        ({"groups": [[1, True], [3, 4]]}, "groups"),
+        ({"groups": [[1, np.nan], [3, 4]]}, "groups"),
+        ({"groups": [[1, np.inf], [3, 4]]}, "groups"),
+        ({"groups": [[1, 10**1000], [3, 4]]}, "groups"),
+        ({"groups": [[1, 2], [3, 4]], "unexpected": 1}, "unexpected"),
+        ({"groups": [[1, 1], [1, 1]]}, "total variance"),
+        ({"groups": [[1, 1], [2, 2]]}, "within"),
+        ({"groups": [[1e308, -1e308], [0.0, 1.0]]}, "finite"),
+    ],
+)
+def test_anova_rejects_malformed_undefined_or_nonfinite_cases(
+    payload: dict[str, object], field: str
+) -> None:
+    """Malformed groups and undefined finite ANOVA statistics must fail without an envelope."""
+    with pytest.raises(ValueError, match=field):
+        execute("anova", payload)
+
+
+def test_anova_rejects_numeric_subclasses_without_invoking_conversion_hooks() -> None:
+    """A numeric subclass could execute code while NumPy is coercing a group leaf."""
+
+    class HookedInt(int):
+        def __float__(self) -> float:
+            raise AssertionError("numeric subclass conversion hook was invoked")
+
+    with pytest.raises(ValueError, match="groups"):
+        execute("anova", {"groups": [[1, HookedInt(2)], [3, 4]]})
+
+
+def test_anova_is_registered_json_safe_immutable_and_has_the_real_knowledge_card() -> None:
+    """Dispatch must retain caller data and expose the documented one-way ANOVA capability."""
+    payload = {"groups": [[1, 2, 4], [3, 6, 8], [5, 9, 10]]}
+    before = copy.deepcopy(payload)
+
+    result = execute("anova", payload)
+    capability = {item["model_id"]: item for item in list_capabilities()}["anova"]
+
+    assert payload == before
+    assert json.loads(json.dumps(result, allow_nan=False)) == result
+    assert get_spec("anova").function is not None
+    assert capability == {
+        "model_id": "anova",
+        "executor": "statistics",
+        "knowledge_card": "shared/knowledge/model-cards/statistics/anova.md",
+        "deterministic": True,
+        "seed_supported": False,
+        "payload_fields": ("groups",),
+    }
