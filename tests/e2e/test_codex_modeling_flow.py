@@ -115,12 +115,19 @@ def test_zero_valid_sensitivity_points_fail_closed() -> None:
 
 @pytest.mark.parametrize(
     "model_id",
-    ["entropy-weight", "topsis", "linear-regression", "linear-programming"],
+    [
+        "entropy-weight",
+        "topsis",
+        "linear-regression",
+        "linear-programming",
+        "arima",
+        "kmeans",
+    ],
 )
-def test_verified_solver_capabilities_are_executable(model_id: str) -> None:
+def test_registered_solver_capabilities_are_executable(model_id: str) -> None:
     assert solver_execution_mode(model_id) == "execute"
 
 
-@pytest.mark.parametrize("model_id", ["arima", "kmeans", "heuristic"])
-def test_unverified_solver_capabilities_are_plan_only(model_id: str) -> None:
+@pytest.mark.parametrize("model_id", ["heuristic", "dynamic-programming", "unknown-model"])
+def test_unregistered_solver_capabilities_are_plan_only(model_id: str) -> None:
     assert solver_execution_mode(model_id) == "plan-only"

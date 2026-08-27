@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
+from cumcm_toolkit.models.specifications import get_spec
+
 
 @dataclass(frozen=True)
 class BackendCapability:
@@ -15,15 +17,14 @@ class BackendCapability:
         return self.available and self.approved and self.callable
 
 
-VERIFIED_SOLVER_MODELS = frozenset(
-    {"entropy-weight", "topsis", "linear-regression", "linear-programming"}
-)
-
-
 def solver_execution_mode(model_id: str) -> str:
     if not isinstance(model_id, str) or not model_id.strip():
         raise ValueError("model_id must be a non-empty string")
-    return "execute" if model_id in VERIFIED_SOLVER_MODELS else "plan-only"
+    try:
+        get_spec(model_id)
+    except KeyError:
+        return "plan-only"
+    return "execute"
 
 
 def _non_empty_text(value: object) -> bool:
