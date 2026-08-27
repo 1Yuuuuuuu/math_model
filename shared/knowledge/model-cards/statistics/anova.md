@@ -1,7 +1,7 @@
 ---
 model_id: anova
 category: statistics
-title: 方差分析
+title: 单因素方差分析（one-way ANOVA）
 file: shared/knowledge/model-cards/statistics/anova.md
 status: draft
 priority: 2
