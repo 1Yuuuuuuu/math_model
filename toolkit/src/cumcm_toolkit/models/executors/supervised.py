@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import math
 import sys
 import warnings
@@ -30,9 +31,7 @@ _MODEL_IDS = frozenset(
 )
 _COMMON_FIELDS = frozenset({"X", "y", "predict_X", "params"})
 _SEEDED_FIELDS = _COMMON_FIELDS | {"seed"}
-_LINEAR_PARAMS = frozenset(
-    {"fit_intercept", "copy_X", "tol", "n_jobs", "positive"}
-)
+_LINEAR_PARAMS = frozenset({"fit_intercept", "copy_X", "n_jobs", "positive"})
 _TREE_PARAMS = frozenset(
     {
         "criterion",
@@ -77,6 +76,16 @@ def _logistic_factory(seed: int | None, params: dict[str, object]) -> object:
 legacy_registry.register_model("logistic-regression", _logistic_factory)
 
 
+def _exact_finite_number(value: object, field: str) -> float:
+    """Convert a JSON number only when an integer survives binary64 exactly."""
+    number = float(json_finite_number(value, field))
+    if type(value) is int and int(number) != value:
+        raise ValueError(
+            f"{field}: integer cannot be represented exactly as a floating-point number"
+        )
+    return number
+
+
 def _reject_unknown_fields(
     payload: Mapping[str, object], model_id: str
 ) -> None:
@@ -104,7 +113,9 @@ def _finite_matrix(payload: Mapping[str, object], field: str) -> np.ndarray:
             raise ValueError(f"{field}: must be a rectangular two-dimensional array")
         rows.append(
             [
-                float(json_finite_number(item, f"{field}[{row_index}][{column_index}]"))
+                _exact_finite_number(
+                    item, f"{field}[{row_index}][{column_index}]"
+                )
                 for column_index, item in enumerate(row)
             ]
         )
@@ -125,7 +136,7 @@ def _regression_target(payload: Mapping[str, object]) -> tuple[np.ndarray, list[
     if type(value) is not list or not value:
         raise ValueError("y: must be a nonempty plain JSON one-dimensional array")
     normalized = [
-        float(json_finite_number(item, f"y[{index}]"))
+        _exact_finite_number(item, f"y[{index}]")
         for index, item in enumerate(value)
     ]
     try:
@@ -227,7 +238,7 @@ def _finite_parameter(
     maximum: float | None = None,
     exclusive_minimum: bool = False,
 ) -> float:
-    number = float(json_finite_number(value, field))
+    number = _exact_finite_number(value, field)
     if minimum is not None and (
         number < minimum or (exclusive_minimum and number == minimum)
     ):
@@ -270,6 +281,47 @@ def _class_weight(value: object, field: str) -> object:
     return weights
 
 
+def _native_class_weight(
+    weights: dict[str, float], classes: list[str | int | float], field: str
+) -> dict[str | int | float, float]:
+    """Map JSON object keys to the exact normalized estimator classes."""
+    mapped: dict[str | int | float, float] = {}
+    string_classes = all(type(label) is str for label in classes)
+    for key, weight in weights.items():
+        if string_classes:
+            candidate: object = key
+        else:
+            try:
+                candidate = json.loads(
+                    key,
+                    parse_constant=lambda value: (_ for _ in ()).throw(
+                        ValueError(value)
+                    ),
+                )
+            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                raise ValueError(
+                    f"{field}: numeric class keys must be JSON numbers"
+                ) from exc
+            if type(candidate) not in (int, float) or (
+                type(candidate) is float and not math.isfinite(candidate)
+            ):
+                raise ValueError(
+                    f"{field}: numeric class keys must be finite JSON numbers"
+                )
+
+        matches = [label for label in classes if candidate == label]
+        if len(matches) != 1:
+            raise ValueError(f"{field}: class key {key!r} does not match a target class")
+        actual = matches[0]
+        if actual in mapped:
+            raise ValueError(f"{field}: multiple keys map to the same target class")
+        mapped[actual] = weight
+
+    if len(mapped) != len(classes):
+        raise ValueError(f"{field}: class keys must cover every target class")
+    return mapped
+
+
 def _validate_linear_params(params: dict[str, object]) -> dict[str, object]:
     normalized: dict[str, object] = {}
     for name, value in dict.items(params):
@@ -278,8 +330,6 @@ def _validate_linear_params(params: dict[str, object]) -> dict[str, object]:
             raise ValueError(f"{field}: is not a supported parameter")
         if name in {"fit_intercept", "copy_X", "positive"}:
             normalized[name] = _plain_bool(value, field)
-        elif name == "tol":
-            normalized[name] = _finite_parameter(value, field, minimum=0.0)
         else:
             normalized[name] = _n_jobs(value, field)
     return normalized
@@ -426,18 +476,31 @@ def _validate_logistic_params(params: dict[str, object]) -> dict[str, object]:
 
 
 def _validated_params(
-    payload: Mapping[str, object], model_id: str, feature_count: int
-) -> dict[str, object]:
+    payload: Mapping[str, object],
+    model_id: str,
+    feature_count: int,
+    classes: list[str | int | float] | None,
+) -> tuple[dict[str, object], dict[str, object]]:
     raw = payload.get("params", {})
     if type(raw) is not dict:
         raise ValueError("params: must be a plain JSON object")
     if "random_state" in raw and payload.get("seed") is not None:
         raise ValueError("seed: conflicts with params.random_state")
     if model_id == "linear-regression":
-        return _validate_linear_params(raw)
-    if model_id == "decision-tree":
-        return _validate_tree_params(raw, feature_count)
-    return _validate_logistic_params(raw)
+        public = _validate_linear_params(raw)
+    elif model_id == "decision-tree":
+        public = _validate_tree_params(raw, feature_count)
+    else:
+        public = _validate_logistic_params(raw)
+
+    factory = dict(public)
+    class_weight = public.get("class_weight")
+    if type(class_weight) is dict:
+        assert classes is not None
+        factory["class_weight"] = _native_class_weight(
+            class_weight, classes, "params.class_weight"
+        )
+    return public, factory
 
 
 def _validated_seed(payload: Mapping[str, object], model_id: str) -> int | None:
@@ -560,14 +623,7 @@ def _regression_metrics(
                 mae = residual_scale * float(np.mean(np.abs(scaled_residuals)))
 
             if np.all(target == target[0]):
-                tolerance = 1e-12 * max(1.0, abs(float(target[0])))
-                r_squared = (
-                    1.0
-                    if np.allclose(
-                        predictions, target, rtol=1e-12, atol=tolerance
-                    )
-                    else 0.0
-                )
+                r_squared = 1.0 if residual_scale == 0.0 else 0.0
                 definition = (
                     "1 for a numerically perfect constant-target fit; otherwise 0"
                 )
@@ -740,10 +796,11 @@ def _execute_classifier(
         coefficients = _finite_output_array(
             attributes_raw[0], "coefficients", ndim=2
         )
-        if coefficients.shape[1] != X.shape[1] or coefficients.shape[0] not in {
-            1,
-            len(classes),
-        }:
+        expected_rows = 1 if len(classes) == 2 else len(classes)
+        if (
+            coefficients.shape[1] != X.shape[1]
+            or coefficients.shape[0] != expected_rows
+        ):
             raise ValueError("coefficients: model output has an unexpected shape")
         intercept = _finite_output_array(
             attributes_raw[1],
@@ -796,14 +853,26 @@ def _execute_supervised(
     if model_id == "linear-regression":
         target, target_labels = _regression_target(payload)
         _safe_numeric_scale(target, "y")
+        classes = None
     else:
         target, target_labels = _classification_target(payload)
+        classes = [
+            item.item() if isinstance(item, np.generic) else item
+            for item in np.unique(target)
+        ]
     if X.shape[0] != target.shape[0]:
         raise ValueError("X and y: sample counts must be equal")
 
+    evaluation_X = X.copy() if model_id == "linear-regression" else X
+    evaluation_target = target.copy() if model_id == "linear-regression" else target
+
     seed = _validated_seed(payload, model_id)
-    params = _validated_params(payload, model_id, X.shape[1])
-    estimator, warning_messages = _construct_estimator(model_id, seed, params)
+    params, factory_params = _validated_params(
+        payload, model_id, X.shape[1], classes
+    )
+    estimator, warning_messages = _construct_estimator(
+        model_id, seed, factory_params
+    )
     _, fit_warnings = _safe_estimator_call(
         "fit", lambda: estimator.fit(X, target)  # type: ignore[attr-defined]
     )
@@ -811,7 +880,7 @@ def _execute_supervised(
 
     if model_id == "linear-regression":
         result, diagnostics, execution_warnings = _execute_linear(
-            estimator, X, target, predict_X
+            estimator, evaluation_X, evaluation_target, predict_X
         )
     else:
         result, diagnostics, execution_warnings = _execute_classifier(

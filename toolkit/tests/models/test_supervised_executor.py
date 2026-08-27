@@ -99,6 +99,25 @@ def test_linear_regression_known_answer_and_metrics() -> None:
     assert result["result"]["r_squared"] == pytest.approx(1.0)
 
 
+def test_linear_regression_copy_X_false_preserves_training_evaluation_data() -> None:
+    """LinearRegression may center X in place; training results must use pristine inputs."""
+    result = execute(
+        "linear-regression",
+        {
+            "X": [[1.0], [2.0], [3.0]],
+            "y": [3.0, 5.0, 7.0],
+            "params": {"copy_X": False},
+        },
+    )
+
+    assert result["result"]["training_predictions"] == pytest.approx(
+        [3.0, 5.0, 7.0]
+    )
+    assert result["result"]["rmse"] == pytest.approx(0.0, abs=1e-12)
+    assert result["result"]["mae"] == pytest.approx(0.0, abs=1e-12)
+    assert result["result"]["r_squared"] == pytest.approx(1.0)
+
+
 def test_decision_tree_known_answer_probability_order_and_normalization() -> None:
     """Reversing estimator class order or returning leaf counts instead of probabilities fails."""
     result = execute("decision-tree", copy.deepcopy(TREE_PAYLOAD))
@@ -135,6 +154,59 @@ def test_logistic_regression_known_answer_probability_order_and_normalization() 
     assert probabilities[0][0] > probabilities[0][1]
     assert probabilities[1][1] > probabilities[1][0]
     assert all(math.isclose(sum(row), 1.0, rel_tol=1e-12, abs_tol=1e-12) for row in probabilities)
+
+
+def test_multiclass_logistic_regression_reports_one_coefficient_row_per_class() -> None:
+    """A real three-class fit must preserve sklearn's multiclass coefficient layout."""
+    result = execute(
+        "logistic-regression",
+        {
+            "X": [[-4.0], [-3.0], [-0.5], [0.5], [3.0], [4.0]],
+            "y": ["a", "a", "b", "b", "c", "c"],
+            "predict_X": [[-3.5], [0.0], [3.5]],
+            "params": {"max_iter": 1000},
+            "seed": 7,
+        },
+    )
+
+    assert result["result"]["classes"] == ["a", "b", "c"]
+    assert len(result["result"]["coefficients"]) == 3
+    assert len(result["result"]["intercept"]) == 3
+    assert result["result"]["predictions"] == ["a", "b", "c"]
+    assert all(len(row) == 3 for row in result["result"]["probabilities"])
+
+
+def test_multiclass_logistic_rejects_binary_shaped_coefficients(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A three-class estimator cannot validly expose the binary one-row coefficient shape."""
+
+    class MalformedMulticlassLogistic:
+        classes_ = np.array(["a", "b", "c"])
+        coef_ = np.array([[1.0]])
+        intercept_ = np.array([0.0])
+
+        def fit(
+            self, X: np.ndarray, y: np.ndarray
+        ) -> MalformedMulticlassLogistic:
+            return self
+
+        def predict(self, X: np.ndarray) -> np.ndarray:
+            return np.array(["a", "a", "b", "b", "c", "c"][: X.shape[0]])
+
+    monkeypatch.setattr(
+        legacy_registry,
+        "get_model",
+        lambda name: lambda *, seed, params: MalformedMulticlassLogistic(),
+    )
+    _assert_execution_error(
+        "logistic-regression",
+        {
+            "X": [[-4.0], [-3.0], [-0.5], [0.5], [3.0], [4.0]],
+            "y": ["a", "a", "b", "b", "c", "c"],
+        },
+        "coefficients",
+    )
 
 
 @pytest.mark.parametrize("model_id", ["linear-regression", "decision-tree", "logistic-regression"])
@@ -210,6 +282,38 @@ def test_imperfect_constant_target_regression_uses_zero_r_squared(
     )
 
 
+def test_tiny_nonzero_constant_target_residual_uses_zero_r_squared(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Any representable residual is imperfect even when it is below allclose tolerances."""
+
+    class AlmostPerfectLinear:
+        coef_ = np.array([0.0])
+        intercept_ = 4.0
+
+        def fit(self, X: np.ndarray, y: np.ndarray) -> AlmostPerfectLinear:
+            return self
+
+        def predict(self, X: np.ndarray) -> np.ndarray:
+            predictions = np.full(X.shape[0], 4.0)
+            predictions[0] = np.nextafter(4.0, math.inf)
+            return predictions
+
+    monkeypatch.setattr(
+        legacy_registry,
+        "get_model",
+        lambda name: lambda *, seed, params: AlmostPerfectLinear(),
+    )
+    result = execute(
+        "linear-regression",
+        {"X": [[0.0], [1.0], [2.0]], "y": [4.0, 4.0, 4.0]},
+    )
+
+    assert result["result"]["rmse"] > 0.0
+    assert result["result"]["mae"] > 0.0
+    assert result["result"]["r_squared"] == 0.0
+
+
 @pytest.mark.parametrize("model_id", ["decision-tree", "logistic-regression"])
 def test_classifiers_require_at_least_two_target_classes(model_id: str) -> None:
     """Fitting a one-class classifier would defer a stable applicability error to sklearn."""
@@ -276,6 +380,64 @@ def test_supervised_numeric_inputs_reject_bool_nonfinite_and_oversized_values(
 ) -> None:
     """Unsafe JSON numeric leaves must fail at their exact public field before NumPy coercion."""
     _assert_execution_error("linear-regression", payload, field)
+
+
+@pytest.mark.parametrize(
+    ("model_id", "payload", "field"),
+    [
+        (
+            "linear-regression",
+            {"X": [[0], [2**53 + 1]], "y": [0.0, 1.0]},
+            "X[1][0]",
+        ),
+        (
+            "linear-regression",
+            {"X": [[0.0], [1.0]], "y": [0, 2**53 + 1]},
+            "y[1]",
+        ),
+        (
+            "logistic-regression",
+            {
+                **copy.deepcopy(LOGISTIC_PAYLOAD),
+                "params": {"C": 2**53 + 1, "max_iter": 1000},
+            },
+            "params.C",
+        ),
+    ],
+)
+def test_supervised_real_numbers_reject_lossy_integer_to_float_conversion(
+    model_id: str, payload: dict[str, object], field: str
+) -> None:
+    """Distinct JSON integers must not collapse to the same binary64 value."""
+    _assert_execution_error(model_id, payload, field)
+
+
+@pytest.mark.parametrize(
+    ("model_id", "payload"),
+    [
+        (
+            "linear-regression",
+            {"X": [[0], [2**53]], "y": [0.0, 1.0]},
+        ),
+        (
+            "linear-regression",
+            {"X": [[0.0], [1.0]], "y": [0, 2**53]},
+        ),
+        (
+            "logistic-regression",
+            {
+                **copy.deepcopy(LOGISTIC_PAYLOAD),
+                "params": {"C": 2**53, "max_iter": 1000},
+            },
+        ),
+    ],
+)
+def test_supervised_real_numbers_accept_exact_integer_to_float_boundary(
+    model_id: str, payload: dict[str, object]
+) -> None:
+    """Exactly representable boundary integers remain valid public JSON numbers."""
+    result = execute(model_id, payload)
+    assert json.loads(json.dumps(result, allow_nan=False)) == result
 
 
 @pytest.mark.parametrize(
@@ -346,6 +508,13 @@ def test_supervised_parameter_allowlists_reject_unknown_names(model_id: str) -> 
     _assert_execution_error(model_id, payload, "params.bogus")
 
 
+def test_linear_regression_rejects_cross_version_tol_parameter() -> None:
+    """LinearRegression.tol cannot be exposed while sklearn 1.4 remains supported."""
+    payload = _payload_for("linear-regression")
+    payload["params"] = {"tol": 1e-5}
+    _assert_execution_error("linear-regression", payload, "params.tol")
+
+
 @pytest.mark.parametrize(
     ("model_id", "params", "field"),
     [
@@ -385,6 +554,60 @@ def test_supervised_parameters_reject_integers_too_large_for_sklearn(
     _assert_execution_error(model_id, payload, field)
 
 
+@pytest.mark.parametrize("model_id", ["decision-tree", "logistic-regression"])
+def test_numeric_class_weight_keys_map_to_actual_classes(model_id: str) -> None:
+    """JSON object keys must be converted back to the estimator's numeric labels."""
+    payload = _payload_for(model_id)
+    payload["y"] = [0, 0, 1, 1]
+    payload["params"] = {"class_weight": {"0": 1.0, "1": 2.0}}
+    if model_id == "logistic-regression":
+        payload["params"]["solver"] = "liblinear"  # type: ignore[index]
+        payload["params"]["max_iter"] = 1000  # type: ignore[index]
+
+    result = execute(model_id, payload)
+
+    assert result["parameters"]["class_weight"] == {"0": 1.0, "1": 2.0}
+    assert result["result"]["classes"] == [0, 1]
+
+
+@pytest.mark.parametrize("model_id", ["decision-tree", "logistic-regression"])
+def test_string_class_weight_keys_match_actual_classes(model_id: str) -> None:
+    """Native string labels must remain exact JSON class-weight keys."""
+    payload = _payload_for(model_id)
+    labels = sorted(set(payload["y"]))  # type: ignore[arg-type]
+    payload["params"] = {"class_weight": {labels[0]: 1.0, labels[1]: 2.0}}
+    if model_id == "logistic-regression":
+        payload["params"]["solver"] = "liblinear"  # type: ignore[index]
+        payload["params"]["max_iter"] = 1000  # type: ignore[index]
+
+    result = execute(model_id, payload)
+
+    assert result["parameters"]["class_weight"] == {
+        labels[0]: 1.0,
+        labels[1]: 2.0,
+    }
+
+
+@pytest.mark.parametrize("model_id", ["decision-tree", "logistic-regression"])
+@pytest.mark.parametrize(
+    "class_weight",
+    [
+        {"0": 1.0},
+        {"0": 1.0, "1": 2.0, "2": 3.0},
+        {"0": 1.0, "0.0": 2.0, "1": 3.0},
+    ],
+    ids=["missing", "unmatched", "ambiguous"],
+)
+def test_numeric_class_weight_keys_reject_invalid_class_mappings(
+    model_id: str, class_weight: dict[str, float]
+) -> None:
+    """Every JSON key must map once and cover every normalized numeric class."""
+    payload = _payload_for(model_id)
+    payload["y"] = [0, 0, 1, 1]
+    payload["params"] = {"class_weight": class_weight}
+    _assert_execution_error(model_id, payload, "params.class_weight")
+
+
 def test_classifier_labels_reject_integers_too_large_for_numpy() -> None:
     """Object-dtype giant integers must not be deferred to sklearn target-type inference."""
     payload = _payload_for("logistic-regression")
@@ -405,8 +628,8 @@ def test_classifier_labels_reject_continuous_numeric_targets(model_id: str) -> N
     [
         (
             "linear-regression",
-            {"fit_intercept": False, "copy_X": True, "tol": 1e-5, "n_jobs": 1, "positive": False},
-            {"fit_intercept": False, "copy_X": True, "tol": 1e-5, "n_jobs": 1, "positive": False},
+            {"fit_intercept": False, "copy_X": True, "n_jobs": 1, "positive": False},
+            {"fit_intercept": False, "copy_X": True, "n_jobs": 1, "positive": False},
         ),
         (
             "decision-tree",
