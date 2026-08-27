@@ -1087,6 +1087,27 @@ def test_exponential_smoothing_returns_complete_finite_forecast_contract() -> No
     _assert_finite_json_tree(result)
 
 
+def test_exponential_smoothing_linear_trend_matches_hand_checked_forecast() -> None:
+    """A wrong Holt level/trend update must not preserve only output shape and finiteness."""
+    series = [10.0, 10.3, 10.6, 10.9, 11.2, 11.5, 11.8, 12.1]
+
+    result = execute(
+        "exponential-smoothing",
+        {
+            "series": series,
+            "forecast_steps": 2,
+            "trend": "add",
+            "seasonal": None,
+            "damped_trend": False,
+        },
+    )
+
+    assert result["result"]["fitted"] == pytest.approx(series, abs=1e-5)
+    assert result["result"]["forecast"] == pytest.approx(
+        [12.4, 12.7], abs=2e-5
+    )
+
+
 def test_exponential_smoothing_constant_series_fails_closed_without_warning() -> None:
     """A degenerate exact fit must fail before statsmodels emits log-zero diagnostics."""
     with warnings.catch_warnings(record=True) as caught:
@@ -1462,10 +1483,6 @@ def test_exponential_smoothing_accepts_two_complete_additive_seasons() -> None:
                 11.9,
                 11.2,
                 12.8,
-                10.2,
-                12.1,
-                10.9,
-                13.1,
             ],
             "forecast_steps": 2,
             "trend": None,
@@ -1477,6 +1494,46 @@ def test_exponential_smoothing_accepts_two_complete_additive_seasons() -> None:
 
     assert len(result["result"]["forecast"]) == 2
     assert "smoothing_seasonal" in result["result"]["fitted_parameters"]
+
+
+def test_exponential_smoothing_real_forecast_overflow_fails_without_warning() -> None:
+    """Real multiplicative long-horizon ufunc overflow must not warn before rejection."""
+    payload = {
+        "series": [1.2**index for index in range(16)],
+        "forecast_steps": 10_000,
+        "trend": "mul",
+        "seasonal": None,
+        "damped_trend": False,
+    }
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(
+            ValueError,
+            match=r"exponential-smoothing: execution stage failed: forecast",
+        ):
+            execute("exponential-smoothing", payload)
+    assert caught == []
+
+
+def test_exponential_smoothing_real_large_scale_fit_is_rejected_without_warning() -> None:
+    """A fit-scale gate must reject real matrix-overflow inputs before statsmodels."""
+    payload = {
+        "series": [1e154 if index % 2 == 0 else -1e154 for index in range(16)],
+        "forecast_steps": 2,
+        "trend": "add",
+        "seasonal": None,
+        "damped_trend": False,
+    }
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(
+            ValueError,
+            match=r"exponential-smoothing: execution stage failed: series",
+        ):
+            execute("exponential-smoothing", payload)
+    assert caught == []
 
 
 def test_exponential_smoothing_extreme_finite_scale_fails_without_warning() -> None:

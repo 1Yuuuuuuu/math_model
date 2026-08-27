@@ -75,8 +75,14 @@ def _plain_bounded_integer(
 
 def _safe_fitting_scale(series: np.ndarray) -> None:
     scale = float(np.max(np.abs(series)))
-    safe_upper = math.sqrt(sys.float_info.max)
-    safe_lower = math.sqrt(sys.float_info.min)
+    sample_count = max(1, int(series.size))
+    optimization_margin = 16.0
+    safe_upper = (
+        math.sqrt(sys.float_info.max / sample_count) / optimization_margin
+    )
+    safe_lower = (
+        math.sqrt(sys.float_info.min * sample_count) * optimization_margin
+    )
     if scale > safe_upper or (0.0 < scale < safe_lower):
         raise ValueError("series: scale is outside the safe finite fitting range")
 
@@ -443,7 +449,12 @@ def execute_exponential_smoothing(
         getattr(fitted_model, "fittedvalues", None), "fitted", sample_count
     )
     try:
-        raw_forecast = fitted_model.forecast(forecast_steps)  # type: ignore[attr-defined]
+        with np.errstate(
+            over="ignore", under="ignore", invalid="ignore", divide="ignore"
+        ):
+            raw_forecast = fitted_model.forecast(  # type: ignore[attr-defined]
+                forecast_steps
+            )
     except (
         ValueError,
         TypeError,
