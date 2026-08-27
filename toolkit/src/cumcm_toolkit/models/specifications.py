@@ -143,6 +143,11 @@ from .executors.supervised import (
     execute_linear_regression,
     execute_logistic_regression,
 )
+from .executors.clustering import (
+    execute_dbscan,
+    execute_hierarchical_clustering,
+    execute_kmeans,
+)
 
 
 register_spec(
@@ -396,5 +401,38 @@ register_spec(
         True,
         ("X", "y"),
         execute_logistic_regression,
+    )
+)
+register_spec(
+    ModelSpec(
+        "kmeans",
+        "clustering",
+        "shared/knowledge/model-cards/classification/kmeans.md",
+        False,
+        True,
+        ("X",),
+        execute_kmeans,
+    )
+)
+register_spec(
+    ModelSpec(
+        "dbscan",
+        "clustering",
+        "shared/knowledge/model-cards/classification/dbscan.md",
+        True,
+        False,
+        ("X",),
+        execute_dbscan,
+    )
+)
+register_spec(
+    ModelSpec(
+        "hierarchical-clustering",
+        "clustering",
+        "shared/knowledge/model-cards/classification/hierarchical-clustering.md",
+        True,
+        False,
+        ("X",),
+        execute_hierarchical_clustering,
     )
 )

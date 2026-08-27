@@ -19,6 +19,9 @@ _STRICT_PLAIN_JSON_MODELS = frozenset(
         "linear-regression",
         "decision-tree",
         "logistic-regression",
+        "kmeans",
+        "dbscan",
+        "hierarchical-clustering",
     }
 )
 
