@@ -50,6 +50,19 @@ def _finite_result(*arrays: np.ndarray, field: str) -> None:
         raise ValueError(f"{field}: produced non-finite values")
 
 
+def _scaled_mean_and_population_std(values: np.ndarray) -> tuple[float, float]:
+    """Compute finite population moments without squaring values at source scale."""
+    scale = float(np.max(np.abs(values)))
+    if scale == 0.0:
+        return 0.0, 0.0
+    normalized = values / scale
+    normalized_mean = float(np.mean(normalized))
+    centered = normalized - normalized_mean
+    mean = scale * normalized_mean
+    standard_deviation = scale * math.sqrt(float(np.mean(centered**2)))
+    return mean, standard_deviation
+
+
 def execute_gm11(payload: Mapping[str, object]) -> Mapping[str, object]:
     """Fit a positive GM(1,1) series and restore fitted and future observations."""
     _reject_unknown_fields(payload, {"series", "forecast_steps"})
@@ -154,7 +167,7 @@ def execute_gm11(payload: Mapping[str, object]) -> Mapping[str, object]:
         with np.errstate(
             over="ignore", under="ignore", invalid="ignore", divide="ignore"
         ):
-            original_std = float(np.std(series, ddof=1))
+            _, original_std = _scaled_mean_and_population_std(series)
     if not math.isfinite(original_std):
         raise ValueError("posterior accuracy: original variance is not finitely representable")
     if original_std > 0.0:
@@ -163,8 +176,9 @@ def execute_gm11(payload: Mapping[str, object]) -> Mapping[str, object]:
             with np.errstate(
                 over="ignore", under="ignore", invalid="ignore", divide="ignore"
             ):
-                residual_std = float(np.std(residuals, ddof=1))
-                residual_mean = float(np.mean(residuals))
+                residual_mean, residual_std = _scaled_mean_and_population_std(
+                    residuals
+                )
         if not math.isfinite(residual_std) or not math.isfinite(residual_mean):
             raise ValueError(
                 "posterior accuracy: residual variance is not finitely representable"
@@ -242,31 +256,37 @@ def _fit_metrics(
             over="ignore", under="ignore", invalid="ignore", divide="ignore"
         ):
             residuals = y - fitted
-    _finite_result(residuals, field="fit")
-    scale = float(np.max(np.abs(residuals)))
-    if scale == 0.0:
-        rmse = 0.0
-        mae = 0.0
-    else:
-        normalized_residuals = residuals / scale
-        rmse = scale * math.sqrt(float(np.mean(normalized_residuals**2)))
-        mae = scale * float(np.mean(np.abs(normalized_residuals)))
+            _finite_result(residuals, field="fit")
+            scale = float(np.max(np.abs(residuals)))
+            if scale == 0.0:
+                rmse = 0.0
+                mae = 0.0
+            else:
+                normalized_residuals = residuals / scale
+                rmse = scale * math.sqrt(float(np.mean(normalized_residuals**2)))
+                mae = scale * float(np.mean(np.abs(normalized_residuals)))
 
-    if np.all(y == y[0]):
-        tolerance = 1e-12 * max(1.0, abs(float(y[0])))
-        r_squared = (
-            1.0 if np.allclose(fitted, y, rtol=1e-12, atol=tolerance) else 0.0
-        )
-        definition = "1 for a numerically perfect constant-target fit; otherwise 0"
-    else:
-        y_scale = float(np.max(np.abs(y)))
-        normalized_y = y / y_scale if y_scale else y
-        centered = normalized_y - float(np.mean(normalized_y))
-        normalized_residuals = residuals / y_scale if y_scale else residuals
-        target_ss = float(np.sum(centered**2))
-        residual_ss = float(np.sum(normalized_residuals**2))
-        r_squared = 1.0 - residual_ss / target_ss
-        definition = "1 - residual sum of squares / target total sum of squares"
+            if np.all(y == y[0]):
+                tolerance = 1e-12 * max(1.0, abs(float(y[0])))
+                r_squared = (
+                    1.0
+                    if np.allclose(fitted, y, rtol=1e-12, atol=tolerance)
+                    else 0.0
+                )
+                definition = (
+                    "1 for a numerically perfect constant-target fit; otherwise 0"
+                )
+            else:
+                y_scale = float(np.max(np.abs(y)))
+                normalized_y = y / y_scale if y_scale else y
+                centered = normalized_y - float(np.mean(normalized_y))
+                normalized_residuals = residuals / y_scale if y_scale else residuals
+                target_ss = float(np.sum(centered**2))
+                residual_ss = float(np.sum(normalized_residuals**2))
+                r_squared = 1.0 - residual_ss / target_ss
+                definition = (
+                    "1 - residual sum of squares / target total sum of squares"
+                )
     metrics = (rmse, mae, r_squared)
     if not all(math.isfinite(value) for value in metrics):
         raise ValueError("fit: produced non-finite metrics")

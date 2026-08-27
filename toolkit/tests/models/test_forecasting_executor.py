@@ -4,6 +4,7 @@ import copy
 import importlib
 import json
 import math
+import re
 import warnings
 
 import numpy as np
@@ -70,10 +71,56 @@ def test_gm11_returns_fitted_forecast_and_accuracy_diagnostics() -> None:
     assert len(result["result"]["forecast"]) == 2
     assert len(result["result"]["residuals"]) == 5
     assert len(result["result"]["relative_errors"]) == 5
-    assert {"posterior_ratio_c", "small_error_probability_p"} <= set(
-        result["diagnostics"]
+    assert result["result"]["fitted"] == pytest.approx(
+        [
+            2.874,
+            3.2554336993259096,
+            3.7989331453603097,
+            4.433170623596338,
+            5.173294982018841,
+        ],
+        rel=1e-12,
+        abs=1e-12,
     )
-    assert 0.0 <= result["diagnostics"]["small_error_probability_p"] <= 1.0
+    assert result["result"]["forecast"] == pytest.approx(
+        [6.036984191073225, 7.044867584381507], rel=1e-12, abs=1e-12
+    )
+    assert result["diagnostics"]["posterior_ratio_c"] == pytest.approx(
+        0.014925427065723306, rel=1e-12, abs=1e-12
+    )
+    assert result["diagnostics"]["small_error_probability_p"] == 1.0
+
+
+def test_gm11_uses_population_variance_for_the_small_error_probability() -> None:
+    """Using sample variance changes this hand-derived small-error probability to 1."""
+    series = [
+        0.34749417654136144,
+        2.4994258051126437,
+        1.0004542635773273,
+        1.5352244162651367,
+    ]
+
+    result = execute(
+        "grey-prediction-gm11", {"series": series, "forecast_steps": 2}
+    )
+
+    assert result["result"]["fitted"] == pytest.approx(
+        [
+            0.34749417654136144,
+            2.2576880901193594,
+            1.587158390268354,
+            1.11577492339345,
+        ],
+        rel=1e-12,
+        abs=1e-12,
+    )
+    assert result["result"]["forecast"] == pytest.approx(
+        [0.7843915813992356, 0.5514285543349087], rel=1e-12, abs=1e-12
+    )
+    assert result["diagnostics"]["posterior_ratio_c"] == pytest.approx(
+        0.4821835657789063, rel=1e-12, abs=1e-12
+    )
+    assert result["diagnostics"]["small_error_probability_p"] == 0.75
 
 
 def test_gm11_first_fitted_value_and_residual_definition_are_preserved() -> None:
@@ -136,6 +183,28 @@ def test_gm11_constant_residual_variance_reports_zero_posterior_ratio(
     assert result["result"]["residuals"] == pytest.approx([0.0] * 4)
     assert result["diagnostics"]["posterior_ratio_c"] == pytest.approx(0.0)
     assert result["diagnostics"]["small_error_probability_p"] == pytest.approx(1.0)
+
+
+def test_gm11_tiny_nonconstant_series_retains_positive_population_variance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Naive squaring underflows around 1e-200 and falsely marks variance as zero."""
+    forecasting = importlib.import_module("cumcm_toolkit.models.executors.forecasting")
+    monkeypatch.setattr(
+        forecasting.np.linalg,
+        "lstsq",
+        lambda *_args, **_kwargs: (np.array([0.0, 2e-200]), None, None, None),
+    )
+
+    result = execute(
+        "grey-prediction-gm11",
+        {"series": [1e-200, 2e-200, 2e-200, 2e-200], "forecast_steps": 1},
+    )
+
+    assert math.isfinite(result["diagnostics"]["posterior_ratio_c"])
+    assert result["diagnostics"]["posterior_ratio_c"] < 1e-12
+    assert result["diagnostics"]["small_error_probability_p"] == 1.0
+    assert "posterior_accuracy_reason" not in result["diagnostics"]
 
 
 def test_gm11_warns_when_level_ratios_are_outside_the_applicability_interval() -> None:
@@ -263,6 +332,7 @@ def test_nonlinear_regression_rejects_custom_formula_callback_and_unknown_fields
         ({"family": "polynomial", "x": [1, 1], "y": [1, 2], "degree": 1}, "x"),
         ({"family": "exponential", "x": [1, 2], "y": [1, 2]}, "samples"),
         ({"family": "logistic", "x": [1, 2, 3], "y": [1, 2, 3], "initial_parameters": [1, 2]}, "initial_parameters"),
+        ({"family": "logistic", "x": [1, 2, 3], "y": [1, 2, 3], "initial_parameters": [1, 2, 3, 4]}, "initial_parameters"),
         ({"family": "polynomial", "x": [1, 2], "y": [1, 2], "degree": 0}, "degree"),
         ({"family": "polynomial", "x": [1, 2, 3, 4, 5, 6, 7], "y": [1, 2, 3, 4, 5, 6, 7], "degree": 6}, "degree"),
     ],
@@ -337,6 +407,61 @@ def test_nonlinear_regression_rejects_fitted_or_predicted_overflow_without_warni
     assert caught == []
 
 
+def test_nonlinear_regression_rejects_predicted_only_overflow_without_warning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Prediction overflow must fail even when every training evaluation remains finite."""
+    forecasting = importlib.import_module("cumcm_toolkit.models.executors.forecasting")
+    monkeypatch.setattr(
+        forecasting,
+        "curve_fit",
+        lambda *_args, **_kwargs: (np.array([1.0, 1000.0, 0.0]), np.eye(3)),
+    )
+    payload = {
+        "family": "exponential",
+        "x": [0.0, 1e-308, 2e-308],
+        "y": [1.0, 1.0, 1.0],
+        "initial_parameters": [1.0, 1.0, 0.0],
+        "predict_x": [2.0],
+    }
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(
+            ValueError, match=r"nonlinear-regression: execution stage failed: fit"
+        ):
+            execute("nonlinear-regression", payload)
+    assert caught == []
+
+
+def test_nonlinear_regression_metric_overflow_is_suppressed_and_translated(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """R² normalization overflow must not leak a RuntimeWarning before rejection."""
+    forecasting = importlib.import_module("cumcm_toolkit.models.executors.forecasting")
+    monkeypatch.setattr(
+        forecasting.np,
+        "polyfit",
+        lambda *_args, **_kwargs: np.array([0.0, 1e308]),
+    )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(
+            ValueError, match=r"nonlinear-regression: execution stage failed: fit"
+        ):
+            execute(
+                "nonlinear-regression",
+                {
+                    "family": "polynomial",
+                    "x": [1.0, 2.0],
+                    "y": [1e-300, 2e-300],
+                    "degree": 1,
+                },
+            )
+    assert caught == []
+
+
 def test_nonlinear_regression_extreme_finite_polynomial_input_fails_cleanly() -> None:
     """Ill-scaled but finite polynomial data must not leak LAPACK warnings or nonfinite values."""
     with warnings.catch_warnings(record=True) as caught:
@@ -372,23 +497,53 @@ def test_nonlinear_regression_constant_target_has_finite_defined_r_squared() -> 
     )
 
 
+def test_nonlinear_regression_imperfect_constant_target_has_zero_r_squared(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The degenerate-target convention must distinguish an imperfect constant fit."""
+    forecasting = importlib.import_module("cumcm_toolkit.models.executors.forecasting")
+    monkeypatch.setattr(
+        forecasting.np,
+        "polyfit",
+        lambda *_args, **_kwargs: np.array([0.0, 5.0]),
+    )
+
+    result = execute(
+        "nonlinear-regression",
+        {
+            "family": "polynomial",
+            "x": [0.0, 1.0, 2.0],
+            "y": [4.0, 4.0, 4.0],
+            "degree": 1,
+        },
+    )
+
+    assert result["result"]["r_squared"] == 0.0
+    assert result["diagnostics"]["r_squared_definition"] == (
+        "1 for a numerically perfect constant-target fit; otherwise 0"
+    )
+
+
 @pytest.mark.parametrize(
-    ("model_id", "payload"),
+    ("model_id", "payload", "field"),
     [
-        ("grey-prediction-gm11", {"series": [True, 2, 3, 4], "forecast_steps": 1}),
-        ("grey-prediction-gm11", {"series": [1, 2, 3, 4], "forecast_steps": True}),
-        ("grey-prediction-gm11", {"series": [1, 2, complex(3, 1), 4], "forecast_steps": 1}),
-        ("grey-prediction-gm11", {"series": [1, 2, float("nan"), 4], "forecast_steps": 1}),
-        ("grey-prediction-gm11", {"series": [1, 2, 10**10000, 4], "forecast_steps": 1}),
-        ("nonlinear-regression", {"family": "polynomial", "x": [1, np.float64(2)], "y": [1, 2], "degree": 1}),
-        ("nonlinear-regression", {"family": "polynomial", "x": [1, 2], "y": [1, float("inf")], "degree": 1}),
+        ("grey-prediction-gm11", {"series": [True, 2, 3, 4], "forecast_steps": 1}, "series[0]"),
+        ("grey-prediction-gm11", {"series": [1, 2, 3, 4], "forecast_steps": True}, "forecast_steps"),
+        ("grey-prediction-gm11", {"series": [1, 2, complex(3, 1), 4], "forecast_steps": 1}, "series[2]"),
+        ("grey-prediction-gm11", {"series": [1, 2, float("nan"), 4], "forecast_steps": 1}, "series[2]"),
+        ("grey-prediction-gm11", {"series": [1, 2, 10**10000, 4], "forecast_steps": 1}, "series[2]"),
+        ("nonlinear-regression", {"family": "polynomial", "x": [1, np.float64(2)], "y": [1, 2], "degree": 1}, "x[1]"),
+        ("nonlinear-regression", {"family": "polynomial", "x": [1, 2], "y": [1, float("inf")], "degree": 1}, "y[1]"),
     ],
 )
 def test_forecasting_payloads_reject_non_plain_or_nonfinite_numbers(
-    model_id: str, payload: dict[str, object]
+    model_id: str, payload: dict[str, object], field: str
 ) -> None:
     """Coercing booleans, subclasses, complex, nonfinite, or oversized numbers violates JSON safety."""
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match=rf"{re.escape(model_id)}: execution stage failed: {re.escape(field)}",
+    ):
         execute(model_id, payload)
 
 
