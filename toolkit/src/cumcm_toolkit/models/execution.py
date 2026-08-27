@@ -16,6 +16,9 @@ _STRICT_PLAIN_JSON_MODELS = frozenset(
         "nonlinear-regression",
         "arima",
         "exponential-smoothing",
+        "linear-regression",
+        "decision-tree",
+        "logistic-regression",
     }
 )
 

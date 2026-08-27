@@ -138,6 +138,11 @@ from .executors.forecasting import (
     execute_gm11,
     execute_nonlinear_regression,
 )
+from .executors.supervised import (
+    execute_decision_tree,
+    execute_linear_regression,
+    execute_logistic_regression,
+)
 
 
 register_spec(
@@ -358,5 +363,38 @@ register_spec(
         False,
         ("family", "x", "y"),
         execute_nonlinear_regression,
+    )
+)
+register_spec(
+    ModelSpec(
+        "linear-regression",
+        "supervised",
+        "shared/knowledge/model-cards/prediction/linear-regression.md",
+        True,
+        False,
+        ("X", "y"),
+        execute_linear_regression,
+    )
+)
+register_spec(
+    ModelSpec(
+        "decision-tree",
+        "supervised",
+        "shared/knowledge/model-cards/classification/decision-tree.md",
+        False,
+        True,
+        ("X", "y"),
+        execute_decision_tree,
+    )
+)
+register_spec(
+    ModelSpec(
+        "logistic-regression",
+        "supervised",
+        "shared/knowledge/model-cards/classification/logistic-regression.md",
+        False,
+        True,
+        ("X", "y"),
+        execute_logistic_regression,
     )
 )
