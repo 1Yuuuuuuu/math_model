@@ -392,6 +392,14 @@ def test_classifier_labels_reject_integers_too_large_for_numpy() -> None:
     _assert_execution_error("logistic-regression", payload, "y[2]")
 
 
+@pytest.mark.parametrize("model_id", ["decision-tree", "logistic-regression"])
+def test_classifier_labels_reject_continuous_numeric_targets(model_id: str) -> None:
+    """Continuous numeric targets must fail at y instead of sklearn target inference during fit."""
+    payload = _payload_for(model_id)
+    payload["y"] = [0.1, 0.1, 0.2, 0.2]
+    _assert_execution_error(model_id, payload, "y[0]")
+
+
 @pytest.mark.parametrize(
     ("model_id", "params", "expected"),
     [

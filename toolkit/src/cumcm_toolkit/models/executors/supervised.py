@@ -148,7 +148,12 @@ def _classification_label(value: object, field: str) -> str | int | float:
             )
         return value
     if type(value) is float:
-        return float(json_finite_number(value, field))
+        number = float(json_finite_number(value, field))
+        if not number.is_integer():
+            raise ValueError(
+                f"{field}: numeric classifier labels must be integer-valued"
+            )
+        return number
     raise ValueError(f"{field}: must be a plain JSON string or finite number")
 
 
