@@ -1,9 +1,9 @@
 ---
 model_id: anova
 category: statistics
-title: 单因素方差分析（one-way ANOVA）
+title: 方差分析
 file: shared/knowledge/model-cards/statistics/anova.md
-status: active
+status: draft
 priority: 2
 required_sections:
   - 适用问题
