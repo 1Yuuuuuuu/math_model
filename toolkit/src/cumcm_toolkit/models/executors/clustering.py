@@ -10,6 +10,7 @@ from collections.abc import Callable, Mapping
 from typing import TypeVar
 
 import numpy as np
+from scipy.cluster.hierarchy import fcluster as scipy_fcluster
 from scipy.cluster.hierarchy import linkage as scipy_linkage
 from sklearn.cluster import AgglomerativeClustering, DBSCAN
 
@@ -42,6 +43,10 @@ _HANDLED_LIBRARY_ERRORS = (
     FloatingPointError,
     np.linalg.LinAlgError,
 )
+
+
+class _OutputValidationError(ValueError):
+    """An invalid fitted value whose public field prefix must be preserved."""
 
 
 def _exact_finite_number(value: object, field: str) -> float:
@@ -254,6 +259,9 @@ def _validate_hierarchical_params(
         "metric": metric,
     }
     if distance_threshold is not None:
+        inclusive_threshold = math.nextafter(distance_threshold, math.inf)
+        if math.isfinite(inclusive_threshold):
+            estimator_params["distance_threshold"] = inclusive_threshold
         estimator_params["compute_full_tree"] = True
     return normalized, estimator_params
 
@@ -261,14 +269,19 @@ def _validate_hierarchical_params(
 def _safe_library_call(stage: str, function: Callable[[], _CallResult]) -> _CallResult:
     captured: list[warnings.WarningMessage]
     failure: Exception | None = None
+    validation_failure: _OutputValidationError | None = None
     result: _CallResult | None = None
     with warnings.catch_warnings(record=True) as captured:
         warnings.simplefilter("always")
         with np.errstate(all="ignore"):
             try:
                 result = function()
+            except _OutputValidationError as exc:
+                validation_failure = exc
             except _HANDLED_LIBRARY_ERRORS as exc:
                 failure = exc
+    if validation_failure is not None:
+        raise ValueError(str(validation_failure)) from validation_failure
     if failure is not None:
         raise ValueError(f"{stage}: library operation failed: {failure}") from failure
     if captured:
@@ -283,18 +296,24 @@ def _canonical_labels(
     try:
         array = np.asarray(value)
     except (TypeError, ValueError, OverflowError) as exc:
-        raise ValueError("labels: model output must be a one-dimensional integer array") from exc
+        raise _OutputValidationError(
+            "labels: model output must be a one-dimensional integer array"
+        ) from exc
     if array.ndim != 1 or array.size != sample_count:
-        raise ValueError("labels: model output has an unexpected shape")
+        raise _OutputValidationError("labels: model output has an unexpected shape")
 
     original: list[int] = []
     for index, item in enumerate(array):
         if isinstance(item, np.generic):
             item = item.item()
         if type(item) is not int:
-            raise ValueError(f"labels[{index}]: model output must be an integer")
+            raise _OutputValidationError(
+                f"labels[{index}]: model output must be an integer"
+            )
         if item < 0 and not (preserve_noise and item == -1):
-            raise ValueError(f"labels[{index}]: model output contains an invalid label")
+            raise _OutputValidationError(
+                f"labels[{index}]: model output contains an invalid label"
+            )
         original.append(item)
 
     mapping: dict[int, int] = {}
@@ -315,24 +334,47 @@ def _finite_output_array(
     value: object, field: str, *, shape: tuple[int, ...]
 ) -> np.ndarray:
     try:
-        array = np.asarray(value, dtype=float)
+        array = np.asarray(value)
     except (TypeError, ValueError, OverflowError) as exc:
-        raise ValueError(f"{field}: model output must be a finite numeric array") from exc
+        raise _OutputValidationError(
+            f"{field}: model output must be a finite numeric array"
+        ) from exc
     if array.shape != shape:
-        raise ValueError(f"{field}: model output has an unexpected shape")
-    if not np.all(np.isfinite(array)):
-        raise ValueError(f"{field}: model produced non-finite values")
-    return array
+        raise _OutputValidationError(f"{field}: model output has an unexpected shape")
+    if (
+        not np.issubdtype(array.dtype, np.number)
+        or np.issubdtype(array.dtype, np.bool_)
+        or np.issubdtype(array.dtype, np.complexfloating)
+    ):
+        raise _OutputValidationError(
+            f"{field}: model output must use a real numeric dtype"
+        )
+    try:
+        normalized = array.astype(float, copy=False)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise _OutputValidationError(
+            f"{field}: model output must be a finite numeric array"
+        ) from exc
+    if not np.all(np.isfinite(normalized)):
+        raise _OutputValidationError(f"{field}: model produced non-finite values")
+    return normalized
 
 
 def _finite_output_number(value: object, field: str, *, minimum: float) -> float:
     if isinstance(value, np.generic):
         value = value.item()
     if type(value) not in (int, float):
-        raise ValueError(f"{field}: model output must be a finite number")
-    number = float(value)
+        raise _OutputValidationError(f"{field}: model output must be a finite number")
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise _OutputValidationError(
+            f"{field}: model output must be a finite number"
+        ) from exc
     if not math.isfinite(number) or number < minimum:
-        raise ValueError(f"{field}: model output must be finite and at least {minimum}")
+        raise _OutputValidationError(
+            f"{field}: model output must be finite and at least {minimum}"
+        )
     return number
 
 
@@ -340,7 +382,9 @@ def _positive_output_integer(value: object, field: str) -> int:
     if isinstance(value, np.generic):
         value = value.item()
     if type(value) is not int or value < 1:
-        raise ValueError(f"{field}: model output must be a positive integer")
+        raise _OutputValidationError(
+            f"{field}: model output must be a positive integer"
+        )
     return value
 
 
@@ -354,7 +398,9 @@ def _validated_linkage(value: object, sample_count: int) -> list[list[float]]:
     for row_index, row in enumerate(matrix):
         left_value, right_value, distance, count_value = row.tolist()
         if not left_value.is_integer() or not right_value.is_integer():
-            raise ValueError("linkage_matrix: merge indices must be integers")
+            raise _OutputValidationError(
+                "linkage_matrix: merge indices must be integers"
+            )
         left = int(left_value)
         right = int(right_value)
         maximum_child = sample_count + row_index
@@ -367,18 +413,64 @@ def _validated_linkage(value: object, sample_count: int) -> list[list[float]]:
             or left in used
             or right in used
         ):
-            raise ValueError("linkage_matrix: merge indices are invalid")
+            raise _OutputValidationError("linkage_matrix: merge indices are invalid")
         if distance < 0.0 or distance < previous_distance:
-            raise ValueError("linkage_matrix: merge distances must be nonnegative and ordered")
+            raise _OutputValidationError(
+                "linkage_matrix: merge distances must be nonnegative and ordered"
+            )
         expected_count = node_counts[left] + node_counts[right]
         if not count_value.is_integer() or int(count_value) != expected_count:
-            raise ValueError("linkage_matrix: merge sample counts are invalid")
+            raise _OutputValidationError(
+                "linkage_matrix: merge sample counts are invalid"
+            )
         used.update((left, right))
         node_counts[maximum_child] = expected_count
         previous_distance = distance
     if node_counts[2 * sample_count - 2] != sample_count:
-        raise ValueError("linkage_matrix: final merge count is invalid")
+        raise _OutputValidationError("linkage_matrix: final merge count is invalid")
     return matrix.tolist()
+
+
+def _same_partition(left: list[int], right: list[int]) -> bool:
+    return all(
+        (left[first] == left[second]) == (right[first] == right[second])
+        for first in range(len(left))
+        for second in range(len(left))
+    )
+
+
+def _validated_kmeans_outputs(
+    estimator: object,
+    *,
+    sample_count: int,
+    feature_count: int,
+    requested_clusters: int,
+) -> tuple[list[int], int, np.ndarray, float, int]:
+    labels, _, label_order = _canonical_labels(
+        getattr(estimator, "labels_"), sample_count, preserve_noise=False
+    )
+    cluster_count = len(label_order)
+    if cluster_count != requested_clusters:
+        raise _OutputValidationError(
+            "cluster_count: fitted result did not supply the requested clusters"
+        )
+    if any(label < 0 or label >= requested_clusters for label in label_order):
+        raise _OutputValidationError(
+            "labels: fitted labels do not index cluster centers"
+        )
+    centers = _finite_output_array(
+        getattr(estimator, "cluster_centers_"),
+        "cluster_centers",
+        shape=(requested_clusters, feature_count),
+    )
+    canonical_centers = centers[np.asarray(label_order, dtype=int), :]
+    inertia = _finite_output_number(
+        getattr(estimator, "inertia_"), "inertia", minimum=0.0
+    )
+    iteration_count = _positive_output_integer(
+        getattr(estimator, "n_iter_"), "iteration_count"
+    )
+    return labels, cluster_count, canonical_centers, inertia, iteration_count
 
 
 def _base_raw_result(
@@ -426,31 +518,21 @@ def execute_kmeans(payload: Mapping[str, object]) -> Mapping[str, object]:
     finally:
         if previous_cpu_count is None:
             os.environ.pop("LOKY_MAX_CPU_COUNT", None)
-    attributes = _safe_library_call(
+    (
+        labels,
+        cluster_count,
+        canonical_centers,
+        inertia,
+        iteration_count,
+    ) = _safe_library_call(
         "fitted attributes",
-        lambda: (
-            getattr(estimator, "labels_"),
-            getattr(estimator, "cluster_centers_"),
-            getattr(estimator, "inertia_"),
-            getattr(estimator, "n_iter_"),
+        lambda: _validated_kmeans_outputs(
+            estimator,
+            sample_count=matrix.shape[0],
+            feature_count=matrix.shape[1],
+            requested_clusters=requested_clusters,
         ),
     )
-    labels, _, label_order = _canonical_labels(
-        attributes[0], matrix.shape[0], preserve_noise=False
-    )
-    cluster_count = len(label_order)
-    if cluster_count != requested_clusters:
-        raise ValueError("cluster_count: fitted result did not supply the requested clusters")
-    if any(label < 0 or label >= requested_clusters for label in label_order):
-        raise ValueError("labels: fitted labels do not index cluster centers")
-    centers = _finite_output_array(
-        attributes[1],
-        "cluster_centers",
-        shape=(requested_clusters, matrix.shape[1]),
-    )
-    canonical_centers = centers[np.asarray(label_order, dtype=int), :]
-    inertia = _finite_output_number(attributes[2], "inertia", minimum=0.0)
-    iteration_count = _positive_output_integer(attributes[3], "iteration_count")
 
     return _base_raw_result(
         matrix,
@@ -477,8 +559,13 @@ def execute_dbscan(payload: Mapping[str, object]) -> Mapping[str, object]:
     params = _validate_dbscan_params(_raw_params(payload))
     estimator = _safe_library_call("params", lambda: DBSCAN(**dict(params)))
     _safe_library_call("fit", lambda: estimator.fit(matrix))
-    labels, _, label_order = _canonical_labels(
-        getattr(estimator, "labels_", None), matrix.shape[0], preserve_noise=True
+    labels, _, label_order = _safe_library_call(
+        "fitted attributes",
+        lambda: _canonical_labels(
+            getattr(estimator, "labels_", None),
+            matrix.shape[0],
+            preserve_noise=True,
+        ),
     )
     result = {
         "labels": labels,
@@ -511,22 +598,48 @@ def execute_hierarchical_clustering(
         "params", lambda: AgglomerativeClustering(**dict(estimator_params))
     )
     _safe_library_call("fit", lambda: estimator.fit(matrix))
-    labels, _, label_order = _canonical_labels(
-        getattr(estimator, "labels_", None), matrix.shape[0], preserve_noise=False
+    labels, _, label_order = _safe_library_call(
+        "fitted attributes",
+        lambda: _canonical_labels(
+            getattr(estimator, "labels_", None),
+            matrix.shape[0],
+            preserve_noise=False,
+        ),
     )
     requested = estimator_params["n_clusters"]
     if requested is not None and len(label_order) != requested:
         raise ValueError("cluster_count: fitted result did not supply the requested clusters")
 
-    linkage_raw = _safe_library_call(
+    linkage_matrix = _safe_library_call(
         "linkage",
-        lambda: scipy_linkage(
-            matrix,
-            method=str(estimator_params["linkage"]),
-            metric=str(estimator_params["metric"]),
+        lambda: _validated_linkage(
+            scipy_linkage(
+                matrix,
+                method=str(estimator_params["linkage"]),
+                metric=str(estimator_params["metric"]),
+            ),
+            matrix.shape[0],
         ),
     )
-    linkage_matrix = _validated_linkage(linkage_raw, matrix.shape[0])
+    public_threshold = params.get("distance_threshold")
+    if public_threshold is not None:
+        scipy_labels, _, _ = _safe_library_call(
+            "linkage partition",
+            lambda: _canonical_labels(
+                scipy_fcluster(
+                    np.asarray(linkage_matrix, dtype=float),
+                    float(public_threshold),
+                    criterion="distance",
+                ),
+                matrix.shape[0],
+                preserve_noise=False,
+            ),
+        )
+        if not _same_partition(labels, scipy_labels):
+            raise ValueError(
+                "labels: fitted partition does not match linkage_matrix at "
+                "params.distance_threshold"
+            )
     return _base_raw_result(
         matrix,
         params,

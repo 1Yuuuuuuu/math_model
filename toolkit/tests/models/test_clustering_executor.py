@@ -403,6 +403,53 @@ def test_hierarchical_distance_threshold_partition_matches_scipy_linkage_cut() -
     assert result["parameters"] == {**payload["params"], "standardized": True}
 
 
+def test_hierarchical_distance_threshold_includes_merge_at_exact_boundary() -> None:
+    """The public threshold includes a merge whose distance equals the boundary."""
+    threshold = 1.0
+    result = execute(
+        "hierarchical-clustering",
+        {
+            "X": [[0.0], [1.0], [5.0]],
+            "params": {
+                "n_clusters": None,
+                "distance_threshold": threshold,
+                "linkage": "average",
+                "metric": "euclidean",
+            },
+            "standardized": True,
+        },
+    )
+    linkage_matrix = np.asarray(result["result"]["linkage_matrix"], dtype=float)
+    scipy_labels = (
+        fcluster(linkage_matrix, threshold, criterion="distance") - 1
+    ).tolist()
+
+    assert result["result"]["labels"] == [0, 0, 1]
+    assert scipy_labels == [0, 0, 1]
+    assert _same_partition(result["result"]["labels"], scipy_labels)
+
+
+def test_hierarchical_max_finite_threshold_does_not_leak_nextafter_warning() -> None:
+    """The inclusive-threshold translation must stay warning-free at binary64 max."""
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = execute(
+            "hierarchical-clustering",
+            {
+                "X": [[0.0], [1.0]],
+                "params": {
+                    "n_clusters": None,
+                    "distance_threshold": float(np.finfo(float).max),
+                    "linkage": "average",
+                    "metric": "euclidean",
+                },
+            },
+        )
+
+    assert result["result"]["labels"] == [0, 0]
+    assert caught == []
+
+
 def test_hierarchical_identical_data_with_one_cluster_has_valid_linkage() -> None:
     """Zero merge distances are valid and must not be rejected as nonpositive thresholds."""
     result = execute(
@@ -677,6 +724,13 @@ class _FakeKMeans:
         ("labels_", np.array([0, 0, 0, 0]), "cluster_count"),
         ("cluster_centers_", np.array([[0.0, 1.0], [10.0, 11.0]]), "cluster_centers"),
         ("cluster_centers_", np.array([[0.0], [np.inf]]), "cluster_centers"),
+        ("cluster_centers_", np.array([["0.0"], ["10.0"]]), "cluster_centers"),
+        ("cluster_centers_", np.array([[True], [False]]), "cluster_centers"),
+        (
+            "cluster_centers_",
+            np.array([[0.0 + 1.0j], [10.0 + 2.0j]]),
+            "cluster_centers",
+        ),
         ("inertia_", -1.0, "inertia"),
         ("inertia_", float("inf"), "inertia"),
         ("n_iter_", 0, "iteration_count"),
@@ -695,7 +749,10 @@ def test_kmeans_malformed_or_nonfinite_fitted_outputs_fail_closed(
         lambda name: lambda *, seed, params: estimator,
     )
     payload = {"X": [[0.0], [0.1], [10.0], [10.1]], "params": {"n_clusters": 2}}
-    _assert_execution_error("kmeans", payload, field)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _assert_execution_error("kmeans", payload, field)
+    assert caught == []
 
 
 @pytest.mark.parametrize(
@@ -735,6 +792,20 @@ def test_non_kmeans_malformed_labels_fail_closed(
         np.array([[0.5, 1.0, 0.1, 2.0], [2.0, 4.0, 1.0, 3.0], [3.0, 5.0, 2.0, 4.0]]),
         np.array([[0.0, 4.0, 0.1, 2.0], [1.0, 2.0, 1.0, 2.0], [3.0, 5.0, 2.0, 4.0]]),
         np.array([[0.0, 1.0, 0.1, 3.0], [2.0, 4.0, 1.0, 3.0], [3.0, 5.0, 2.0, 4.0]]),
+        np.array(
+            [
+                ["0", "1", "0.1", "2"],
+                ["2", "3", "0.1", "2"],
+                ["4", "5", "5.0", "4"],
+            ]
+        ),
+        np.array(
+            [
+                [0.0, 1.0, 0.1 + 1.0j, 2.0],
+                [2.0, 3.0, 0.1 + 1.0j, 2.0],
+                [4.0, 5.0, 5.0 + 1.0j, 4.0],
+            ]
+        ),
     ],
 )
 def test_hierarchical_malformed_linkage_output_fails_closed(
@@ -743,7 +814,12 @@ def test_hierarchical_malformed_linkage_output_fails_closed(
     """A linkage-shaped array still needs valid indices, distances, and merge counts."""
     module = _clustering_module()
     monkeypatch.setattr(module, "scipy_linkage", lambda *args, **kwargs: bad_linkage)
-    _assert_execution_error("hierarchical-clustering", HIERARCHICAL_PAYLOAD, "linkage_matrix")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _assert_execution_error(
+            "hierarchical-clustering", HIERARCHICAL_PAYLOAD, "linkage_matrix"
+        )
+    assert caught == []
 
 
 @pytest.mark.parametrize("model_id", MODEL_IDS)
@@ -785,6 +861,36 @@ def test_library_warnings_fail_closed_without_leaking(
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         _assert_execution_error(model_id, _payload_for(model_id), "fit")
+    assert caught == []
+
+
+@pytest.mark.parametrize("model_id", ["dbscan", "hierarchical-clustering"])
+def test_post_fit_attribute_warnings_fail_closed_without_leaking(
+    monkeypatch: pytest.MonkeyPatch, model_id: str
+) -> None:
+    """Warnings raised while reading fitted labels must stay inside the executor."""
+    module = _clustering_module()
+
+    class WarningAttributeEstimator:
+        def __init__(self, **params: object) -> None:
+            pass
+
+        def fit(self, X: np.ndarray) -> WarningAttributeEstimator:
+            return self
+
+        @property
+        def labels_(self) -> np.ndarray:
+            warnings.warn("attribute warning", RuntimeWarning)
+            return np.array([0, 0, 1, 1])
+
+    monkeypatch.setattr(
+        module,
+        "DBSCAN" if model_id == "dbscan" else "AgglomerativeClustering",
+        WarningAttributeEstimator,
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        _assert_execution_error(model_id, _payload_for(model_id), "fitted attributes")
     assert caught == []
 
 
