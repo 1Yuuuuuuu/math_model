@@ -79,7 +79,7 @@ cards:
     category: prediction
     title: 非线性回归
     file: shared/knowledge/model-cards/prediction/nonlinear-regression.md
-    status: draft
+    status: approved
     priority: 2
   - model_id: exponential-smoothing
     category: prediction
@@ -93,11 +93,11 @@ cards:
     file: shared/knowledge/model-cards/prediction/arima.md
     status: draft
     priority: 1
-  - model_id: grey-prediction
+  - model_id: grey-prediction-gm11
     category: prediction
     title: 灰色预测
     file: shared/knowledge/model-cards/prediction/grey-prediction.md
-    status: draft
+    status: approved
     priority: 2
   - model_id: ml-regression
     category: prediction

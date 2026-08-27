@@ -132,6 +132,7 @@ from .executors.statistics import (
     execute_nonparametric_test,
     execute_parametric_test,
 )
+from .executors.forecasting import execute_gm11, execute_nonlinear_regression
 
 
 register_spec(
@@ -308,5 +309,27 @@ register_spec(
         False,
         ("matrix", "criteria"),
         execute_entropy_weight,
+    )
+)
+register_spec(
+    ModelSpec(
+        "grey-prediction-gm11",
+        "forecasting",
+        "shared/knowledge/model-cards/prediction/grey-prediction.md",
+        True,
+        False,
+        ("series", "forecast_steps"),
+        execute_gm11,
+    )
+)
+register_spec(
+    ModelSpec(
+        "nonlinear-regression",
+        "forecasting",
+        "shared/knowledge/model-cards/prediction/nonlinear-regression.md",
+        True,
+        False,
+        ("family", "x", "y"),
+        execute_nonlinear_regression,
     )
 )

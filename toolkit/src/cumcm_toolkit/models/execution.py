@@ -9,6 +9,11 @@ from .result import build_success_result
 from .specifications import get_spec
 
 
+_STRICT_PLAIN_JSON_MODELS = frozenset(
+    {"nonlinear-programming", "grey-prediction-gm11", "nonlinear-regression"}
+)
+
+
 def _plain_json_snapshot(
     value: object,
     *,
@@ -61,7 +66,7 @@ def execute(model_id: str, payload: Mapping[str, object]) -> dict[str, object]:
     except KeyError as exc:
         raise ValueError(f"{model_id}: specification stage failed: {exc}") from exc
 
-    if model_id == "nonlinear-programming":
+    if model_id in _STRICT_PLAIN_JSON_MODELS:
         if type(payload) is not dict:
             raise ValueError(
                 f"{model_id}: payload stage failed: payload must be a plain JSON object"
