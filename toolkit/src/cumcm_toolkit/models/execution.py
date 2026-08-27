@@ -10,7 +10,13 @@ from .specifications import get_spec
 
 
 _STRICT_PLAIN_JSON_MODELS = frozenset(
-    {"nonlinear-programming", "grey-prediction-gm11", "nonlinear-regression"}
+    {
+        "nonlinear-programming",
+        "grey-prediction-gm11",
+        "nonlinear-regression",
+        "arima",
+        "exponential-smoothing",
+    }
 )
 
 

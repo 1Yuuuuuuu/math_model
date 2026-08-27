@@ -132,7 +132,12 @@ from .executors.statistics import (
     execute_nonparametric_test,
     execute_parametric_test,
 )
-from .executors.forecasting import execute_gm11, execute_nonlinear_regression
+from .executors.forecasting import (
+    execute_arima,
+    execute_exponential_smoothing,
+    execute_gm11,
+    execute_nonlinear_regression,
+)
 
 
 register_spec(
@@ -320,6 +325,28 @@ register_spec(
         False,
         ("series", "forecast_steps"),
         execute_gm11,
+    )
+)
+register_spec(
+    ModelSpec(
+        "arima",
+        "forecasting",
+        "shared/knowledge/model-cards/prediction/arima.md",
+        True,
+        False,
+        ("series", "order", "forecast_steps"),
+        execute_arima,
+    )
+)
+register_spec(
+    ModelSpec(
+        "exponential-smoothing",
+        "forecasting",
+        "shared/knowledge/model-cards/prediction/exponential-smoothing.md",
+        True,
+        False,
+        ("series", "forecast_steps", "trend", "seasonal", "damped_trend"),
+        execute_exponential_smoothing,
     )
 )
 register_spec(
