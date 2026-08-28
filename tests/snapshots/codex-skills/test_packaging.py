@@ -15,9 +15,53 @@ from scripts.package_codex_skills import (
     validate_resource_path,
     verify_packaged_output,
 )
+from cumcm_toolkit.models.specifications import list_capabilities
 
 
 ROOT = Path(__file__).resolve().parents[3]
+
+_SOLVER_RUNTIME_FILES = {
+    "adapters/codex/handoff.py",
+    "adapters/codex/routing.py",
+    "scripts/contract_formats.py",
+    "scripts/validate_contracts.py",
+    "shared/contracts/artifact.schema.json",
+    "shared/contracts/evidence-link.schema.json",
+    "shared/contracts/experiment.schema.json",
+    "shared/contracts/model-execution.schema.json",
+    "shared/knowledge/model-catalog.yaml",
+    "toolkit/src/cumcm_toolkit/__init__.py",
+    "toolkit/src/cumcm_toolkit/artifacts/__init__.py",
+    "toolkit/src/cumcm_toolkit/artifacts/index.py",
+    "toolkit/src/cumcm_toolkit/environment/__init__.py",
+    "toolkit/src/cumcm_toolkit/environment/doctor.py",
+    "toolkit/src/cumcm_toolkit/evaluation/__init__.py",
+    "toolkit/src/cumcm_toolkit/evaluation/metrics.py",
+    "toolkit/src/cumcm_toolkit/evidence/__init__.py",
+    "toolkit/src/cumcm_toolkit/evidence/linker.py",
+    "toolkit/src/cumcm_toolkit/experiments/__init__.py",
+    "toolkit/src/cumcm_toolkit/experiments/manifest.py",
+    "toolkit/src/cumcm_toolkit/models/__init__.py",
+    "toolkit/src/cumcm_toolkit/models/execution.py",
+    "toolkit/src/cumcm_toolkit/models/registry.py",
+    "toolkit/src/cumcm_toolkit/models/result.py",
+    "toolkit/src/cumcm_toolkit/models/runner.py",
+    "toolkit/src/cumcm_toolkit/models/specifications.py",
+    "toolkit/src/cumcm_toolkit/models/executors/__init__.py",
+    "toolkit/src/cumcm_toolkit/models/executors/base.py",
+    "toolkit/src/cumcm_toolkit/models/executors/clustering.py",
+    "toolkit/src/cumcm_toolkit/models/executors/data_processing.py",
+    "toolkit/src/cumcm_toolkit/models/executors/evaluation.py",
+    "toolkit/src/cumcm_toolkit/models/executors/expression.py",
+    "toolkit/src/cumcm_toolkit/models/executors/forecasting.py",
+    "toolkit/src/cumcm_toolkit/models/executors/optimization.py",
+    "toolkit/src/cumcm_toolkit/models/executors/statistics.py",
+    "toolkit/src/cumcm_toolkit/models/executors/supervised.py",
+    "toolkit/src/cumcm_toolkit/results/__init__.py",
+    "toolkit/src/cumcm_toolkit/results/export.py",
+    "toolkit/src/cumcm_toolkit/utils/__init__.py",
+    "toolkit/src/cumcm_toolkit/utils/numbers.py",
+}
 
 
 def _tree_hash(root: Path) -> str:
@@ -125,6 +169,61 @@ def test_check_detects_drift_in_an_existing_package(tmp_path: Path) -> None:
     )
     assert result.returncode == 1
     assert json.loads(result.stdout)["status"] == "failed"
+
+
+def test_solver_declares_the_exact_file_level_runtime_closure() -> None:
+    declaration = json.loads(
+        (ROOT / "adapters/codex/skills/solver/resources.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    resources = set(declaration["resources"])
+    knowledge_cards = {
+        str(capability["knowledge_card"]) for capability in list_capabilities()
+    }
+
+    assert resources == _SOLVER_RUNTIME_FILES | knowledge_cards
+    assert all((ROOT / resource).is_file() for resource in resources)
+    assert not any(
+        part in {"cache", "__pycache__", ".pytest_cache"}
+        for resource in resources
+        for part in Path(resource).parts
+    )
+
+
+def test_packaged_solver_imports_public_execute_and_runs_in_isolation(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "skills"
+    package_skills(ROOT, output)
+    references = output / "solver" / "references"
+    code = (
+        "import json,sys;"
+        f"sys.path[:0]=[{str(references)!r},{str(references / 'toolkit/src')!r}];"
+        "from cumcm_toolkit.models.execution import execute;"
+        "result=execute('normalization',"
+        "{'matrix':[[1,2],[3,4]],'method':'minmax'});"
+        "assert result['status']=='succeeded';"
+        "assert result['result']['transformed']==[[0.0,0.0],[1.0,1.0]];"
+        "print(json.dumps(result,allow_nan=False))"
+    )
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in {"PYTHONPATH", "PYTHONHOME"}
+    }
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    result = subprocess.run(
+        [sys.executable, "-I", "-c", code],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["model_id"] == "normalization"
 
 
 @pytest.mark.parametrize(

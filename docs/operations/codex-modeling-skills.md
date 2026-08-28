@@ -31,7 +31,9 @@
 | 检验稳健性 | `$sensitivity-analyst` | 可复现实验、参数和评价函数 | `sensitivity-report` |
 | 查找论文依据 | `$literature-researcher` | 待支持主张、检索边界 | `literature-candidates` |
 
-Phase 3 可直接执行的代表能力为熵权法加 TOPSIS、线性回归和 SciPy 线性规划。33 张模型卡仍可用于选择和设计，但未进入已验证执行范围的模型会由 `$solver` 返回执行计划、缺失工具和恢复条件，不会产生替代数值。
+`$solver` 不维护手写白名单：它查询 `cumcm_toolkit.models.specifications.list_capabilities()`，只有注册表中的能力才会进入执行。当前 26 项能力及逐项最小 payload、核心输出和失败示例见 [模型执行器运行手册](model-executors.md)；其他模型卡只用于选择和设计，执行时返回计划、缺失工具和恢复条件，不产生替代数值。
+
+公开执行边界固定为 `cumcm_toolkit.models.execution.execute(model_id, payload)`：这是 Codex/DSH 使用的 JSON 结果契约。`run_model(name, X, y)` 是 legacy Python 兼容入口，会返回 fitted estimator，只供旧调用方使用，不能放进 Skill 或 DSH 交接。
 
 ## 处理交接结果
 
@@ -97,7 +99,7 @@ DeepSeek Harness 适配层应消费同一份共享资源和交接字段；不要
 .venv\Scripts\python.exe scripts/validate_codex_route_observations.py --observations routing-observations.json
 ```
 
-验收器要求 28 个案例各有且只有一条观测：trigger 必须选择目标 Skill，non-trigger 不得选择被禁止的目标 Skill；缺失、重复或错误路由都会失败。仓库测试只验证该验收器本身，未提供真实 `routing-observations.json` 时不得声称自然语言路由已经通过。
+验收器要求 48 个案例各有且只有一条观测：trigger 必须选择目标 Skill，non-trigger 不得选择被禁止的目标 Skill；缺失、重复或错误路由都会失败。仓库测试只验证该验收器本身，未提供真实 `routing-observations.json` 时不得声称自然语言路由已经通过。
 
 ## 修改后的验证
 
@@ -106,4 +108,4 @@ DeepSeek Harness 适配层应消费同一份共享资源和交接字段；不要
 .venv\Scripts\python.exe scripts/package_codex_skills.py --check
 ```
 
-预期结果为相关测试全部通过，打包检查输出 `{"skills": 7, "status": "ok"}`。
+预期结果为相关测试全部通过，打包检查输出 `{"skills": 12, "status": "ok"}`。

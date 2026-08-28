@@ -4,7 +4,11 @@ import json
 import re
 from pathlib import Path
 
+import pytest
 import yaml
+
+from cumcm_toolkit.models import execute
+from cumcm_toolkit.models.specifications import list_capabilities
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -213,3 +217,61 @@ def test_five_reviewers_have_isolated_formal_review_resources() -> None:
     )
     assert "cannot approve reproducibility" in model_text.lower()
     assert "separate reproducibility" in model_text.lower()
+
+
+def _documented_executor_examples(guide: str) -> dict[str, dict[str, object]]:
+    sections = re.findall(
+        r"^### `([^`]+)`\n(.*?)(?=^### `|\Z)", guide, flags=re.MULTILINE | re.DOTALL
+    )
+    examples: dict[str, dict[str, object]] = {}
+    for model_id, body in sections:
+        payload_match = re.search(
+            r"最小合法 payload：\n```json\n(.*?)\n```", body, flags=re.DOTALL
+        )
+        failure_match = re.search(
+            r"失败 payload：\n```json\n(.*?)\n```", body, flags=re.DOTALL
+        )
+        core_marker = re.search(r"核心输出：([^\n]+)", body)
+        assert payload_match is not None, f"{model_id}: missing minimal payload"
+        assert failure_match is not None, f"{model_id}: missing failure payload"
+        assert core_marker is not None, f"{model_id}: missing core output fields"
+        examples[model_id] = {
+            "payload": json.loads(payload_match.group(1)),
+            "failure": json.loads(failure_match.group(1)),
+            "core": re.findall(r"`([^`]+)`", core_marker.group(1)),
+        }
+    return examples
+
+
+def test_solver_docs_execute_every_registered_minimal_payload_and_failure_example(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    guide = (ROOT / "docs/operations/model-executors.md").read_text(encoding="utf-8")
+    examples = _documented_executor_examples(guide)
+    capabilities = {str(item["model_id"]): item for item in list_capabilities()}
+    assert set(examples) == set(capabilities)
+    monkeypatch.setenv("LOKY_MAX_CPU_COUNT", "1")
+
+    for model_id, example in examples.items():
+        result = execute(model_id, example["payload"])
+        assert result["status"] == "succeeded"
+        assert result["executor"] == capabilities[model_id]["executor"]
+        assert example["core"]
+        assert set(example["core"]) <= set(result["result"])
+        with pytest.raises(ValueError, match=re.escape(model_id)):
+            execute(model_id, example["failure"])
+
+
+def test_solver_docs_define_public_execute_and_legacy_run_model_boundaries() -> None:
+    guide = (ROOT / "docs/operations/model-executors.md").read_text(encoding="utf-8")
+    skill_guide = (ROOT / "docs/operations/codex-modeling-skills.md").read_text(
+        encoding="utf-8"
+    )
+    combined = guide + "\n" + skill_guide
+
+    assert "cumcm_toolkit.models.execution.execute" in combined
+    assert "Codex/DSH" in combined
+    assert "JSON" in combined
+    assert "run_model" in combined
+    assert "legacy" in combined.lower()
+    assert "estimator" in combined
