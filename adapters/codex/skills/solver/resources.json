@@ -51,7 +51,6 @@
     "toolkit/src/cumcm_toolkit/models/execution.py",
     "toolkit/src/cumcm_toolkit/models/registry.py",
     "toolkit/src/cumcm_toolkit/models/result.py",
-    "toolkit/src/cumcm_toolkit/models/runner.py",
     "toolkit/src/cumcm_toolkit/models/specifications.py",
     "toolkit/src/cumcm_toolkit/models/executors/__init__.py",
     "toolkit/src/cumcm_toolkit/models/executors/base.py",

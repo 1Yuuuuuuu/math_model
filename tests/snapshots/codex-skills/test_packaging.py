@@ -45,7 +45,6 @@ _SOLVER_RUNTIME_FILES = {
     "toolkit/src/cumcm_toolkit/models/execution.py",
     "toolkit/src/cumcm_toolkit/models/registry.py",
     "toolkit/src/cumcm_toolkit/models/result.py",
-    "toolkit/src/cumcm_toolkit/models/runner.py",
     "toolkit/src/cumcm_toolkit/models/specifications.py",
     "toolkit/src/cumcm_toolkit/models/executors/__init__.py",
     "toolkit/src/cumcm_toolkit/models/executors/base.py",
@@ -183,6 +182,7 @@ def test_solver_declares_the_exact_file_level_runtime_closure() -> None:
     }
 
     assert resources == _SOLVER_RUNTIME_FILES | knowledge_cards
+    assert "toolkit/src/cumcm_toolkit/models/runner.py" not in resources
     assert all((ROOT / resource).is_file() for resource in resources)
     assert not any(
         part in {"cache", "__pycache__", ".pytest_cache"}
