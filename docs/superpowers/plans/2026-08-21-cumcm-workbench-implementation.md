@@ -55,7 +55,7 @@ Program-level tracking:
 - [x] 阶段 5：五层审批、85/70 评分、修订失效、15 项契约和 12 个 Skill 通过。
 - [x] 阶段 6：四个人工门、失败恢复、磁盘检查点和完整 Codex 流程通过，批准进入阶段 7 规划。
 - [x] 阶段 7：DSH 真实组合与双端一致性通过，批准进入阶段 8 规划。
-- [ ] 阶段 8：三类完整回归和人工复核通过，批准受控扩展模型范围。
+- [ ] 阶段 8：代表场景真题回归（2025-C NIPT）已完成、审批通过（85.9）；三类完整场景与来源 provenance 回归进行中，全部通过后批准受控扩展模型范围。
 
 ## File ownership map
 
@@ -478,6 +478,10 @@ uv run python scripts/run_regression.py --suite representative
 - 新模型只在真题频率或已观察缺陷证明需要时加入。
 - 回归发现的问题映射到具体工具、知识、Skill 或量表，不以笼统改写代替根因修复。
 
+**Status (2026-08-29):** 代表场景真题回归完成。首个真题场景 2025-C NIPT（`shared/fixtures/historical/2025-c-nipt/`）已跑通完整链路：真题拆解 → 混合效应/K-means/分类建模 → 6 页论文 + 3 图 → xelatex 编译 → paper-quality 审批 passed（85.9）。回归报告见 `docs/quality/regression-report-2025-c.md`（模型选择、失败点、审批分数、人工复核结论、工具缺口映射）。三类完整场景（evaluation/prediction/optimization）e2e 与 `test_historical_citation_provenance.py` 尚未实现，留待阶段 8 余下任务。
+
+**Verified inputs (2026-08-29):** 官方真题数据（男胎 1082 行/267 孕妇、女胎 605 行/147 孕妇）作为用户合法提供的历年赛题输入；混合效应模型（statsmodels MixedLM）验证重复测量结构（ICC=0.761）；K-means 分组经 bootstrap 置信区间检验；Q4 判定阈值经孕妇去重与分型交叉验证；外部文献（Deng 2023、ScienceDirect 2022、ACMG 2022）与结果方向一致。
+
 ## Program release gates
 
 | 里程碑 | 必须通过的门禁 | 可交付能力 |
@@ -500,4 +504,4 @@ uv run python scripts/run_regression.py --suite representative
 
 ## Plan completion criteria
 
-本主计划完成不代表系统已经实现。只有 Phase 0A 以及阶段 0–8 的详细计划分别执行、验证并通过对应发布门，系统才达到总体设计中的完整验收标准。阶段 0、Phase 0A、阶段 1–7 已完成，当前目录登记 15 项契约、可打包 12 个 Codex Skill 与 12 个 DSH Skill、双端资产哈希一致；下一步是阶段 8 的真题回归。
+本主计划完成不代表系统已经实现。只有 Phase 0A 以及阶段 0–8 的详细计划分别执行、验证并通过对应发布门，系统才达到总体设计中的完整验收标准。阶段 0、Phase 0A、阶段 1–7 已完成，当前目录登记 15 项契约、可打包 12 个 Codex Skill 与 12 个 DSH Skill、双端资产哈希一致；阶段 8 代表场景真题回归（2025-C NIPT）已完成并通过审批（85.9），下一步是阶段 8 余下三类完整场景与来源 provenance 回归。

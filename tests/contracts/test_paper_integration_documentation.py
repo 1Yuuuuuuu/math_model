@@ -89,7 +89,7 @@ def test_master_plan_marks_phase_7_complete_and_phase_8_next(
     assert "- [x] 阶段 5：" in plan
     assert "- [x] 阶段 6：" in plan
     assert "- [x] 阶段 7：" in plan
-    assert "下一步是阶段 8 的真题回归" in plan
+    assert "下一步是阶段 8 余下三类完整场景与来源 provenance 回归" in plan
     assert "下一步是阶段 7 的 DSH 适配" not in plan
     assert "下一步是阶段 6 的构思与详细设计" not in plan
     assert "当前执行入口是 Phase 0A" not in plan

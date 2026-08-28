@@ -8,7 +8,11 @@ __pycache__/
 htmlcov/
 dist/
 workspaces/
+tmp/
 *.pyc
 *.pyo
 *.log
+*.aux
+*.out
+*.synctex.gz
 模型/
