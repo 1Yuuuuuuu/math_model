@@ -1087,6 +1087,22 @@ def test_exponential_smoothing_returns_complete_finite_forecast_contract() -> No
     _assert_finite_json_tree(result)
 
 
+def test_exponential_smoothing_defaults_omitted_damping_to_false() -> None:
+    """Treating optional damping as required rejects the documented public payload."""
+    result = execute(
+        "exponential-smoothing",
+        {
+            "series": [10.0 + 0.5 * index for index in range(30)],
+            "forecast_steps": 3,
+            "trend": "add",
+            "seasonal": None,
+        },
+    )
+
+    assert result["parameters"]["damped_trend"] is False
+    assert len(result["result"]["forecast"]) == 3
+
+
 def test_exponential_smoothing_linear_trend_matches_hand_checked_forecast() -> None:
     """A wrong Holt level/trend update must not preserve only output shape and finiteness."""
     series = [10.0, 10.3, 10.6, 10.9, 11.2, 11.5, 11.8, 12.1]
@@ -1567,7 +1583,7 @@ def test_exponential_smoothing_extreme_finite_scale_fails_without_warning() -> N
             "exponential-smoothing",
             _smoothing_payload(),
             "shared/knowledge/model-cards/prediction/exponential-smoothing.md",
-            ("series", "forecast_steps", "trend", "seasonal", "damped_trend"),
+            ("series", "forecast_steps", "trend", "seasonal"),
         ),
     ],
 )

@@ -260,6 +260,38 @@ def test_dbscan_no_noise_and_standardized_warning_behavior() -> None:
     }
 
 
+def test_dbscan_survives_unavailable_physical_core_detection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A host CPU-probe warning must not turn a valid DBSCAN fit into failure."""
+    from joblib.externals.loky.backend import context
+
+    def deny_cpu_probe() -> int:
+        raise PermissionError("physical core probe denied")
+
+    monkeypatch.delenv("LOKY_MAX_CPU_COUNT", raising=False)
+    monkeypatch.setattr(context, "physical_cores_cache", None)
+    monkeypatch.setattr(context, "_count_physical_cores_win32", deny_cpu_probe)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = execute(
+            "dbscan",
+            {
+                "X": [[0, 0], [0, 0.1], [10, 10]],
+                "params": {"eps": 0.3, "min_samples": 2},
+                "standardized": False,
+            },
+        )
+
+    assert result["result"] == {
+        "labels": [0, 0, -1],
+        "cluster_count": 1,
+        "noise_count": 1,
+    }
+    assert caught == []
+
+
 def test_dbscan_mixed_noise_and_all_noise_are_counted_without_fake_clusters() -> None:
     """Treating -1 as a cluster corrupts both cluster and noise counts."""
     mixed = execute(

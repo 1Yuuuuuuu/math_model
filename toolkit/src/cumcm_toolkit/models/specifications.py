@@ -178,7 +178,7 @@ def _ensure_builtins_registered() -> None:
             ModelSpec("entropy-weight", "evaluation", "shared/knowledge/model-cards/evaluation/entropy-weight.md", True, False, ("matrix", "criteria"), execute_entropy_weight),
             ModelSpec("grey-prediction-gm11", "forecasting", "shared/knowledge/model-cards/prediction/grey-prediction.md", True, False, ("series", "forecast_steps"), execute_gm11),
             ModelSpec("arima", "forecasting", "shared/knowledge/model-cards/prediction/arima.md", True, False, ("series", "order", "forecast_steps"), execute_arima),
-            ModelSpec("exponential-smoothing", "forecasting", "shared/knowledge/model-cards/prediction/exponential-smoothing.md", True, False, ("series", "forecast_steps", "trend", "seasonal", "damped_trend"), execute_exponential_smoothing),
+            ModelSpec("exponential-smoothing", "forecasting", "shared/knowledge/model-cards/prediction/exponential-smoothing.md", True, False, ("series", "forecast_steps", "trend", "seasonal"), execute_exponential_smoothing),
             ModelSpec("nonlinear-regression", "forecasting", "shared/knowledge/model-cards/prediction/nonlinear-regression.md", True, False, ("family", "x", "y"), execute_nonlinear_regression),
             ModelSpec("linear-regression", "supervised", "shared/knowledge/model-cards/prediction/linear-regression.md", True, False, ("X", "y"), execute_linear_regression),
             ModelSpec("decision-tree", "supervised", "shared/knowledge/model-cards/classification/decision-tree.md", False, True, ("X", "y"), execute_decision_tree),

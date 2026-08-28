@@ -558,7 +558,14 @@ def execute_dbscan(payload: Mapping[str, object]) -> Mapping[str, object]:
     standardized = _standardized(payload)
     params = _validate_dbscan_params(_raw_params(payload))
     estimator = _safe_library_call("params", lambda: DBSCAN(**dict(params)))
-    _safe_library_call("fit", lambda: estimator.fit(matrix))
+    previous_cpu_count = os.environ.get("LOKY_MAX_CPU_COUNT")
+    if previous_cpu_count is None:
+        os.environ["LOKY_MAX_CPU_COUNT"] = "1"
+    try:
+        _safe_library_call("fit", lambda: estimator.fit(matrix))
+    finally:
+        if previous_cpu_count is None:
+            os.environ.pop("LOKY_MAX_CPU_COUNT", None)
     labels, _, label_order = _safe_library_call(
         "fitted attributes",
         lambda: _canonical_labels(

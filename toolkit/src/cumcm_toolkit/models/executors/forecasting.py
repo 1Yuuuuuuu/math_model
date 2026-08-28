@@ -373,7 +373,7 @@ def execute_exponential_smoothing(
     )
     trend = _smoothing_component(payload, "trend")
     seasonal = _smoothing_component(payload, "seasonal")
-    damped_trend = required_field(payload, "damped_trend")
+    damped_trend = payload.get("damped_trend", False)
     if type(damped_trend) is not bool:
         raise ValueError("damped_trend: must be a built-in boolean")
     if damped_trend and trend is None:
