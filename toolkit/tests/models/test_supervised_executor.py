@@ -11,11 +11,10 @@ import numpy as np
 import pytest
 import yaml
 from sklearn.base import BaseEstimator
-from sklearn.linear_model import LogisticRegression
 
 from cumcm_toolkit.models import execute
+from cumcm_toolkit.models import estimator_factories
 from cumcm_toolkit.models import registry as legacy_registry
-from cumcm_toolkit.models.registry import get_model
 from cumcm_toolkit.models.runner import run_model
 from cumcm_toolkit.models.specifications import get_spec, list_capabilities
 
@@ -195,8 +194,8 @@ def test_multiclass_logistic_rejects_binary_shaped_coefficients(
             return np.array(["a", "a", "b", "b", "c", "c"][: X.shape[0]])
 
     monkeypatch.setattr(
-        legacy_registry,
-        "get_model",
+        estimator_factories,
+        "get_estimator_factory",
         lambda name: lambda *, seed, params: MalformedMulticlassLogistic(),
     )
     _assert_execution_error(
@@ -267,8 +266,8 @@ def test_imperfect_constant_target_regression_uses_zero_r_squared(
             return np.zeros(X.shape[0])
 
     monkeypatch.setattr(
-        legacy_registry,
-        "get_model",
+        estimator_factories,
+        "get_estimator_factory",
         lambda name: lambda *, seed, params: ImperfectLinear(),
     )
     result = execute(
@@ -300,8 +299,8 @@ def test_tiny_nonzero_constant_target_residual_uses_zero_r_squared(
             return predictions
 
     monkeypatch.setattr(
-        legacy_registry,
-        "get_model",
+        estimator_factories,
+        "get_estimator_factory",
         lambda name: lambda *, seed, params: AlmostPerfectLinear(),
     )
     result = execute(
@@ -735,10 +734,10 @@ def test_same_seed_produces_repeatable_classifier_results(model_id: str) -> None
     assert first["reproducibility"]["seed"] == 7
 
 
-def test_json_wrappers_resolve_and_call_legacy_factories(
+def test_json_wrappers_resolve_and_call_neutral_factories(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Constructing a second estimator path would drift from legacy parameter and seed semantics."""
+    """Bypassing the neutral constructor layer would split packaged and legacy semantics."""
     calls: list[tuple[str, int | None, dict[str, object]]] = []
 
     class RecordingLinear:
@@ -758,7 +757,7 @@ def test_json_wrappers_resolve_and_call_legacy_factories(
 
         return factory
 
-    monkeypatch.setattr(legacy_registry, "get_model", fake_get_model)
+    monkeypatch.setattr(estimator_factories, "get_estimator_factory", fake_get_model)
     result = execute(
         "linear-regression",
         {**copy.deepcopy(LINEAR_PAYLOAD), "params": {"fit_intercept": True}},
@@ -768,16 +767,21 @@ def test_json_wrappers_resolve_and_call_legacy_factories(
     assert result["result"]["predictions"] == pytest.approx([9.0])
 
 
-def test_logistic_factory_is_registered_with_legacy_seed_semantics() -> None:
-    """A JSON-only constructor would leave run_model and registry users on divergent behavior."""
-    factory = get_model("logistic-regression")
-    estimator = factory(seed=7, params={"C": 0.5})
+def test_modern_supervised_execution_ignores_mutable_legacy_registry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Overwriting a legacy public factory must not alter the packaged JSON runtime."""
+    monkeypatch.setitem(
+        legacy_registry._REGISTRY,
+        "linear-regression",
+        lambda *, seed, params: (_ for _ in ()).throw(
+            AssertionError("legacy registry was consulted")
+        ),
+    )
 
-    assert isinstance(estimator, LogisticRegression)
-    assert estimator.get_params()["C"] == 0.5
-    assert estimator.get_params()["random_state"] == 7
-    with pytest.raises(ValueError, match="conflict: both seed and random_state provided"):
-        factory(seed=7, params={"random_state": 3})
+    result = execute("linear-regression", copy.deepcopy(LINEAR_PAYLOAD))
+
+    assert result["result"]["predictions"] == pytest.approx([9.0])
 
 
 def test_existing_linear_model_new_and_old_interfaces_coexist() -> None:
@@ -792,21 +796,20 @@ def test_existing_linear_model_new_and_old_interfaces_coexist() -> None:
     assert "fitted" not in modern["result"]
 
 
-def test_logistic_regression_legacy_and_json_interfaces_coexist() -> None:
-    """Registering logistic regression must preserve the old object-return interface shape."""
-    legacy = run_model(
-        "logistic-regression",
-        LOGISTIC_PAYLOAD["X"],
-        LOGISTIC_PAYLOAD["y"],
-        seed=7,
-        params={"solver": "liblinear", "max_iter": 1000},
-    )
+def test_logistic_regression_is_modern_only_without_legacy_registration() -> None:
+    """Loading the modern capability must not expand the historical public model list."""
     modern = execute("logistic-regression", copy.deepcopy(LOGISTIC_PAYLOAD))
 
-    assert set(legacy) == {"model", "fitted", "params", "seed"}
-    assert isinstance(legacy["fitted"], LogisticRegression)
-    assert modern["result"]["classes"] == legacy["fitted"].classes_.tolist()
+    assert modern["result"]["classes"] == ["negative", "positive"]
     _assert_no_estimator(modern)
+    assert "logistic-regression" not in legacy_registry.list_models()
+    with pytest.raises(ValueError, match="unknown model: logistic-regression"):
+        run_model(
+            "logistic-regression",
+            LOGISTIC_PAYLOAD["X"],
+            LOGISTIC_PAYLOAD["y"],
+            seed=7,
+        )
 
 
 def test_model_construction_failures_are_translated(
@@ -814,8 +817,8 @@ def test_model_construction_failures_are_translated(
 ) -> None:
     """Raw sklearn constructor text must retain a stable params field and execution stage."""
     monkeypatch.setattr(
-        legacy_registry,
-        "get_model",
+        estimator_factories,
+        "get_estimator_factory",
         lambda name: lambda *, seed, params: (_ for _ in ()).throw(TypeError("bad option")),
     )
     _assert_execution_error("linear-regression", LINEAR_PAYLOAD, "params")
@@ -832,8 +835,8 @@ def test_fit_failures_and_their_warnings_are_translated_without_leakage(
             raise ValueError("cannot fit")
 
     monkeypatch.setattr(
-        legacy_registry,
-        "get_model",
+        estimator_factories,
+        "get_estimator_factory",
         lambda name: lambda *, seed, params: BrokenFit(),
     )
     with warnings.catch_warnings(record=True) as caught:
@@ -859,8 +862,8 @@ def test_predict_failures_and_their_warnings_are_translated_without_leakage(
             raise RuntimeError("cannot predict")
 
     monkeypatch.setattr(
-        legacy_registry,
-        "get_model",
+        estimator_factories,
+        "get_estimator_factory",
         lambda name: lambda *, seed, params: BrokenPredict(),
     )
     with warnings.catch_warnings(record=True) as caught:
@@ -892,8 +895,8 @@ def test_probability_failures_and_their_warnings_are_translated_without_leakage(
             return 1
 
     monkeypatch.setattr(
-        legacy_registry,
-        "get_model",
+        estimator_factories,
+        "get_estimator_factory",
         lambda name: lambda *, seed, params: BrokenProbability(),
     )
     with warnings.catch_warnings(record=True) as caught:
@@ -912,8 +915,8 @@ def test_programming_defects_are_not_misreported_as_user_input_errors(
             raise KeyError("internal invariant")
 
     monkeypatch.setattr(
-        legacy_registry,
-        "get_model",
+        estimator_factories,
+        "get_estimator_factory",
         lambda name: lambda *, seed, params: DefectiveFit(),
     )
     with pytest.raises(KeyError, match="internal invariant"):
@@ -936,8 +939,8 @@ def test_nonfinite_predictions_fail_closed_without_warning(
             return np.full(X.shape[0], np.inf)
 
     monkeypatch.setattr(
-        legacy_registry,
-        "get_model",
+        estimator_factories,
+        "get_estimator_factory",
         lambda name: lambda *, seed, params: NonfinitePrediction(),
     )
     with warnings.catch_warnings(record=True) as caught:
@@ -962,8 +965,8 @@ def test_nonfinite_fitted_attributes_fail_closed(
             return np.zeros(X.shape[0])
 
     monkeypatch.setattr(
-        legacy_registry,
-        "get_model",
+        estimator_factories,
+        "get_estimator_factory",
         lambda name: lambda *, seed, params: NonfiniteCoefficient(),
     )
     _assert_execution_error("linear-regression", LINEAR_PAYLOAD, "coefficients")
@@ -986,8 +989,8 @@ def test_nonfinite_metric_arithmetic_fails_closed_without_warning(
             return values[: X.shape[0]]
 
     monkeypatch.setattr(
-        legacy_registry,
-        "get_model",
+        estimator_factories,
+        "get_estimator_factory",
         lambda name: lambda *, seed, params: OverflowingResiduals(),
     )
     payload = {"X": [[0.0], [1.0], [2.0]], "y": [-1.0, 1.0, 0.0]}
@@ -1027,8 +1030,8 @@ def test_invalid_probability_results_fail_closed(
             return 1
 
     monkeypatch.setattr(
-        legacy_registry,
-        "get_model",
+        estimator_factories,
+        "get_estimator_factory",
         lambda name: lambda *, seed, params: InvalidProbability(),
     )
     _assert_execution_error("decision-tree", TREE_PAYLOAD, "probabilities")

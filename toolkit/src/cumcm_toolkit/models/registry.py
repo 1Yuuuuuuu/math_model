@@ -2,6 +2,13 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from .estimator_factories import (
+    decision_tree_factory,
+    kmeans_factory,
+    linear_regression_factory,
+    seed_kwargs as _seed_kwargs,
+)
+
 _REGISTRY: dict[str, Callable[..., Any]] = {}
 
 
@@ -21,34 +28,10 @@ def get_model(name: str) -> Callable[..., Any]:
     return _REGISTRY[name]
 
 
-def _seed_kwargs(seed: int | None, params: dict[str, Any]) -> dict[str, Any]:
-    kwargs = dict(params)
-    if seed is not None:
-        if "random_state" in kwargs:
-            raise ValueError("conflict: both seed and random_state provided")
-        kwargs["random_state"] = seed
-    return kwargs
-
-
 def _register_builtins() -> None:
-    from sklearn.cluster import KMeans
-    from sklearn.linear_model import LinearRegression
-    from sklearn.tree import DecisionTreeClassifier
-
-    def _linear(seed: int | None, params: dict[str, Any]) -> Any:
-        return LinearRegression(**dict(params))
-
-    def _tree(seed: int | None, params: dict[str, Any]) -> Any:
-        return DecisionTreeClassifier(**_seed_kwargs(seed, params))
-
-    def _kmeans(seed: int | None, params: dict[str, Any]) -> Any:
-        kwargs = _seed_kwargs(seed, params)
-        kwargs.setdefault("n_clusters", 3)
-        return KMeans(**kwargs)
-
-    register_model("linear-regression", _linear)
-    register_model("decision-tree", _tree)
-    register_model("kmeans", _kmeans)
+    register_model("linear-regression", linear_regression_factory)
+    register_model("decision-tree", decision_tree_factory)
+    register_model("kmeans", kmeans_factory)
 
 
 _register_builtins()

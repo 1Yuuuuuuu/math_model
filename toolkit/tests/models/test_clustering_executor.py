@@ -17,7 +17,7 @@ from sklearn.base import BaseEstimator
 from sklearn.exceptions import ConvergenceWarning
 
 from cumcm_toolkit.models import execute
-from cumcm_toolkit.models import registry as legacy_registry
+from cumcm_toolkit.models import estimator_factories
 from cumcm_toolkit.models.runner import run_model
 from cumcm_toolkit.models.specifications import get_spec, list_capabilities
 
@@ -791,8 +791,8 @@ def test_kmeans_malformed_or_nonfinite_fitted_outputs_fail_closed(
     estimator = _FakeKMeans()
     setattr(estimator, attribute, value)
     monkeypatch.setattr(
-        legacy_registry,
-        "get_model",
+        estimator_factories,
+        "get_estimator_factory",
         lambda name: lambda *, seed, params: estimator,
     )
     payload = {"X": [[0.0], [0.1], [10.0], [10.1]], "params": {"n_clusters": 2}}
@@ -883,8 +883,8 @@ def test_library_warnings_fail_closed_without_leaking(
                 return self
 
         monkeypatch.setattr(
-            legacy_registry,
-            "get_model",
+            estimator_factories,
+            "get_estimator_factory",
             lambda name: lambda *, seed, params: WarningEstimator(),
         )
     else:
@@ -950,8 +950,8 @@ def test_handled_library_exceptions_are_translated_with_stage_context(
 
     if model_id == "kmeans":
         monkeypatch.setattr(
-            legacy_registry,
-            "get_model",
+            estimator_factories,
+            "get_estimator_factory",
             lambda name: lambda *, seed, params: (_ for _ in ()).throw(TypeError("bad params")),
         )
         field = "params"

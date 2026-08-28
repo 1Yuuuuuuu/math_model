@@ -42,8 +42,8 @@ _SOLVER_RUNTIME_FILES = {
     "toolkit/src/cumcm_toolkit/experiments/__init__.py",
     "toolkit/src/cumcm_toolkit/experiments/manifest.py",
     "toolkit/src/cumcm_toolkit/models/__init__.py",
+    "toolkit/src/cumcm_toolkit/models/estimator_factories.py",
     "toolkit/src/cumcm_toolkit/models/execution.py",
-    "toolkit/src/cumcm_toolkit/models/registry.py",
     "toolkit/src/cumcm_toolkit/models/result.py",
     "toolkit/src/cumcm_toolkit/models/specifications.py",
     "toolkit/src/cumcm_toolkit/models/executors/__init__.py",
@@ -183,6 +183,7 @@ def test_solver_declares_the_exact_file_level_runtime_closure() -> None:
 
     assert resources == _SOLVER_RUNTIME_FILES | knowledge_cards
     assert "toolkit/src/cumcm_toolkit/models/runner.py" not in resources
+    assert "toolkit/src/cumcm_toolkit/models/registry.py" not in resources
     assert all((ROOT / resource).is_file() for resource in resources)
     assert not any(
         part in {"cache", "__pycache__", ".pytest_cache"}
@@ -201,11 +202,16 @@ def test_packaged_solver_imports_public_execute_and_runs_in_isolation(
         "import json,sys;"
         f"sys.path[:0]=[{str(references)!r},{str(references / 'toolkit/src')!r}];"
         "from cumcm_toolkit.models.execution import execute;"
-        "result=execute('normalization',"
-        "{'matrix':[[1,2],[3,4]],'method':'minmax'});"
-        "assert result['status']=='succeeded';"
-        "assert result['result']['transformed']==[[0.0,0.0],[1.0,1.0]];"
-        "print(json.dumps(result,allow_nan=False))"
+        "results=["
+        "execute('normalization',{'matrix':[[1,2],[3,4]],'method':'minmax'}),"
+        "execute('linear-regression',{'X':[[1],[2],[3]],'y':[3,5,7],'predict_X':[[4]]}),"
+        "execute('kmeans',{'X':[[0],[0.1],[10],[10.1]],'params':{'n_clusters':2,'n_init':10},'seed':7})"
+        "];"
+        "assert all(item['status']=='succeeded' for item in results);"
+        "assert results[0]['result']['transformed']==[[0.0,0.0],[1.0,1.0]];"
+        "assert results[1]['result']['predictions']==[9.0];"
+        "assert results[2]['result']['cluster_count']==2;"
+        "print(json.dumps(results,allow_nan=False))"
     )
     env = {
         key: value
@@ -223,7 +229,12 @@ def test_packaged_solver_imports_public_execute_and_runs_in_isolation(
     )
 
     assert result.returncode == 0, result.stderr
-    assert json.loads(result.stdout)["model_id"] == "normalization"
+    packaged_results = json.loads(result.stdout)
+    assert [item["model_id"] for item in packaged_results] == [
+        "normalization",
+        "linear-regression",
+        "kmeans",
+    ]
 
 
 @pytest.mark.parametrize(

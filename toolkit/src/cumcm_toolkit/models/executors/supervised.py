@@ -11,9 +11,8 @@ from typing import TypeVar
 
 import numpy as np
 from sklearn.exceptions import ConvergenceWarning
-from sklearn.linear_model import LogisticRegression
 
-from .. import registry as legacy_registry
+from .. import estimator_factories
 from .base import json_finite_number, required_field
 
 
@@ -66,14 +65,6 @@ _LOGISTIC_PARAMS = frozenset(
     }
 )
 _PROBABILITY_TOLERANCE = 1e-12
-
-
-def _logistic_factory(seed: int | None, params: dict[str, object]) -> object:
-    """Construct logistic regression with the legacy random-state convention."""
-    return LogisticRegression(**legacy_registry._seed_kwargs(seed, params))
-
-
-legacy_registry.register_model("logistic-regression", _logistic_factory)
 
 
 def _exact_finite_number(value: object, field: str) -> float:
@@ -557,7 +548,7 @@ def _safe_estimator_call(
 def _construct_estimator(
     model_id: str, seed: int | None, params: dict[str, object]
 ) -> tuple[object, list[str]]:
-    factory = legacy_registry.get_model(model_id)
+    factory = estimator_factories.get_estimator_factory(model_id)
     return _safe_estimator_call(
         "params", lambda: factory(seed=seed, params=dict(params))
     )
@@ -902,15 +893,15 @@ def _execute_supervised(
 
 
 def execute_linear_regression(payload: Mapping[str, object]) -> Mapping[str, object]:
-    """Execute legacy linear regression through the JSON-safe supervised boundary."""
+    """Execute linear regression through the JSON-safe supervised boundary."""
     return _execute_supervised("linear-regression", payload)
 
 
 def execute_decision_tree(payload: Mapping[str, object]) -> Mapping[str, object]:
-    """Execute the legacy decision-tree classifier through the JSON-safe boundary."""
+    """Execute the decision-tree classifier through the JSON-safe boundary."""
     return _execute_supervised("decision-tree", payload)
 
 
 def execute_logistic_regression(payload: Mapping[str, object]) -> Mapping[str, object]:
-    """Execute logistic regression through the legacy factory and JSON-safe boundary."""
+    """Execute logistic regression through the neutral factory and JSON-safe boundary."""
     return _execute_supervised("logistic-regression", payload)

@@ -14,7 +14,7 @@ from scipy.cluster.hierarchy import fcluster as scipy_fcluster
 from scipy.cluster.hierarchy import linkage as scipy_linkage
 from sklearn.cluster import AgglomerativeClustering, DBSCAN
 
-from .. import registry as legacy_registry
+from .. import estimator_factories
 from .base import json_finite_number, required_field
 
 
@@ -506,7 +506,7 @@ def execute_kmeans(payload: Mapping[str, object]) -> Mapping[str, object]:
     params, requested_clusters = _validate_kmeans_params(raw_params, matrix.shape[0])
     seed = _kmeans_seed(payload, raw_params)
 
-    factory = legacy_registry.get_model("kmeans")
+    factory = estimator_factories.get_estimator_factory("kmeans")
     estimator = _safe_library_call(
         "params", lambda: factory(seed=seed, params=dict(params))
     )
