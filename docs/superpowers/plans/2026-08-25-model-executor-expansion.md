@@ -1100,7 +1100,7 @@ Commit: `docs: publish model executor usage and skill resources`
 **Interfaces:**
 - Produces: exact Phase 7 consumption surface without editing DSH production files
 
-- [ ] **Step 1: Write the handoff acceptance test**
+- [x] **Step 1: Write the handoff acceptance test**
 
 Add a documentation test asserting the handoff names:
 
@@ -1113,11 +1113,11 @@ Add a documentation test asserting the handoff names:
 
 Run the new test and confirm RED because the handoff file does not exist.
 
-- [ ] **Step 2: Write the handoff and verify GREEN**
+- [x] **Step 2: Write the handoff and verify GREEN**
 
 Document the exact imports, payload/result version, error semantics, contract validation command, and a minimal DSH adapter pseudocode that delegates to `execute` without copying algorithms.
 
-- [ ] **Step 3: Run targeted acceptance commands**
+- [x] **Step 3: Run targeted acceptance commands**
 
 Run:
 
@@ -1134,13 +1134,13 @@ Expected:
 - Contract validator reports 16 contracts and zero errors.
 - Skill packager reports 12 skills and status ok.
 
-- [ ] **Step 4: Run the complete suite**
+- [x] **Step 4: Run the complete suite**
 
 Run: `python -m pytest -q -p no:cacheprovider`
 
 Expected: zero failures. Environment-dependent LaTeX tests may retain their existing explicit skips; no new skips are allowed for the 23 model capabilities.
 
-- [ ] **Step 5: Inspect repository and DSH isolation**
+- [x] **Step 5: Inspect repository and DSH isolation**
 
 Run:
 
@@ -1152,7 +1152,7 @@ git diff --name-only 8b9b807...HEAD -- adapters/dsh
 
 Expected: no whitespace errors; only intended plan checkbox/handoff changes remain before the last commit; no Phase 7 DSH production file changed.
 
-- [ ] **Step 6: Commit verification evidence**
+- [x] **Step 6: Commit verification evidence**
 
 Commit: `docs: hand off model executors for DSH integration`
 
