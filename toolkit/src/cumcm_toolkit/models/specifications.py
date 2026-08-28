@@ -103,7 +103,9 @@ _BUILTIN_REGISTRATION_LOCK = RLock()
 
 def register_spec(spec: ModelSpec) -> None:
     """Register a model specification in the process-wide capability registry."""
-    _REGISTRY.register(spec)
+    with _BUILTIN_REGISTRATION_LOCK:
+        _ensure_builtins_registered()
+        _REGISTRY.register(spec)
 
 
 def _ensure_builtins_registered() -> None:
@@ -185,8 +187,14 @@ def _ensure_builtins_registered() -> None:
             ModelSpec("dbscan", "clustering", "shared/knowledge/model-cards/classification/dbscan.md", True, False, ("X",), execute_dbscan),
             ModelSpec("hierarchical-clustering", "clustering", "shared/knowledge/model-cards/classification/hierarchical-clustering.md", True, False, ("X",), execute_hierarchical_clustering),
         )
-        for spec in specs:
-            _REGISTRY.register(spec)
+        existing_specs = _REGISTRY._specs.copy()
+        try:
+            for spec in specs:
+                _REGISTRY.register(spec)
+        except Exception:
+            _REGISTRY._specs.clear()
+            _REGISTRY._specs.update(existing_specs)
+            raise
         _BUILTINS_REGISTERED = True
 
 

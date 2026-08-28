@@ -250,6 +250,38 @@ def test_builtin_registration_is_lazy_in_a_fresh_process() -> None:
     assert probe.returncode == 0, probe.stderr
 
 
+def test_builtin_collision_failure_leaves_the_global_registry_usable() -> None:
+    environment = {**os.environ, "PYTHONPATH": str(ROOT / "toolkit" / "src")}
+    probe = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from cumcm_toolkit.models.specifications import ("
+            "ModelSpec, get_spec, list_capabilities, register_spec); "
+            "collision = ModelSpec("
+            "'topsis', 'evaluation', "
+            "'shared/knowledge/model-cards/evaluation/topsis.md', "
+            "True, False, ('matrix', 'criteria'), lambda payload: {})\n"
+            "try:\n"
+            "    register_spec(collision)\n"
+            "except ValueError as error:\n"
+            "    assert str(error) == 'duplicate model_id: topsis'\n"
+            "else:\n"
+            "    raise AssertionError('built-in collision was accepted')\n"
+            "first = list_capabilities(); "
+            "assert len(first) == 26; "
+            "assert get_spec('topsis').model_id == 'topsis'; "
+            "assert list_capabilities() == first",
+        ],
+        cwd=ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert probe.returncode == 0, probe.stderr
+
+
 def test_registry_builtins_are_deterministic_and_do_not_depend_on_adapters() -> None:
     first = list_capabilities()
     assert first == list_capabilities()
