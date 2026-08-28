@@ -184,15 +184,15 @@ def test_categories_match_repository_trees(tmp_path: Path) -> None:
     assert categories["presets"] == tree("adapters/dsh/presets")
 
 
-def test_contracts_category_covers_fifteen_schemas_and_catalog(tmp_path: Path) -> None:
+def test_contracts_category_covers_schemas_and_catalog(tmp_path: Path) -> None:
     output = tmp_path / "out"
     package_assets(ROOT, output)
     contracts = json.loads(
         (output / "manifest.json").read_text(encoding="utf-8")
     )["asset_categories"]["contracts"]
     schemas = [path for path in contracts if path.endswith(".schema.json")]
-    assert len(contracts) == 16
-    assert len(schemas) == 15
+    assert len(contracts) == 17
+    assert len(schemas) == 16
     assert "shared/contracts/catalog.json" in contracts
     assert all(path.startswith("shared/contracts/") for path in contracts)
 

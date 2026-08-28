@@ -192,13 +192,13 @@ def test_model_cards_hashes_identical_between_packagers(
 def test_contracts_coverage_identical_between_packagers(
     codex_assets: dict[str, str], dsh_manifest: dict, project_root: Path
 ) -> None:
-    """扩展：contracts 子集双端覆盖一致（16 = 15 schema + catalog.json），哈希一致。"""
+    """扩展：contracts 子集双端覆盖一致（17 = 16 schema + catalog.json），哈希一致。"""
     codex_contracts = {p: h for p, h in codex_assets.items() if p.startswith(CONTRACTS_PREFIX)}
     dsh_contracts = {
         p: dsh_manifest["assets"][p] for p in dsh_manifest["asset_categories"]["contracts"]
     }
     assert set(codex_contracts) == set(dsh_contracts)
-    assert len(dsh_contracts) == 16
+    assert len(dsh_contracts) == 17
     for path, digest in dsh_contracts.items():
         assert codex_contracts[path] == digest == _sha256(project_root / path), path
 
@@ -241,13 +241,13 @@ def test_manifest_parsed_by_field_not_key_order(dsh_manifest: dict) -> None:
 # ② 契约版本一致 ----------------------------------------------------------------
 
 def test_catalog_version_and_contract_ids(project_root: Path) -> None:
-    """catalog 15 个契约、id 与 test_catalog.py 的 EXPECTED_CONTRACT_IDS 一致。"""
+    """catalog 16 个契约、id 与 test_catalog.py 的 EXPECTED_CONTRACT_IDS 一致。"""
     catalog = _load_json(project_root / "shared/contracts/catalog.json")
     assert catalog["catalog_version"] == "1.0"
     ids = [entry["id"] for entry in catalog["contracts"]]
     assert set(ids) == EXPECTED_CONTRACT_IDS
-    assert len(ids) == 15
-    assert len(set(ids)) == 15
+    assert len(ids) == 16
+    assert len(set(ids)) == 16
     # 双端目录版本锚一致：codex skill catalog 与 shared contract catalog 同为 "1.0"
     codex_catalog = _load_json(project_root / "adapters/codex/skills/catalog.json")
     assert codex_catalog["catalog_version"] == "1.0"
