@@ -1,0 +1,27 @@
+# cumcm-tools bundle patch: registers the cumcm-tools plugin into the host
+# composition of a dsh profile. The plugin is a thin adapter: its 15 cumcm_*
+# tools each spawn the cumcm-workbench Python CLI (`python -m
+# cumcm_toolkit.<module>`) as a subprocess and parse the stdout JSON with
+# fail-closed semantics (non-zero exit / non-JSON stdout / contract mismatch ->
+# tool failed with an explicit error).
+#
+# Install: `dsh plugin --profile <name> add <this package>` (npm, git, or a
+# local `link:<path>`). The `dsh plugin` command installs the package into the
+# profile and reconciles it into the profile's `dsh.profile.bundles` layer list.
+- insert:
+    - id: cumcm-tools
+      name: cumcm-tools
+      config:
+        # Root of the cumcm-workbench repository. Used as the subprocess cwd
+        # and as the source of the resolved python when pythonBin is empty:
+        # <cumcmRoot>/.venv/Scripts/python.exe (Windows) or .venv/bin/python.
+        # The bridge injects PYTHONPATH=<cumcmRoot>/toolkit/src;<cumcmRoot> so
+        # `python -m cumcm_toolkit.*` resolves. Empty = fall back to the plugin
+        # process cwd, which usually will not work.
+        cumcmRoot: ''
+        # Optional explicit python executable (absolute path). When non-empty
+        # it wins over the .venv / `uv run` resolution.
+        pythonBin: ''
+        # Per-call subprocess timeout in milliseconds. On expiry the child is
+        # killed and the tool fails closed with a timeout error.
+        toolTimeoutMs: 120000

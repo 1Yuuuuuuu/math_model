@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
+import json
 import re
 from typing import Any
 
@@ -54,3 +56,33 @@ def generate_bibliography(sources: list[dict[str, Any]]) -> str:
     header = "% 由 bibliography 工具从已批准 literature-source 生成。\n"
     entries = [bibtex_entry(s) for s in sorted(sources, key=lambda s: s["source_id"])]
     return header + "\n".join(entries) + "\n"
+
+
+def _reject_nonstandard_json_constant(value: str) -> None:
+    raise json.JSONDecodeError("non-standard JSON constant", value, 0)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Generate BibTeX text from approved literature sources")
+    parser.add_argument("--sources", required=True, help="JSON array of literature-source records")
+    args = parser.parse_args()
+    try:
+        sources = json.loads(args.sources, parse_constant=_reject_nonstandard_json_constant)
+        if not isinstance(sources, list):
+            raise ValueError("--sources must be a JSON array")
+        for index, source in enumerate(sources):
+            if not isinstance(source, dict):
+                raise ValueError(f"--sources item {index} must be an object")
+            if "source_id" not in source:
+                raise ValueError(f"--sources item {index} missing source_id")
+        bibtex = generate_bibliography(sources)
+        result: dict[str, object] = {"status": "ok", "bibtex": bibtex}
+    except (TypeError, ValueError, KeyError, json.JSONDecodeError) as exc:
+        print(json.dumps({"status": "failed", "error": str(exc)}, sort_keys=True, ensure_ascii=True))
+        return 1
+    print(json.dumps(result, sort_keys=True, ensure_ascii=True, allow_nan=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

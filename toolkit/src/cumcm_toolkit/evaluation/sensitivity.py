@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import argparse
+import json
 import math
-from typing import Callable
+from typing import Any, Callable
 
 from cumcm_toolkit.experiments.manifest import utc_now_rfc3339  # 复用 Phase 1 时间工具
 
@@ -58,3 +60,53 @@ def sensitivity_report(
         "generated_at": utc_now_rfc3339(),
         "warnings": warnings,
     }
+
+
+def _reject_nonstandard_json_constant(value: str) -> None:
+    raise json.JSONDecodeError("non-standard JSON constant", value, 0)
+
+
+def _validate_report_contract(payload: Any) -> None:
+    """Validate the sensitivity report input contract shape.
+
+    Matches the ``sensitivity_report`` signature: ``base_params`` is an
+    object of numbers and ``perturb`` an object of number lists. No
+    evaluation is performed (the CLI cannot inject an ``evaluate``
+    callback).
+    """
+    if not isinstance(payload, dict):
+        raise ValueError("sensitivity input must be a JSON object with base_params and perturb")
+    base_params = payload.get("base_params")
+    perturb = payload.get("perturb")
+    if not isinstance(base_params, dict):
+        raise ValueError("base_params must be an object of numbers")
+    if not isinstance(perturb, dict):
+        raise ValueError("perturb must be an object of number lists")
+    for name, value in base_params.items():
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"base_params.{name} must be a number")
+    for name, values in perturb.items():
+        if not isinstance(values, list):
+            raise ValueError(f"perturb.{name} must be a list of numbers")
+        for index, value in enumerate(values):
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError(f"perturb.{name}[{index}] must be a number")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Validate a sensitivity report input contract (no evaluation)")
+    parser.add_argument("--validate", required=True, help="JSON object with base_params and perturb")
+    args = parser.parse_args()
+    try:
+        payload = json.loads(args.validate, parse_constant=_reject_nonstandard_json_constant)
+        _validate_report_contract(payload)
+        result: dict[str, object] = {"status": "ok", "valid": True}
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        print(json.dumps({"status": "failed", "error": str(exc)}, sort_keys=True, ensure_ascii=True))
+        return 1
+    print(json.dumps(result, sort_keys=True, ensure_ascii=True, allow_nan=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

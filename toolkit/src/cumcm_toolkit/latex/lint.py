@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import argparse
+import json
 import re
 from pathlib import Path
 
@@ -78,3 +80,20 @@ def lint_paper(work_dir: Path) -> dict[str, object]:
 
     status = "ok" if not any(i["severity"] == "error" for i in issues) else "failed"
     return {"status": status, "issues": issues}
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Lint a CUMCM paper directory")
+    parser.add_argument("--dir", type=Path, required=True, help="paper directory containing main.tex")
+    args = parser.parse_args()
+    try:
+        report = lint_paper(args.dir)
+    except (ValueError, OSError) as exc:
+        print(json.dumps({"status": "failed", "error": str(exc)}, sort_keys=True, ensure_ascii=True))
+        return 1
+    print(json.dumps(report, sort_keys=True, ensure_ascii=True, allow_nan=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

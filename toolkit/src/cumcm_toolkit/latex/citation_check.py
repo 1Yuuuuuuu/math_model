@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import argparse
+import json
 import re
+from pathlib import Path
 from typing import Any
 
 from cumcm_toolkit.latex.bibliography import bib_key_for_source_id
@@ -73,3 +76,35 @@ def citation_check(
         "orphaned_citations": orphaned_citations,
         "errors": errors,
     }
+
+
+def _reject_nonstandard_json_constant(value: str) -> None:
+    raise json.JSONDecodeError("non-standard JSON constant", value, 0)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Check citations against bibliography and approved sources")
+    parser.add_argument("--tex", type=Path, required=True, help="path to the .tex file")
+    parser.add_argument("--bib", type=Path, required=True, help="path to the .bib file")
+    parser.add_argument("--citations", required=True, help="JSON array of citation-link records")
+    parser.add_argument("--approved-source-ids", required=True, help="JSON array of approved source ids")
+    args = parser.parse_args()
+    try:
+        tex_text = args.tex.read_text(encoding="utf-8", errors="replace")
+        bib_text = args.bib.read_text(encoding="utf-8", errors="replace")
+        citations = json.loads(args.citations, parse_constant=_reject_nonstandard_json_constant)
+        approved = json.loads(args.approved_source_ids, parse_constant=_reject_nonstandard_json_constant)
+        if not isinstance(citations, list):
+            raise ValueError("--citations must be a JSON array")
+        if not isinstance(approved, list):
+            raise ValueError("--approved-source-ids must be a JSON array")
+        report = citation_check(tex_text, bib_text, citations, set(approved))
+    except (TypeError, ValueError, KeyError, OSError, json.JSONDecodeError) as exc:
+        print(json.dumps({"status": "failed", "error": str(exc)}, sort_keys=True, ensure_ascii=True))
+        return 1
+    print(json.dumps(report, sort_keys=True, ensure_ascii=True, allow_nan=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

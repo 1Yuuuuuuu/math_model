@@ -76,7 +76,7 @@ def test_master_plan_makes_phase_1_depend_on_phase_0a(project_root: Path) -> Non
     assert "`literature-source`、`citation-link`" in phase_0a[3]
 
 
-def test_master_plan_marks_phase_6_complete_and_phase_7_next(
+def test_master_plan_marks_phase_7_complete_and_phase_8_next(
     project_root: Path,
 ) -> None:
     plan = read(project_root, "docs/superpowers/plans/2026-08-21-cumcm-workbench-implementation.md")
@@ -88,7 +88,9 @@ def test_master_plan_marks_phase_6_complete_and_phase_7_next(
     assert "- [x] 阶段 4：" in plan
     assert "- [x] 阶段 5：" in plan
     assert "- [x] 阶段 6：" in plan
-    assert "下一步是阶段 7 的 DSH 适配" in plan
+    assert "- [x] 阶段 7：" in plan
+    assert "下一步是阶段 8 的真题回归" in plan
+    assert "下一步是阶段 7 的 DSH 适配" not in plan
     assert "下一步是阶段 6 的构思与详细设计" not in plan
     assert "当前执行入口是 Phase 0A" not in plan
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import argparse
+import json
 import re
 import shutil
 import subprocess
@@ -108,3 +110,31 @@ def build_paper(
         "pdf_path": work_dir / "main.pdf",
         "log_path": log_path,
     }
+
+
+def _json_safe(value: object) -> object:
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    return value
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Build a CUMCM paper with xelatex")
+    parser.add_argument("--dir", type=Path, required=True, help="paper directory containing main.tex")
+    parser.add_argument("--passes", type=int, default=2)
+    args = parser.parse_args()
+    try:
+        report = build_paper(args.dir, passes=args.passes)
+    except (ValueError, OSError) as exc:
+        print(json.dumps({"status": "failed", "error": str(exc)}, sort_keys=True, ensure_ascii=True))
+        return 1
+    print(json.dumps(_json_safe(report), sort_keys=True, ensure_ascii=True, allow_nan=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
