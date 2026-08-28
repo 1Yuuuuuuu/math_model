@@ -676,7 +676,7 @@ def _probabilities(
     if not np.allclose(
         row_sums,
         np.ones(row_sums.shape, dtype=float),
-        rtol=_PROBABILITY_TOLERANCE,
+        rtol=0.0,
         atol=_PROBABILITY_TOLERANCE,
     ):
         raise ValueError(

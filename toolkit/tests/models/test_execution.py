@@ -70,6 +70,51 @@ def test_execute_checks_missing_fields_before_deepcopying_ordinary_models() -> N
     assert calls == []
 
 
+@pytest.mark.parametrize("model_id", [[], "", "   "])
+def test_execute_rejects_invalid_model_ids_at_the_specification_stage(
+    model_id: object,
+) -> None:
+    """Invalid or unhashable IDs must not leak mapping lookup implementation errors."""
+    with pytest.raises(
+        ValueError,
+        match=r"model_id: specification stage failed: must be a non-empty string",
+    ):
+        execute(model_id, {})  # type: ignore[arg-type]
+
+
+def test_execute_translates_deepcopy_type_errors_at_the_payload_stage(
+    monkeypatch, project_root
+) -> None:
+    """An ordinary payload copy hook failure is user-boundary conversion, not executor code."""
+    registry = CapabilityRegistry(repository_root=project_root)
+
+    class BrokenCopy:
+        def __deepcopy__(self, memo: object) -> object:
+            raise TypeError("copy protocol rejected value")
+
+    registry.register(
+        ModelSpec(
+            "copy-failure-model",
+            "statistics",
+            CARD,
+            True,
+            False,
+            ("x",),
+            lambda p: RAW,
+        )
+    )
+    monkeypatch.setattr(execution, "get_spec", registry.get)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"copy-failure-model: payload stage failed: cannot copy payload: "
+            r"copy protocol rejected value"
+        ),
+    ):
+        execute("copy-failure-model", {"x": BrokenCopy()})
+
+
 def test_runner_import_does_not_require_repository_root(tmp_path) -> None:
     """Eager public imports must not break the existing standalone runner import."""
     source_root = Path(__file__).resolve().parents[2] / "src"

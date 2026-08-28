@@ -73,6 +73,10 @@ def _plain_json_snapshot(
 
 def execute(model_id: str, payload: Mapping[str, object]) -> dict[str, object]:
     """Execute a registered model using an isolated payload and JSON result contract."""
+    if not isinstance(model_id, str) or not model_id.strip():
+        raise ValueError(
+            "model_id: specification stage failed: must be a non-empty string"
+        )
     try:
         spec = get_spec(model_id)
     except KeyError as exc:
@@ -103,7 +107,7 @@ def execute(model_id: str, payload: Mapping[str, object]) -> dict[str, object]:
             )
         try:
             isolated_payload = copy.deepcopy(dict(payload))
-        except ValueError as exc:
+        except (TypeError, ValueError) as exc:
             raise ValueError(
                 f"{model_id}: payload stage failed: cannot copy payload: {exc}"
             ) from exc

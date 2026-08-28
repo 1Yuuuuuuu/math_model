@@ -52,6 +52,18 @@ def test_normalization_preserves_unselected_columns() -> None:
     assert result["parameters"]["columns"] == [0]
 
 
+def test_normalization_rejects_explicit_null_columns() -> None:
+    """Conflating explicit null with omission would silently select every column."""
+    with pytest.raises(
+        ValueError,
+        match=r"normalization: execution stage failed: columns: must be an array",
+    ):
+        execute(
+            "normalization",
+            {"matrix": [[1, 10], [3, 20]], "method": "minmax", "columns": None},
+        )
+
+
 @pytest.mark.parametrize(
     ("policy", "expected_rows", "summary_field"),
     [

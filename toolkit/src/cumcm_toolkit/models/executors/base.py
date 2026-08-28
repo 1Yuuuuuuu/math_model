@@ -96,7 +96,10 @@ def finite_float(
     value = required_field(payload, field)
     if isinstance(value, (bool, np.bool_)) or not isinstance(value, Real):
         raise ValueError(f"{field}: must be a finite number")
-    number = float(value)
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError(f"{field}: must be a finite number") from exc
     if not math.isfinite(number):
         raise ValueError(f"{field}: must be a finite number")
     if minimum is not None and number < minimum:

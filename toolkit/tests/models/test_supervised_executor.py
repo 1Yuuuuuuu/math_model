@@ -997,7 +997,14 @@ def test_nonfinite_metric_arithmetic_fails_closed_without_warning(
     assert caught == []
 
 
-@pytest.mark.parametrize("bad_probabilities", [[[0.4, 0.4]], [[float("nan"), 1.0]]])
+@pytest.mark.parametrize(
+    "bad_probabilities",
+    [
+        [[0.4, 0.4]],
+        [[float("nan"), 1.0]],
+        [[0.5, 0.5000000000015]],
+    ],
+)
 def test_invalid_probability_results_fail_closed(
     monkeypatch: pytest.MonkeyPatch, bad_probabilities: list[list[float]]
 ) -> None:

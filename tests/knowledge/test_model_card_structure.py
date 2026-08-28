@@ -93,3 +93,30 @@ def test_catalog_no_duplicate_paths(project_root: Path) -> None:
     _, _, catalog = _load(project_root)
     files = [entry["file"] for entry in catalog["cards"]]
     assert len(files) == len(set(files)), "duplicate catalog file paths"
+
+
+def test_catalog_header_describes_per_entry_status_lifecycle(project_root: Path) -> None:
+    """A global-draft header contradicts approved statuses carried by individual cards."""
+    catalog_text = (project_root / "shared/knowledge/model-catalog.yaml").read_text(
+        encoding="utf-8"
+    )
+
+    assert "status 为逐条卡片的生命周期元数据" in catalog_text
+    assert "status 统一为 draft" not in catalog_text
+
+
+def test_nonlinear_regression_paper_example_matches_executor_output(
+    project_root: Path,
+) -> None:
+    """The paper example must include the fitted offset and only reported diagnostics."""
+    card_text = (
+        project_root
+        / "shared/knowledge/model-cards/prediction/nonlinear-regression.md"
+    ).read_text(encoding="utf-8")
+    paper_example = card_text.split("## 论文表达示例", 1)[1].split(
+        "## 对应练习", 1
+    )[0]
+
+    assert "y=a·e^(bx)+c" in paper_example
+    assert "R²" in paper_example
+    assert "置信区间" not in paper_example

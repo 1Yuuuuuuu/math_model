@@ -1,6 +1,6 @@
 # 模型卡目录（Model Card Catalog）
 # 每张卡对应 shared/knowledge/model-cards/<category>/<model_id>.md
-# status 统一为 draft；priority 1=高频核心卡，2=常用卡，3=低频/进阶卡
+# status 为逐条卡片的生命周期元数据（draft=草稿，approved=已批准）；priority 1=高频核心卡，2=常用卡，3=低频/进阶卡
 
 cards:
   - model_id: interpolation

@@ -105,9 +105,9 @@ def _input_summary(
 
 
 def _selected_columns(payload: Mapping[str, object], column_count: int) -> list[int]:
-    value = payload.get("columns")
-    if value is None:
+    if "columns" not in payload:
         return list(range(column_count))
+    value = payload["columns"]
     if not isinstance(value, (list, tuple)):
         raise ValueError("columns: must be an array of unique column indexes")
     selected: list[int] = []

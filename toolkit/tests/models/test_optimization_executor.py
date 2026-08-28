@@ -110,6 +110,31 @@ def test_integer_programming_maximize_restores_the_mip_dual_bound_sign() -> None
     assert result["diagnostics"]["mip_dual_bound"] == pytest.approx(9)
 
 
+@pytest.mark.parametrize(
+    ("integrality_code", "expected_solution"),
+    [
+        (2, 2.5),
+        (3, 0.0),
+    ],
+)
+def test_milp_semi_continuous_and_semi_integer_codes_have_distinct_domains(
+    integrality_code: int, expected_solution: float
+) -> None:
+    """Code 2 accepts a bounded fraction while code 3 admits only integers or zero."""
+    result = execute(
+        "integer-programming",
+        {
+            "objective": [1],
+            "sense": "maximize",
+            "bounds": [[2.5, 2.5]],
+            "integrality": [integrality_code],
+        },
+    )
+
+    assert result["result"]["solution"] == pytest.approx([expected_solution])
+    assert result["parameters"]["integrality"] == [integrality_code]
+
+
 def test_nonlinear_programming_minimizes_quadratic() -> None:
     """Failing to optimize the expression tree leaves the initial point away from x=3."""
     result = execute("nonlinear-programming", _nonlinear_payload())
