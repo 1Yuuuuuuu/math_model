@@ -266,12 +266,25 @@ def test_dbscan_survives_unavailable_physical_core_detection(
     """A host CPU-probe warning must not turn a valid DBSCAN fit into failure."""
     from joblib.externals.loky.backend import context
 
-    def deny_cpu_probe() -> int:
-        raise PermissionError("physical core probe denied")
+    probe_calls = 0
+
+    def user_cpu_limit(logical_cores: int) -> int:
+        configured = context.os.environ.get("LOKY_MAX_CPU_COUNT")
+        return logical_cores if configured is None else min(logical_cores, int(configured))
+
+    def unavailable_physical_cores() -> tuple[str, PermissionError]:
+        nonlocal probe_calls
+        probe_calls += 1
+        return "not found", PermissionError("physical core probe denied")
 
     monkeypatch.delenv("LOKY_MAX_CPU_COUNT", raising=False)
-    monkeypatch.setattr(context, "physical_cores_cache", None)
-    monkeypatch.setattr(context, "_count_physical_cores_win32", deny_cpu_probe)
+    monkeypatch.setattr(context.os, "cpu_count", lambda: 8)
+    monkeypatch.setattr(context, "_cpu_count_user", user_cpu_limit)
+    monkeypatch.setattr(context, "_count_physical_cores", unavailable_physical_cores)
+
+    with pytest.warns(UserWarning, match="Could not find the number of physical cores"):
+        assert context.cpu_count(only_physical_cores=True) == 8
+    assert probe_calls == 1
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
@@ -289,6 +302,8 @@ def test_dbscan_survives_unavailable_physical_core_detection(
         "cluster_count": 1,
         "noise_count": 1,
     }
+    assert probe_calls == 1
+    assert "LOKY_MAX_CPU_COUNT" not in context.os.environ
     assert caught == []
 
 
