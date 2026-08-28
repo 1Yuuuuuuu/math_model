@@ -226,6 +226,30 @@ def test_solver_execution_mode_rejects_invalid_model_ids_exactly(model_id: objec
     assert str(raised.value) == "model_id must be a non-empty string"
 
 
+def test_builtin_registration_is_lazy_in_a_fresh_process() -> None:
+    environment = {**os.environ, "PYTHONPATH": str(ROOT / "toolkit" / "src")}
+    probe = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; "
+            "from cumcm_toolkit.models import specifications; "
+            "assert not any(name.startswith('cumcm_toolkit.models.executors.') "
+            "for name in sys.modules); "
+            "inventory = specifications.list_capabilities(); "
+            "assert len(inventory) >= 26; "
+            "assert any(name.startswith('cumcm_toolkit.models.executors.') "
+            "for name in sys.modules)",
+        ],
+        cwd=ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert probe.returncode == 0, probe.stderr
+
+
 def test_registry_builtins_are_deterministic_and_do_not_depend_on_adapters() -> None:
     first = list_capabilities()
     assert first == list_capabilities()

@@ -6,6 +6,7 @@ import copy
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from threading import RLock
 
 
 _EXECUTORS = frozenset(
@@ -96,6 +97,8 @@ class CapabilityRegistry:
 
 
 _REGISTRY = CapabilityRegistry(repository_root=_PROJECT_ROOT)
+_BUILTINS_REGISTERED = False
+_BUILTIN_REGISTRATION_LOCK = RLock()
 
 
 def register_spec(spec: ModelSpec) -> None:
@@ -103,336 +106,97 @@ def register_spec(spec: ModelSpec) -> None:
     _REGISTRY.register(spec)
 
 
+def _ensure_builtins_registered() -> None:
+    """Populate the global registry once, after a public capability lookup needs it."""
+    global _BUILTINS_REGISTERED
+    if _BUILTINS_REGISTERED:
+        return
+
+    with _BUILTIN_REGISTRATION_LOCK:
+        if _BUILTINS_REGISTERED:
+            return
+
+        from .executors.clustering import (
+            execute_dbscan,
+            execute_hierarchical_clustering,
+            execute_kmeans,
+        )
+        from .executors.data_processing import (
+            execute_anomaly_detection,
+            execute_interpolation,
+            execute_normalization,
+            execute_pca,
+        )
+        from .executors.evaluation import (
+            execute_ahp,
+            execute_entropy_weight,
+            execute_grey_relational,
+            execute_topsis,
+        )
+        from .executors.forecasting import (
+            execute_arima,
+            execute_exponential_smoothing,
+            execute_gm11,
+            execute_nonlinear_regression,
+        )
+        from .executors.optimization import (
+            execute_integer_programming,
+            execute_linear_programming,
+            execute_nonlinear_programming,
+        )
+        from .executors.statistics import (
+            execute_anova,
+            execute_confidence_interval,
+            execute_correlation,
+            execute_nonparametric_test,
+            execute_parametric_test,
+        )
+        from .executors.supervised import (
+            execute_decision_tree,
+            execute_linear_regression,
+            execute_logistic_regression,
+        )
+
+        specs = (
+            ModelSpec("topsis", "evaluation", "shared/knowledge/model-cards/evaluation/topsis.md", True, False, ("matrix", "criteria"), execute_topsis),
+            ModelSpec("normalization", "data-processing", "shared/knowledge/model-cards/data/normalization.md", True, False, ("matrix",), execute_normalization),
+            ModelSpec("interpolation", "data-processing", "shared/knowledge/model-cards/data/interpolation.md", True, False, ("x", "y", "new_x"), execute_interpolation),
+            ModelSpec("anomaly-detection", "data-processing", "shared/knowledge/model-cards/data/anomaly-detection.md", True, True, ("matrix",), execute_anomaly_detection),
+            ModelSpec("pca", "data-processing", "shared/knowledge/model-cards/evaluation/pca.md", True, False, ("matrix", "components", "standardize"), execute_pca),
+            ModelSpec("correlation-analysis", "statistics", "shared/knowledge/model-cards/statistics/correlation-analysis.md", True, False, ("method",), execute_correlation),
+            ModelSpec("confidence-interval", "statistics", "shared/knowledge/model-cards/statistics/confidence-interval.md", True, False, ("method", "confidence"), execute_confidence_interval),
+            ModelSpec("parametric-test", "statistics", "shared/knowledge/model-cards/statistics/parametric-tests.md", True, False, ("test",), execute_parametric_test),
+            ModelSpec("nonparametric-test", "statistics", "shared/knowledge/model-cards/statistics/nonparametric-tests.md", True, False, ("test",), execute_nonparametric_test),
+            ModelSpec("anova", "statistics", "shared/knowledge/model-cards/statistics/anova.md", True, False, ("groups",), execute_anova),
+            ModelSpec("linear-programming", "optimization", "shared/knowledge/model-cards/optimization/linear-programming.md", True, False, ("objective", "sense", "bounds"), execute_linear_programming),
+            ModelSpec("integer-programming", "optimization", "shared/knowledge/model-cards/optimization/integer-programming.md", True, False, ("objective", "sense", "bounds", "integrality"), execute_integer_programming),
+            ModelSpec("nonlinear-programming", "optimization", "shared/knowledge/model-cards/optimization/nonlinear-programming.md", True, False, ("objective", "initial", "bounds", "sense", "constraints"), execute_nonlinear_programming),
+            ModelSpec("ahp", "evaluation", "shared/knowledge/model-cards/evaluation/ahp.md", True, False, ("pairwise_matrix",), execute_ahp),
+            ModelSpec("grey-relational-analysis", "evaluation", "shared/knowledge/model-cards/evaluation/grey-relational.md", True, False, ("reference", "comparatives"), execute_grey_relational),
+            ModelSpec("entropy-weight", "evaluation", "shared/knowledge/model-cards/evaluation/entropy-weight.md", True, False, ("matrix", "criteria"), execute_entropy_weight),
+            ModelSpec("grey-prediction-gm11", "forecasting", "shared/knowledge/model-cards/prediction/grey-prediction.md", True, False, ("series", "forecast_steps"), execute_gm11),
+            ModelSpec("arima", "forecasting", "shared/knowledge/model-cards/prediction/arima.md", True, False, ("series", "order", "forecast_steps"), execute_arima),
+            ModelSpec("exponential-smoothing", "forecasting", "shared/knowledge/model-cards/prediction/exponential-smoothing.md", True, False, ("series", "forecast_steps", "trend", "seasonal", "damped_trend"), execute_exponential_smoothing),
+            ModelSpec("nonlinear-regression", "forecasting", "shared/knowledge/model-cards/prediction/nonlinear-regression.md", True, False, ("family", "x", "y"), execute_nonlinear_regression),
+            ModelSpec("linear-regression", "supervised", "shared/knowledge/model-cards/prediction/linear-regression.md", True, False, ("X", "y"), execute_linear_regression),
+            ModelSpec("decision-tree", "supervised", "shared/knowledge/model-cards/classification/decision-tree.md", False, True, ("X", "y"), execute_decision_tree),
+            ModelSpec("logistic-regression", "supervised", "shared/knowledge/model-cards/classification/logistic-regression.md", False, True, ("X", "y"), execute_logistic_regression),
+            ModelSpec("kmeans", "clustering", "shared/knowledge/model-cards/classification/kmeans.md", False, True, ("X",), execute_kmeans),
+            ModelSpec("dbscan", "clustering", "shared/knowledge/model-cards/classification/dbscan.md", True, False, ("X",), execute_dbscan),
+            ModelSpec("hierarchical-clustering", "clustering", "shared/knowledge/model-cards/classification/hierarchical-clustering.md", True, False, ("X",), execute_hierarchical_clustering),
+        )
+        for spec in specs:
+            _REGISTRY.register(spec)
+        _BUILTINS_REGISTERED = True
+
+
 def get_spec(model_id: str) -> ModelSpec:
     """Return a registered model specification or raise ``KeyError`` internally."""
+    _ensure_builtins_registered()
     return _REGISTRY.get(model_id)
 
 
 def list_capabilities() -> list[dict[str, object]]:
     """Return isolated public capability descriptions from the global registry."""
+    _ensure_builtins_registered()
     return _REGISTRY.list_capabilities()
-
-
-from .executors.evaluation import execute_ahp, execute_entropy_weight, execute_grey_relational, execute_topsis
-from .executors.optimization import (
-    execute_integer_programming,
-    execute_linear_programming,
-    execute_nonlinear_programming,
-)
-from .executors.data_processing import (
-    execute_anomaly_detection,
-    execute_interpolation,
-    execute_normalization,
-    execute_pca,
-)
-from .executors.statistics import (
-    execute_anova,
-    execute_confidence_interval,
-    execute_correlation,
-    execute_nonparametric_test,
-    execute_parametric_test,
-)
-from .executors.forecasting import (
-    execute_arima,
-    execute_exponential_smoothing,
-    execute_gm11,
-    execute_nonlinear_regression,
-)
-from .executors.supervised import (
-    execute_decision_tree,
-    execute_linear_regression,
-    execute_logistic_regression,
-)
-from .executors.clustering import (
-    execute_dbscan,
-    execute_hierarchical_clustering,
-    execute_kmeans,
-)
-
-
-register_spec(
-    ModelSpec(
-        "topsis",
-        "evaluation",
-        "shared/knowledge/model-cards/evaluation/topsis.md",
-        True,
-        False,
-        ("matrix", "criteria"),
-        execute_topsis,
-    )
-)
-register_spec(
-    ModelSpec(
-        "normalization",
-        "data-processing",
-        "shared/knowledge/model-cards/data/normalization.md",
-        True,
-        False,
-        ("matrix",),
-        execute_normalization,
-    )
-)
-register_spec(
-    ModelSpec(
-        "interpolation",
-        "data-processing",
-        "shared/knowledge/model-cards/data/interpolation.md",
-        True,
-        False,
-        ("x", "y", "new_x"),
-        execute_interpolation,
-    )
-)
-register_spec(
-    ModelSpec(
-        "anomaly-detection",
-        "data-processing",
-        "shared/knowledge/model-cards/data/anomaly-detection.md",
-        True,
-        True,
-        ("matrix",),
-        execute_anomaly_detection,
-    )
-)
-register_spec(
-    ModelSpec(
-        "pca",
-        "data-processing",
-        "shared/knowledge/model-cards/evaluation/pca.md",
-        True,
-        False,
-        ("matrix", "components", "standardize"),
-        execute_pca,
-    )
-)
-register_spec(
-    ModelSpec(
-        "correlation-analysis",
-        "statistics",
-        "shared/knowledge/model-cards/statistics/correlation-analysis.md",
-        True,
-        False,
-        ("method",),
-        execute_correlation,
-    )
-)
-register_spec(
-    ModelSpec(
-        "confidence-interval",
-        "statistics",
-        "shared/knowledge/model-cards/statistics/confidence-interval.md",
-        True,
-        False,
-        ("method", "confidence"),
-        execute_confidence_interval,
-    )
-)
-register_spec(
-    ModelSpec(
-        "parametric-test",
-        "statistics",
-        "shared/knowledge/model-cards/statistics/parametric-tests.md",
-        True,
-        False,
-        ("test",),
-        execute_parametric_test,
-    )
-)
-register_spec(
-    ModelSpec(
-        "nonparametric-test",
-        "statistics",
-        "shared/knowledge/model-cards/statistics/nonparametric-tests.md",
-        True,
-        False,
-        ("test",),
-        execute_nonparametric_test,
-    )
-)
-register_spec(
-    ModelSpec(
-        "anova",
-        "statistics",
-        "shared/knowledge/model-cards/statistics/anova.md",
-        True,
-        False,
-        ("groups",),
-        execute_anova,
-    )
-)
-register_spec(
-    ModelSpec(
-        "linear-programming",
-        "optimization",
-        "shared/knowledge/model-cards/optimization/linear-programming.md",
-        True,
-        False,
-        ("objective", "sense", "bounds"),
-        execute_linear_programming,
-    )
-)
-register_spec(
-    ModelSpec(
-        "integer-programming",
-        "optimization",
-        "shared/knowledge/model-cards/optimization/integer-programming.md",
-        True,
-        False,
-        ("objective", "sense", "bounds", "integrality"),
-        execute_integer_programming,
-    )
-)
-register_spec(
-    ModelSpec(
-        "nonlinear-programming",
-        "optimization",
-        "shared/knowledge/model-cards/optimization/nonlinear-programming.md",
-        True,
-        False,
-        ("objective", "initial", "bounds", "sense", "constraints"),
-        execute_nonlinear_programming,
-    )
-)
-register_spec(
-    ModelSpec(
-        "ahp",
-        "evaluation",
-        "shared/knowledge/model-cards/evaluation/ahp.md",
-        True,
-        False,
-        ("pairwise_matrix",),
-        execute_ahp,
-    )
-)
-register_spec(
-    ModelSpec(
-        "grey-relational-analysis",
-        "evaluation",
-        "shared/knowledge/model-cards/evaluation/grey-relational.md",
-        True,
-        False,
-        ("reference", "comparatives"),
-        execute_grey_relational,
-    )
-)
-register_spec(
-    ModelSpec(
-        "entropy-weight",
-        "evaluation",
-        "shared/knowledge/model-cards/evaluation/entropy-weight.md",
-        True,
-        False,
-        ("matrix", "criteria"),
-        execute_entropy_weight,
-    )
-)
-register_spec(
-    ModelSpec(
-        "grey-prediction-gm11",
-        "forecasting",
-        "shared/knowledge/model-cards/prediction/grey-prediction.md",
-        True,
-        False,
-        ("series", "forecast_steps"),
-        execute_gm11,
-    )
-)
-register_spec(
-    ModelSpec(
-        "arima",
-        "forecasting",
-        "shared/knowledge/model-cards/prediction/arima.md",
-        True,
-        False,
-        ("series", "order", "forecast_steps"),
-        execute_arima,
-    )
-)
-register_spec(
-    ModelSpec(
-        "exponential-smoothing",
-        "forecasting",
-        "shared/knowledge/model-cards/prediction/exponential-smoothing.md",
-        True,
-        False,
-        ("series", "forecast_steps", "trend", "seasonal", "damped_trend"),
-        execute_exponential_smoothing,
-    )
-)
-register_spec(
-    ModelSpec(
-        "nonlinear-regression",
-        "forecasting",
-        "shared/knowledge/model-cards/prediction/nonlinear-regression.md",
-        True,
-        False,
-        ("family", "x", "y"),
-        execute_nonlinear_regression,
-    )
-)
-register_spec(
-    ModelSpec(
-        "linear-regression",
-        "supervised",
-        "shared/knowledge/model-cards/prediction/linear-regression.md",
-        True,
-        False,
-        ("X", "y"),
-        execute_linear_regression,
-    )
-)
-register_spec(
-    ModelSpec(
-        "decision-tree",
-        "supervised",
-        "shared/knowledge/model-cards/classification/decision-tree.md",
-        False,
-        True,
-        ("X", "y"),
-        execute_decision_tree,
-    )
-)
-register_spec(
-    ModelSpec(
-        "logistic-regression",
-        "supervised",
-        "shared/knowledge/model-cards/classification/logistic-regression.md",
-        False,
-        True,
-        ("X", "y"),
-        execute_logistic_regression,
-    )
-)
-register_spec(
-    ModelSpec(
-        "kmeans",
-        "clustering",
-        "shared/knowledge/model-cards/classification/kmeans.md",
-        False,
-        True,
-        ("X",),
-        execute_kmeans,
-    )
-)
-register_spec(
-    ModelSpec(
-        "dbscan",
-        "clustering",
-        "shared/knowledge/model-cards/classification/dbscan.md",
-        True,
-        False,
-        ("X",),
-        execute_dbscan,
-    )
-)
-register_spec(
-    ModelSpec(
-        "hierarchical-clustering",
-        "clustering",
-        "shared/knowledge/model-cards/classification/hierarchical-clustering.md",
-        True,
-        False,
-        ("X",),
-        execute_hierarchical_clustering,
-    )
-)
